@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Camera } from 'lucide-react'
+import { Camera, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { HomeHero } from '@/components/home/home-hero'
 import { AlbumGrid } from '@/components/home/album-grid'
@@ -69,10 +69,12 @@ export default async function HomePage() {
           </Link>
           <Link 
             href="/admin" 
-            className="text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer" 
+            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer group"
             prefetch={false}
+            title="管理后台"
           >
-            管理后台
+            <Settings className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+            <span className="hidden sm:inline">管理</span>
           </Link>
         </div>
       </header>
@@ -80,21 +82,18 @@ export default async function HomePage() {
       {/* Hero区域 - 全屏视觉冲击 */}
       <HomeHero featuredAlbum={featuredAlbum || undefined} coverPhoto={coverPhoto || undefined} />
 
-      {/* 作品展示区 */}
+      {/* 作品展示区 - Instagram风格 */}
       {otherAlbums && otherAlbums.length > 0 ? (
-        <section id="works" className="py-20 px-6">
+        <section id="works" className="py-6 md:py-8 px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
-            {/* 区域标题 */}
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">
-                精选作品
+            {/* 极简标题 */}
+            <div className="mb-6 text-center">
+              <h2 className="text-base md:text-lg font-medium text-text-secondary">
+                作品集
               </h2>
-              <p className="text-text-secondary text-lg max-w-2xl mx-auto">
-                探索更多精彩瞬间，每一张照片都承载着独特的故事
-              </p>
             </div>
 
-            {/* Masonry网格 */}
+            {/* 相册网格 - 全宽无缝布局 */}
             <AlbumGrid albums={otherAlbums} />
           </div>
         </section>
