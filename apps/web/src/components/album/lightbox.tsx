@@ -40,7 +40,8 @@ export function PhotoLightbox({
     return map
   })
   // 跟踪哪些照片已加载原图（用户点击"查看原图"后）
-  const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
+  // 移除此逻辑，现在默认只显示大预览图，下载时才获取原图
+  // const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
   const prevIndexRef = useRef(index)
 
   // 同步外部传入的 index 到内部 state
@@ -103,10 +104,8 @@ export function PhotoLightbox({
 
       // 默认使用预览图（preview_key），如果用户点击了"查看原图"才使用原图（original_key）
       // 优先级：已加载原图 -> 预览图 -> 缩略图 -> 原图（作为后备）
-      const useOriginal = loadedOriginals.has(photo.id)
-      const imageKey = useOriginal && photo.original_key
-        ? photo.original_key
-        : (photo.preview_key || photo.thumb_key || photo.original_key)
+      // 修改：只使用预览图（如果有），下载时才使用原图
+      const imageKey = photo.preview_key || photo.thumb_key || photo.original_key
 
       return {
         src: imageKey ? `${mediaUrl}/${imageKey}` : '',
@@ -119,27 +118,26 @@ export function PhotoLightbox({
         previewKey: photo.preview_key,
       }
     })
-  }, [photos, loadedOriginals, mediaUrl])
+  }, [photos, mediaUrl])
 
-  // 加载当前照片的原图
-  const handleLoadOriginal = useCallback(() => {
-    if (!currentPhotoId || !currentPhoto?.original_key) return
-    
-    // 将照片ID添加到已加载原图集合，触发 slides 重新计算使用原图
-    setLoadedOriginals((prev) => new Set(prev).add(currentPhotoId))
-  }, [currentPhotoId, currentPhoto])
+  // 加载当前照片的原图 - 已移除
+  // const handleLoadOriginal = useCallback(() => {
+  //   if (!currentPhotoId || !currentPhoto?.original_key) return
+  //   
+  //   // 将照片ID添加到已加载原图集合，触发 slides 重新计算使用原图
+  //   setLoadedOriginals((prev) => new Set(prev).add(currentPhotoId))
+  // }, [currentPhotoId, currentPhoto])
 
-  // 检查是否需要显示"查看原图"按钮
-  // 条件：有原图、且未加载过原图（无论是否有预览图，只要有原图就可以查看）
-  const showLoadOriginalButton = useMemo(() => {
-    return currentPhoto && 
-      currentPhoto.original_key &&
-      !loadedOriginals.has(currentPhoto.id) &&
-      // 如果当前显示的是预览图，且预览图与原图不同，才显示按钮
-      (currentPhoto.preview_key 
-        ? currentPhoto.preview_key !== currentPhoto.original_key
-        : true) // 如果没有预览图但原图存在，也显示按钮
-  }, [currentPhoto, loadedOriginals])
+  // 检查是否需要显示"查看原图"按钮 - 已移除
+  // const showLoadOriginalButton = useMemo(() => {
+  //   return currentPhoto && 
+  //     currentPhoto.original_key &&
+  //     !loadedOriginals.has(currentPhoto.id) &&
+  //     // 如果当前显示的是预览图，且预览图与原图不同，才显示按钮
+  //     (currentPhoto.preview_key 
+  //       ? currentPhoto.preview_key !== currentPhoto.original_key
+  //       : true) // 如果没有预览图但原图存在，也显示按钮
+  // }, [currentPhoto, loadedOriginals])
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
