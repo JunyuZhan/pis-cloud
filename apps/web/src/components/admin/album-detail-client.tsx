@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
 import type { Album, Photo } from '@/types/database'
@@ -24,6 +24,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [processingCount, setProcessingCount] = useState(0)
   const [filterSelected, setFilterSelected] = useState(false)
+  const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
@@ -115,6 +116,29 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
 
   const handleUploadComplete = () => {
     router.refresh()
+  }
+
+  // 设置封面
+  const handleSetCover = async (photoId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    try {
+      const response = await fetch(`/api/admin/albums/${album.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cover_photo_id: photoId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('设置封面失败')
+      }
+
+      setCoverPhotoId(photoId)
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert('设置封面失败，请重试')
+    }
   }
 
   return (
@@ -228,13 +252,34 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
+              {/* 封面标识 */}
+              {coverPhotoId === photo.id && (
+                <div className="absolute top-2 left-2 z-10">
+                  <div className="bg-accent/90 px-2 py-1 rounded-full shadow-sm backdrop-blur-sm flex items-center gap-1">
+                    <Star className="w-3 h-3 text-background fill-current" />
+                    <span className="text-xs font-medium text-background">封面</span>
+                  </div>
+                </div>
+              )}
+
               {/* 客户选片标识 (红心) */}
-              {photo.is_selected && (
+              {photo.is_selected && coverPhotoId !== photo.id && (
                 <div className="absolute top-2 left-2 z-10">
                   <div className="bg-red-500/90 p-1.5 rounded-full shadow-sm backdrop-blur-sm">
                     <Heart className="w-3 h-3 text-white fill-current" />
                   </div>
                 </div>
+              )}
+
+              {/* 设置封面按钮 (悬停显示) */}
+              {!selectionMode && coverPhotoId !== photo.id && photo.thumb_key && (
+                <button
+                  onClick={(e) => handleSetCover(photo.id, e)}
+                  className="absolute bottom-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 px-2 py-1 rounded-full text-xs text-white flex items-center gap-1"
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  设为封面
+                </button>
               )}
 
               {/* 选择指示器 (管理员批量操作) */}

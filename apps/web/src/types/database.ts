@@ -22,14 +22,25 @@ export interface Database {
           description: string | null
           cover_photo_id: string | null
           is_public: boolean
+          // 访问控制
+          password: string | null
+          expires_at: string | null
+          // 布局设置
           layout: 'masonry' | 'grid' | 'carousel'
           sort_rule: 'capture_desc' | 'capture_asc' | 'manual'
+          // 功能开关
           allow_download: boolean
+          allow_batch_download: boolean
           show_exif: boolean
+          // 水印设置
           watermark_enabled: boolean
           watermark_type: 'text' | 'logo' | null
           watermark_config: Json
+          // 统计
           photo_count: number
+          selected_count: number
+          view_count: number
+          // 时间戳
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -41,14 +52,19 @@ export interface Database {
           description?: string | null
           cover_photo_id?: string | null
           is_public?: boolean
+          password?: string | null
+          expires_at?: string | null
           layout?: 'masonry' | 'grid' | 'carousel'
           sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
           allow_download?: boolean
+          allow_batch_download?: boolean
           show_exif?: boolean
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
           photo_count?: number
+          selected_count?: number
+          view_count?: number
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -60,14 +76,19 @@ export interface Database {
           description?: string | null
           cover_photo_id?: string | null
           is_public?: boolean
+          password?: string | null
+          expires_at?: string | null
           layout?: 'masonry' | 'grid' | 'carousel'
           sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
           allow_download?: boolean
+          allow_batch_download?: boolean
           show_exif?: boolean
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
           photo_count?: number
+          selected_count?: number
+          view_count?: number
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

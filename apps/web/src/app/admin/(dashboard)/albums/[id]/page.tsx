@@ -66,7 +66,7 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
         </div>
         <div className="flex items-center gap-3">
           {/* 分享链接 */}
-          <ShareLinkButton url={shareUrl} />
+          <ShareLinkButton url={shareUrl} albumTitle={album.title} />
           <Link
             href={`/admin/albums/${id}/settings`}
             className="btn-secondary"

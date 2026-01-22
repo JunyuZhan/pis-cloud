@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download } from 'lucide-react'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -14,14 +14,22 @@ interface AlbumSettingsFormProps {
 export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     title: album.title,
     description: album.description || '',
     is_public: album.is_public ?? false,
+    // 访问控制
+    password: (album as any).password || '',
+    expires_at: (album as any).expires_at ? new Date((album as any).expires_at).toISOString().slice(0, 16) : '',
+    // 布局设置
     layout: album.layout || 'masonry',
     sort_rule: album.sort_rule || 'capture_desc',
+    // 功能开关
     allow_download: album.allow_download ?? false,
+    allow_batch_download: (album as any).allow_batch_download ?? true,
     show_exif: album.show_exif ?? true,
+    // 水印设置
     watermark_enabled: album.watermark_enabled ?? false,
     watermark_type: album.watermark_type || 'text',
     watermark_config: (album.watermark_config as any) || {
@@ -95,6 +103,53 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         </div>
       </section>
 
+      {/* 访问控制 */}
+      <section className="card space-y-6">
+        <h2 className="text-lg font-medium flex items-center gap-2">
+          <Lock className="w-5 h-5 text-accent" />
+          访问控制
+        </h2>
+        
+        {/* 访问密码 */}
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-2">
+            访问密码（可选）
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={(e) => handleChange('password', e.target.value)}
+              placeholder="留空则无需密码"
+              className="input pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-text-muted mt-1">设置密码后，访客需要输入密码才能查看相册</p>
+        </div>
+
+        {/* 到期时间 */}
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-2 flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            到期时间（可选）
+          </label>
+          <input
+            type="datetime-local"
+            value={formData.expires_at}
+            onChange={(e) => handleChange('expires_at', e.target.value)}
+            className="input"
+          />
+          <p className="text-xs text-text-muted mt-1">到期后相册将无法访问，留空则永不过期</p>
+        </div>
+      </section>
+
       {/* 显示设置 */}
       <section className="card space-y-6">
         <h2 className="text-lg font-medium">显示设置</h2>
@@ -133,6 +188,28 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           >
             <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
               formData.allow_download ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
+        {/* 批量下载 */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1 pr-4">
+            <p className="font-medium flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              允许批量下载
+            </p>
+            <p className="text-sm text-text-secondary">访客可一键下载所有已选照片</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleChange('allow_batch_download', !formData.allow_batch_download)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.allow_batch_download ? 'bg-accent' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.allow_batch_download ? 'translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>

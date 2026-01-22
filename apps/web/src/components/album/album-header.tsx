@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Download, Heart, Loader2 } from 'lucide-react'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'
 import type { Album } from '@/types/database'
@@ -14,10 +14,46 @@ interface AlbumHeaderProps {
 
 export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   
-  // 简单的字符数判断来决定是否需要展开功能
-  // 实际项目中可以更精确地计算高度
   const shouldTruncate = album.description && album.description.length > 60
+  const selectedCount = (album as any).selected_count || 0
+  const allowBatchDownload = (album as any).allow_batch_download !== false && album.allow_download
+
+  // 批量下载已选照片
+  const handleBatchDownload = async () => {
+    if (!allowBatchDownload || selectedCount === 0) return
+    
+    setDownloading(true)
+    try {
+      const response = await fetch(`/api/public/albums/${album.slug}/download-selected`)
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error?.message || '下载失败')
+        return
+      }
+
+      const data = await response.json()
+      
+      // 逐个下载照片
+      for (const photo of data.photos) {
+        const link = document.createElement('a')
+        link.href = photo.url
+        link.download = photo.filename
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        // 稍作延迟避免浏览器阻止
+        await new Promise(r => setTimeout(r, 300))
+      }
+    } catch (error) {
+      console.error('Download error:', error)
+      alert('下载失败，请重试')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 glass">
@@ -29,7 +65,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
                 {album.title}
               </h1>
               
-              {/* 桌面端描述 (完整显示) */}
+              {/* 桌面端描述 */}
               {album.description && (
                 <p className="hidden md:block text-text-secondary text-sm mt-1 max-w-2xl">
                   {album.description}
@@ -37,7 +73,31 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
               )}
             </div>
 
-            <div className="flex items-center gap-2 md:gap-4 shrink-0">
+            <div className="flex items-center gap-2 md:gap-3 shrink-0">
+              {/* 选片统计 */}
+              {selectedCount > 0 && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-accent/10 rounded-full">
+                  <Heart className="w-3.5 h-3.5 text-accent fill-current" />
+                  <span className="text-xs font-medium text-accent">{selectedCount}</span>
+                </div>
+              )}
+
+              {/* 批量下载按钮 */}
+              {allowBatchDownload && selectedCount > 0 && (
+                <button
+                  onClick={handleBatchDownload}
+                  disabled={downloading}
+                  className="btn-secondary text-sm hidden sm:flex"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span className="hidden md:inline">下载已选</span>
+                </button>
+              )}
+
               <span className="text-text-secondary text-xs md:text-sm whitespace-nowrap hidden sm:inline">
                 {album.photo_count} 张
               </span>
@@ -46,32 +106,56 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
             </div>
           </div>
 
-          {/* 移动端描述 (支持展开) */}
-          {album.description && (
-            <div className="md:hidden">
-              <p className={`text-text-secondary text-xs transition-all duration-300 ${
-                isExpanded ? '' : 'line-clamp-2'
-              }`}>
-                {album.description}
-              </p>
-              {shouldTruncate && (
-                <button 
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="flex items-center gap-1 text-xs text-accent mt-1 hover:text-accent-hover transition-colors"
-                >
-                  {isExpanded ? (
-                    <>
-                      收起 <ChevronUp className="w-3 h-3" />
-                    </>
-                  ) : (
-                    <>
-                      展开更多 <ChevronDown className="w-3 h-3" />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          )}
+          {/* 移动端：描述和操作 */}
+          <div className="md:hidden space-y-2">
+            {album.description && (
+              <div>
+                <p className={`text-text-secondary text-xs transition-all duration-300 ${
+                  isExpanded ? '' : 'line-clamp-2'
+                }`}>
+                  {album.description}
+                </p>
+                {shouldTruncate && (
+                  <button 
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-1 text-xs text-accent mt-1"
+                  >
+                    {isExpanded ? (
+                      <>收起 <ChevronUp className="w-3 h-3" /></>
+                    ) : (
+                      <>展开更多 <ChevronDown className="w-3 h-3" /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 移动端操作栏 */}
+            {(selectedCount > 0 || allowBatchDownload) && (
+              <div className="flex items-center gap-2">
+                {selectedCount > 0 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent/10 rounded-full">
+                    <Heart className="w-3.5 h-3.5 text-accent fill-current" />
+                    <span className="text-xs font-medium text-accent">已选 {selectedCount} 张</span>
+                  </div>
+                )}
+                {allowBatchDownload && selectedCount > 0 && (
+                  <button
+                    onClick={handleBatchDownload}
+                    disabled={downloading}
+                    className="btn-secondary text-xs py-1"
+                  >
+                    {downloading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Download className="w-3 h-3" />
+                    )}
+                    下载
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
