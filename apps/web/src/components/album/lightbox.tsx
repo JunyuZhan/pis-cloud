@@ -54,82 +54,100 @@ export function PhotoLightbox({
     }
   }, [index, open, photos.length])
 
-  const currentPhoto = photos[currentIndex]
+  const currentPhoto = photos[currentIndex] || photos[0]
 
   // 构建 slides，默认使用预览图，已加载原图的则使用原图
-  const slides = useMemo(() => photos.map((photo) => {
-    const exif = photo.exif as Record<string, unknown> | null
-    const make = (exif?.image as Record<string, unknown>)?.Make || (exif?.Make as string)
-    const model = (exif?.image as Record<string, unknown>)?.Model || (exif?.Model as string)
-    const exifData = exif?.exif as Record<string, unknown> | undefined
-    const fNumber = exifData?.FNumber as number | undefined
-    const exposureTime = exifData?.ExposureTime as number | undefined
-    const iso = exifData?.ISO as number | undefined
-    const focalLength = exifData?.FocalLength as number | undefined
-    const dateTime = (exifData?.DateTimeOriginal as string) || photo.captured_at
+  // 只在客户端挂载后构建，避免 hydration 错误
+  const slides = useMemo(() => {
+    if (!mounted || photos.length === 0) {
+      return []
+    }
+    
+    return photos.map((photo) => {
+      const exif = photo.exif as Record<string, unknown> | null
+      const make = (exif?.image as Record<string, unknown>)?.Make || (exif?.Make as string)
+      const model = (exif?.image as Record<string, unknown>)?.Model || (exif?.Model as string)
+      const exifData = exif?.exif as Record<string, unknown> | undefined
+      const fNumber = exifData?.FNumber as number | undefined
+      const exposureTime = exifData?.ExposureTime as number | undefined
+      const iso = exifData?.ISO as number | undefined
+      const focalLength = exifData?.FocalLength as number | undefined
+      const dateTime = (exifData?.DateTimeOriginal as string) || photo.captured_at
 
-    const exifString = [
-      make && model ? `${make} ${model}` : null,
-      fNumber ? `f/${fNumber}` : null,
-      exposureTime
-        ? exposureTime < 1
-          ? `1/${Math.round(1 / exposureTime)}s`
-          : `${exposureTime}s`
-        : null,
-      iso ? `ISO${iso}` : null,
-      focalLength ? `${focalLength}mm` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ')
+      const exifString = [
+        make && model ? `${make} ${model}` : null,
+        fNumber ? `f/${fNumber}` : null,
+        exposureTime
+          ? exposureTime < 1
+            ? `1/${Math.round(1 / exposureTime)}s`
+            : `${exposureTime}s`
+          : null,
+        iso ? `ISO${iso}` : null,
+        focalLength ? `${focalLength}mm` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
 
-    // 如果已加载原图，使用原图；否则使用预览图
-    const imageKey = loadedOriginals.has(photo.id) 
-      ? photo.original_key 
-      : (photo.preview_key || photo.thumb_key || photo.original_key)
+      // 如果已加载原图，使用原图；否则使用预览图
+      const imageKey = loadedOriginals.has(photo.id) 
+        ? photo.original_key 
+        : (photo.preview_key || photo.thumb_key || photo.original_key)
 
-    // 格式化日期时间（避免 hydration 错误，使用固定格式）
-    let formattedDateTime: string | undefined
-    if (dateTime && mounted) {
-      try {
-        const date = new Date(dateTime)
-        // 使用固定格式，避免服务端和客户端不一致
-        formattedDateTime = date.toISOString().replace('T', ' ').slice(0, 19)
-      } catch {
-        formattedDateTime = undefined
+      // 格式化日期时间（使用固定格式，避免服务端和客户端不一致）
+      let formattedDateTime: string | undefined
+      if (dateTime) {
+        try {
+          const date = new Date(dateTime)
+          // 使用固定格式：YYYY-MM-DD HH:mm:ss
+          formattedDateTime = date.toISOString().replace('T', ' ').slice(0, 19)
+        } catch {
+          formattedDateTime = undefined
+        }
       }
-    }
 
-    return {
-      src: `${mediaUrl}/${imageKey}`,
-      width: photo.width || 0,
-      height: photo.height || 0,
-      title: photo.filename,
-      description: exifString || formattedDateTime,
-      // 保存photo id和original_key用于后续加载原图
-      photoId: photo.id,
-      originalKey: photo.original_key,
-      previewKey: photo.preview_key,
-    }
-  }), [photos, loadedOriginals, mediaUrl, mounted])
+      return {
+        src: `${mediaUrl}/${imageKey}`,
+        width: photo.width || 0,
+        height: photo.height || 0,
+        title: photo.filename,
+        description: exifString || formattedDateTime,
+        // 保存photo id和original_key用于后续加载原图
+        photoId: photo.id,
+        originalKey: photo.original_key,
+        previewKey: photo.preview_key,
+      }
+    })
+  }, [photos, loadedOriginals, mediaUrl, mounted])
 
   // 加载当前照片的原图
   const handleLoadOriginal = useCallback(() => {
-    if (!currentPhoto) return
+    if (!currentPhoto || !mounted) return
     
     // 如果已经有预览图，才需要加载原图
     if (currentPhoto.preview_key && currentPhoto.preview_key !== currentPhoto.original_key) {
       setLoadedOriginals((prev) => new Set(prev).add(currentPhoto.id))
     }
-  }, [currentPhoto])
+  }, [currentPhoto, mounted])
 
   // 检查当前照片是否已加载原图
-  const isOriginalLoaded = currentPhoto 
-    ? loadedOriginals.has(currentPhoto.id) || !currentPhoto.preview_key || currentPhoto.preview_key === currentPhoto.original_key
+  // 如果照片有预览图且预览图与原图不同，且还没有加载过原图，则显示"查看原图"按钮
+  const isOriginalLoaded = currentPhoto && mounted
+    ? loadedOriginals.has(currentPhoto.id) || 
+      !currentPhoto.preview_key || 
+      currentPhoto.preview_key === currentPhoto.original_key ||
+      !currentPhoto.original_key
     : false
+  
+  // 检查是否需要显示"查看原图"按钮
+  const showLoadOriginalButton = currentPhoto && mounted && 
+    currentPhoto.preview_key && 
+    currentPhoto.original_key &&
+    currentPhoto.preview_key !== currentPhoto.original_key &&
+    !loadedOriginals.has(currentPhoto.id)
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
-    if (!currentPhoto) return
+    if (!currentPhoto || !mounted) return
 
     try {
       const res = await fetch(`/api/public/download/${currentPhoto.id}`)
@@ -151,11 +169,11 @@ export function PhotoLightbox({
     } catch {
       alert('下载失败，请重试')
     }
-  }, [currentPhoto])
+  }, [currentPhoto, mounted])
 
   // 选片功能
   const handleSelect = useCallback(async () => {
-    if (!currentPhoto) return
+    if (!currentPhoto || !mounted) return
 
     const newSelected = !selectedMap[currentPhoto.id]
     setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: newSelected }))
@@ -176,23 +194,35 @@ export function PhotoLightbox({
     } catch {
       setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: !newSelected }))
     }
-  }, [currentPhoto, selectedMap, onSelectChange])
+  }, [currentPhoto, selectedMap, onSelectChange, mounted])
 
-  // 防止 hydration 错误：只在客户端挂载后渲染 Lightbox
-  // 但先渲染一个占位符，避免布局闪烁
+  // 防止 hydration 错误：只在客户端挂载后且打开时才渲染 Lightbox
+  // yet-another-react-lightbox 不支持 SSR，必须完全在客户端渲染
   if (!mounted) {
-    return open ? <div style={{ display: 'none' }} /> : null
+    return null
   }
+
+  // 如果未打开或没有照片，不渲染
+  if (!open || photos.length === 0 || slides.length === 0) {
+    return null
+  }
+
+  // 确保 currentIndex 有效
+  const validIndex = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0
 
   return (
     <Lightbox
       open={open}
       close={onClose}
-      index={currentIndex}
+      index={validIndex}
       slides={slides}
       plugins={[Thumbnails, Zoom, Captions]}
       on={{
-        view: ({ index }) => setCurrentIndex(index),
+        view: ({ index }) => {
+          if (index >= 0 && index < photos.length) {
+            setCurrentIndex(index)
+          }
+        },
       }}
       captions={{ descriptionTextAlign: 'center', showToggle: true }}
       carousel={{
@@ -226,14 +256,15 @@ export function PhotoLightbox({
             />
           </button>,
 
-          // 查看原图按钮（仅在未加载原图时显示）
-          !isOriginalLoaded && (
+          // 查看原图按钮（仅在需要时显示：有预览图、预览图与原图不同、且未加载过原图）
+          showLoadOriginalButton && (
             <button
               key="load-original"
               type="button"
               onClick={handleLoadOriginal}
               className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
               aria-label="查看原图"
+              title="查看原图"
             >
               <ImageIcon className="w-5 h-5" />
               <span className="text-sm font-medium">查看原图</span>
