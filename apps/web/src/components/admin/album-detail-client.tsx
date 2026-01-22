@@ -671,14 +671,16 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
         </div>
       )}
 
-      {/* Lightbox 预览 */}
-      <PhotoLightbox
-        photos={filteredPhotos}
-        index={lightboxIndex !== null ? lightboxIndex : -1}
-        open={lightboxIndex !== null}
-        onClose={() => setLightboxIndex(null)}
-        allowDownload={true}
-      />
+      {/* Lightbox 预览 - 只在有照片时渲染 */}
+      {filteredPhotos.length > 0 && (
+        <PhotoLightbox
+          photos={filteredPhotos}
+          index={lightboxIndex !== null ? lightboxIndex : -1}
+          open={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          allowDownload={true}
+        />
+      )}
     </div>
   )
 }

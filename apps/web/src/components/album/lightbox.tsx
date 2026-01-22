@@ -30,6 +30,7 @@ export function PhotoLightbox({
   onSelectChange,
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const [mounted, setMounted] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(index)
   const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
@@ -40,6 +41,11 @@ export function PhotoLightbox({
   })
   // 跟踪哪些照片已加载原图
   const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
+
+  // 确保只在客户端挂载后渲染，避免 hydration 错误
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 同步外部传入的 index 到内部 state
   useEffect(() => {
@@ -159,6 +165,11 @@ export function PhotoLightbox({
       setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: !newSelected }))
     }
   }, [currentPhoto, selectedMap, onSelectChange])
+
+  // 防止 hydration 错误：只在客户端挂载后渲染
+  if (!mounted) {
+    return null
+  }
 
   return (
     <Lightbox
