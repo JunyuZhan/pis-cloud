@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2 } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
 import type { Album, Photo } from '@/types/database'
@@ -23,6 +23,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [isDeleting, setIsDeleting] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [processingCount, setProcessingCount] = useState(0)
+  const [filterSelected, setFilterSelected] = useState(false)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
@@ -32,6 +33,10 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     const pending = initialPhotos.filter(p => p.status === 'pending' || p.status === 'processing')
     setProcessingCount(pending.length)
   }, [initialPhotos])
+
+  const filteredPhotos = filterSelected 
+    ? photos.filter(p => p.is_selected)
+    : photos
 
   // 轮询检查处理中的照片
   useEffect(() => {
@@ -117,6 +122,22 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       {/* 操作栏 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* 筛选按钮 */}
+          <button
+            onClick={() => setFilterSelected(!filterSelected)}
+            className={cn(
+              "btn-ghost text-sm flex items-center gap-2 px-3 py-2 transition-colors",
+              filterSelected ? "text-red-500 bg-red-500/10" : "text-text-secondary hover:text-text-primary"
+            )}
+            title="只看客户已选"
+          >
+            <Heart className={cn("w-4 h-4", filterSelected && "fill-current")} />
+            <span className="hidden sm:inline">只看已选 ({photos.filter(p => p.is_selected).length})</span>
+            <span className="sm:hidden">已选 ({photos.filter(p => p.is_selected).length})</span>
+          </button>
+          
+          <div className="w-px h-4 bg-border mx-2" />
+
           {selectionMode ? (
             <>
               <span className="text-sm text-text-secondary">
@@ -175,16 +196,16 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       )}
 
       {/* 照片网格 */}
-      {photos.length > 0 ? (
+      {filteredPhotos.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {photos.map((photo) => (
+          {filteredPhotos.map((photo) => (
             <div
               key={photo.id}
               onClick={() => {
                 if (selectionMode) {
                   toggleSelection(photo.id)
                 } else {
-                  const index = photos.findIndex(p => p.id === photo.id)
+                  const index = filteredPhotos.findIndex(p => p.id === photo.id)
                   setLightboxIndex(index)
                 }
               }}
@@ -207,11 +228,20 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
-              {/* 选择指示器 */}
+              {/* 客户选片标识 (红心) */}
+              {photo.is_selected && (
+                <div className="absolute top-2 left-2 z-10">
+                  <div className="bg-red-500/90 p-1.5 rounded-full shadow-sm backdrop-blur-sm">
+                    <Heart className="w-3 h-3 text-white fill-current" />
+                  </div>
+                </div>
+              )}
+
+              {/* 选择指示器 (管理员批量操作) */}
               {selectionMode && (
                 <div
                   className={cn(
-                    'absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors',
+                    'absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors z-10',
                     selectedPhotos.has(photo.id)
                       ? 'bg-accent border-accent'
                       : 'border-white/50 bg-black/30'
@@ -230,27 +260,45 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
             </div>
           ))}
         </div>
-      ) : !showUploader ? (
-        /* 空状态 */
+      ) : (
         <div className="text-center py-20 border-2 border-dashed border-border rounded-xl">
-          <Upload className="w-16 h-16 text-text-muted mx-auto mb-4" />
-          <h2 className="text-xl font-medium mb-2">上传您的第一张照片</h2>
-          <p className="text-text-secondary mb-6">
-            支持 JPG、PNG、HEIC 格式，单文件最大 100MB
-          </p>
-          <button
-            onClick={() => setShowUploader(true)}
-            className="btn-primary"
-          >
-            <Upload className="w-4 h-4" />
-            选择照片
-          </button>
+          {filterSelected ? (
+             <div className="space-y-4">
+               <Heart className="w-16 h-16 text-text-muted mx-auto mb-4" />
+               <h2 className="text-xl font-medium mb-2">暂无已选照片</h2>
+               <p className="text-text-secondary">
+                 访客还没有挑选任何照片，或者您可以通过筛选查看所有照片。
+               </p>
+               <button
+                  onClick={() => setFilterSelected(false)}
+                  className="btn-secondary mt-4"
+                >
+                  查看全部照片
+                </button>
+             </div>
+          ) : !showUploader ? (
+            /* 空状态 */
+            <div className="space-y-4">
+              <Upload className="w-16 h-16 text-text-muted mx-auto mb-4" />
+              <h2 className="text-xl font-medium mb-2">上传您的第一张照片</h2>
+              <p className="text-text-secondary mb-6">
+                支持 JPG、PNG、HEIC 格式，单文件最大 100MB
+              </p>
+              <button
+                onClick={() => setShowUploader(true)}
+                className="btn-primary"
+              >
+                <Upload className="w-4 h-4" />
+                选择照片
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      )}
 
       {/* Lightbox 预览 */}
       <PhotoLightbox
-        photos={photos}
+        photos={filteredPhotos}
         index={lightboxIndex !== null ? lightboxIndex : -1}
         open={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}

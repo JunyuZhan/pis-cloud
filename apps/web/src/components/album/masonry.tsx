@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Heart, Loader2 } from 'lucide-react'
+import { Heart, Download, Share2, Expand, Loader2 } from 'lucide-react'
 import type { Photo, Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 import { PhotoLightbox } from './lightbox'
@@ -138,6 +138,7 @@ export function MasonryGrid({
               e.stopPropagation()
               handleCardSelect(photo.id, selectedMap[photo.id] || false)
             }}
+            allowDownload={album.allow_download}
             layout={layout}
           />
         ))}
@@ -172,6 +173,7 @@ interface PhotoCardProps {
   showSelect?: boolean
   isSelected?: boolean
   onSelect?: (e: React.MouseEvent) => void
+  allowDownload?: boolean
   layout?: LayoutMode
 }
 
@@ -182,13 +184,54 @@ function PhotoCard({
   showSelect,
   isSelected,
   onSelect,
+  allowDownload = false,
   layout = 'masonry',
 }: PhotoCardProps) {
+  const [showCopied, setShowCopied] = useState(false)
+  
   // 计算图片高度比例 (Masonry 模式使用)
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
 
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+
+  // 下载照片
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!allowDownload) return
+    
+    try {
+      const response = await fetch(`/api/public/download/${photo.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        window.open(data.url, '_blank')
+      }
+    } catch (error) {
+      console.error('下载失败:', error)
+    }
+  }
+
+  // 分享照片
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const shareUrl = window.location.href
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: '分享照片',
+          url: shareUrl,
+        })
+      } catch (err) {
+        // 用户取消分享
+      }
+    } else {
+      // 复制链接
+      await navigator.clipboard.writeText(shareUrl)
+      setShowCopied(true)
+      setTimeout(() => setShowCopied(false), 2000)
+    }
+  }
 
   return (
     <motion.div
@@ -196,53 +239,110 @@ function PhotoCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: (index % 10) * 0.05 }}
       className={cn(
-        'group relative cursor-pointer',
-        layout === 'masonry' ? 'break-inside-avoid mb-4' : 'aspect-square'
+        'group',
+        layout === 'masonry' ? 'break-inside-avoid mb-4' : ''
       )}
-      onClick={onClick}
     >
-      <div className="relative w-full h-full overflow-hidden rounded-lg bg-surface">
-        {/* 图片 */}
-        {photo.thumb_key ? (
-          <Image
-            src={`${mediaUrl}/${photo.thumb_key}`}
-            alt={photo.filename}
-            width={400}
-            height={Math.round(400 * aspectRatio)}
-            className={cn(
-              "w-full h-full transition-transform duration-300 group-hover:scale-105",
-              layout === 'grid' ? "object-cover" : "h-auto"
-            )}
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="w-full bg-surface-elevated"
-            style={{ paddingBottom: `${aspectRatio * 100}%` }}
-          />
-        )}
+      {/* 照片卡片 */}
+      <div className="bg-surface-elevated rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
+        {/* 图片区域 */}
+        <div 
+          className={cn(
+            "relative w-full overflow-hidden cursor-pointer",
+            layout === 'grid' ? 'aspect-square' : ''
+          )}
+          onClick={onClick}
+        >
+          {photo.thumb_key ? (
+            <Image
+              src={`${mediaUrl}/${photo.thumb_key}`}
+              alt={photo.filename}
+              width={400}
+              height={Math.round(400 * aspectRatio)}
+              className={cn(
+                "w-full transition-transform duration-500 group-hover:scale-105",
+                layout === 'grid' ? "h-full object-cover" : "h-auto"
+              )}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              className="w-full bg-surface"
+              style={{ paddingBottom: layout === 'grid' ? '100%' : `${aspectRatio * 100}%` }}
+            />
+          )}
 
-        {/* 遮罩层 */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+          {/* 悬停遮罩 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
+          {/* 放大图标 */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
+              <Expand className="w-6 h-6 text-white" />
+            </div>
+          </div>
 
-        {/* 选片按钮 */}
-        {showSelect && (
-          <button
-            onClick={onSelect}
-            className={cn(
-              'absolute top-2 right-2 p-2 rounded-full backdrop-blur-md transition-all duration-300',
-              isSelected
-                ? 'bg-accent text-white shadow-lg scale-100 opacity-100'
-                : 'bg-black/30 text-white/70 hover:bg-black/50 opacity-0 group-hover:opacity-100 hover:scale-110'
+          {/* 照片序号 */}
+          <div className="absolute top-2 left-2 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-md text-xs text-white font-medium">
+            #{index + 1}
+          </div>
+
+          {/* 已选中标记 */}
+          {isSelected && (
+            <div className="absolute top-2 right-2 p-1.5 bg-accent rounded-full shadow-lg">
+              <Heart className="w-4 h-4 text-white fill-current" />
+            </div>
+          )}
+        </div>
+
+        {/* 底部操作栏 */}
+        <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50">
+          {/* 左侧：选片按钮 */}
+          {showSelect && (
+            <button
+              onClick={onSelect}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200',
+                isSelected
+                  ? 'bg-accent text-white'
+                  : 'bg-surface hover:bg-accent/10 text-text-secondary hover:text-accent'
+              )}
+            >
+              <Heart className={cn('w-4 h-4', isSelected && 'fill-current')} />
+              <span>{isSelected ? '已选' : '选片'}</span>
+            </button>
+          )}
+
+          {/* 右侧：操作按钮 */}
+          <div className="flex items-center gap-1">
+            {/* 下载按钮 */}
+            {allowDownload && (
+              <button
+                onClick={handleDownload}
+                className="p-2 rounded-full hover:bg-surface text-text-muted hover:text-accent transition-colors"
+                title="下载原图"
+              >
+                <Download className="w-4 h-4" />
+              </button>
             )}
-          >
-            {isSelected ? (
-              <Heart className="w-4 h-4 fill-current" />
-            ) : (
-              <Heart className="w-4 h-4" />
-            )}
-          </button>
-        )}
+            
+            {/* 分享按钮 */}
+            <div className="relative">
+              <button
+                onClick={handleShare}
+                className="p-2 rounded-full hover:bg-surface text-text-muted hover:text-accent transition-colors"
+                title="分享"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              {showCopied && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-surface-elevated text-xs rounded shadow-lg whitespace-nowrap">
+                  已复制链接
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </motion.div>
   )
