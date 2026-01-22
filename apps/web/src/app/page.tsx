@@ -60,14 +60,18 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
-      {/* 头部导航 - 浮动透明 */}
-      <header className="fixed top-4 left-4 right-4 z-50 glass rounded-2xl max-w-7xl mx-auto">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <Camera className="w-6 h-6 text-accent" />
+      {/* 头部导航 - 固定在顶部，简洁设计 */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 cursor-pointer group">
+            <Camera className="w-5 h-5 text-accent transition-transform group-hover:scale-110" />
             <span className="text-lg font-serif font-bold">PIS</span>
           </Link>
-          <Link href="/admin" className="btn-ghost text-sm cursor-pointer" prefetch={false}>
+          <Link 
+            href="/admin" 
+            className="text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer" 
+            prefetch={false}
+          >
             管理后台
           </Link>
         </div>

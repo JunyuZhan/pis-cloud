@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import type { Album, Photo } from '@/types/database'
 
@@ -13,7 +13,29 @@ interface HomeHeroProps {
 
 export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
   const [isLoaded, setIsLoaded] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const { scrollY } = useScroll()
+
+  // 检测用户是否偏好减少动画
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mediaQuery.matches)
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches)
+    }
+    
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+
+  // Parallax效果：背景图片随滚动移动
+  const backgroundY = useTransform(
+    scrollY,
+    [0, 600],
+    ['0%', '30%']
+  )
 
   // 获取封面图 URL
   const coverUrl = coverPhoto?.preview_key 
@@ -23,19 +45,29 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
       : null
 
   return (
-    <div className="relative w-full h-screen min-h-[600px] overflow-hidden">
-      {/* 背景图片 */}
+    <div className="relative w-full h-[75vh] min-h-[500px] max-h-[800px] overflow-hidden pt-16">
+      {/* 背景图片 - 带parallax效果 */}
       {coverUrl ? (
-        <Image
-          src={coverUrl}
-          alt={featuredAlbum?.title || 'PIS Photography'}
-          fill
-          priority
-          className={`object-cover transition-all duration-1000 ${
-            isLoaded ? 'scale-100 blur-0' : 'scale-110 blur-md'
-          }`}
-          onLoad={() => setIsLoaded(true)}
-        />
+        <motion.div
+          style={{
+            y: prefersReducedMotion ? 0 : backgroundY,
+          }}
+          className="absolute inset-0 -z-10"
+        >
+          <div className="absolute inset-0 w-full h-[130%]">
+            <Image
+              src={coverUrl}
+              alt={featuredAlbum?.title || 'PIS Photography'}
+              fill
+              priority
+              className={`object-cover transition-all duration-1000 ${
+                isLoaded ? 'scale-100 blur-0' : 'scale-110 blur-md'
+              }`}
+              onLoad={() => setIsLoaded(true)}
+              sizes="100vw"
+            />
+          </div>
+        </motion.div>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-surface via-surface-elevated to-background" />
       )}
@@ -46,30 +78,27 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/40" />
 
       {/* 内容区域 */}
-      <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6 z-10">
+        <div className="max-w-4xl mx-auto space-y-6">
           {/* Logo/品牌标识 */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="flex items-center justify-center gap-3 mb-4"
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="flex items-center justify-center gap-2 mb-2"
           >
-            <div className="relative">
-              <Sparkles className="w-8 h-8 text-accent animate-pulse" />
-              <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full" />
-            </div>
-            <span className="text-3xl md:text-4xl font-serif font-bold text-white tracking-wider">
+            <Sparkles className="w-6 h-6 text-accent" />
+            <span className="text-2xl md:text-3xl font-serif font-bold text-white tracking-wider">
               PIS
             </span>
           </motion.div>
 
           {/* 主标题 */}
           <motion.h1
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
-            className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white drop-shadow-2xl leading-tight"
+            transition={{ duration: 0.7, delay: 0.1, ease: 'easeOut' }}
+            className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white drop-shadow-2xl leading-tight"
           >
             专业摄影
             <br />
@@ -78,10 +107,10 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
 
           {/* 副标题 */}
           <motion.p
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
-            className="text-xl md:text-2xl text-white/90 font-light tracking-wide max-w-2xl mx-auto"
+            transition={{ duration: 0.7, delay: 0.2, ease: 'easeOut' }}
+            className="text-lg md:text-xl text-white/90 font-light tracking-wide max-w-2xl mx-auto"
           >
             捕捉每一个精彩瞬间，让光影诉说故事
           </motion.p>
@@ -89,15 +118,15 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
           {/* 特色相册信息 */}
           {featuredAlbum && (
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.6, ease: 'easeOut' }}
-              className="pt-8"
+              transition={{ duration: 0.7, delay: 0.3, ease: 'easeOut' }}
+              className="pt-4"
             >
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                <span className="text-sm text-white/80">最新作品</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                <span className="text-xs text-white/80">最新作品</span>
                 <span className="w-1 h-1 bg-accent rounded-full" />
-                <span className="text-white font-medium">{featuredAlbum.title}</span>
+                <span className="text-sm text-white font-medium">{featuredAlbum.title}</span>
               </div>
             </motion.div>
           )}
