@@ -105,15 +105,17 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
             <p className="font-medium">公开相册</p>
             <p className="text-sm text-text-secondary">在首页广场展示此相册</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={formData.is_public}
-              onChange={(e) => handleChange('is_public', e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-surface-elevated rounded-full peer peer-checked:bg-accent peer-focus:ring-2 peer-focus:ring-accent/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-          </label>
+          <button
+            type="button"
+            onClick={() => handleChange('is_public', !formData.is_public)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.is_public ? 'bg-accent' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.is_public ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
         </div>
 
         {/* 允许下载 */}
@@ -122,15 +124,17 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
             <p className="font-medium">允许下载原图</p>
             <p className="text-sm text-text-secondary">访客可下载原始高清图片</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={formData.allow_download}
-              onChange={(e) => handleChange('allow_download', e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-surface-elevated rounded-full peer peer-checked:bg-accent peer-focus:ring-2 peer-focus:ring-accent/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-          </label>
+          <button
+            type="button"
+            onClick={() => handleChange('allow_download', !formData.allow_download)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.allow_download ? 'bg-accent' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.allow_download ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
         </div>
 
         {/* 显示 EXIF */}
@@ -139,15 +143,17 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
             <p className="font-medium">显示 EXIF 信息</p>
             <p className="text-sm text-text-secondary">展示相机参数（光圈、快门等）</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={formData.show_exif}
-              onChange={(e) => handleChange('show_exif', e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-surface-elevated rounded-full peer peer-checked:bg-accent peer-focus:ring-2 peer-focus:ring-accent/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-          </label>
+          <button
+            type="button"
+            onClick={() => handleChange('show_exif', !formData.show_exif)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.show_exif ? 'bg-accent' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.show_exif ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
         </div>
 
         {/* 布局模式 */}
@@ -187,15 +193,17 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
       <section className="card space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">水印设置</h2>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.watermark_enabled}
-              onChange={(e) => handleChange('watermark_enabled', e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-surface-elevated rounded-full peer peer-checked:bg-accent peer-focus:ring-2 peer-focus:ring-accent/50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-          </label>
+          <button
+            type="button"
+            onClick={() => handleChange('watermark_enabled', !formData.watermark_enabled)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.watermark_enabled ? 'bg-accent' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.watermark_enabled ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
         </div>
 
         {formData.watermark_enabled && (
