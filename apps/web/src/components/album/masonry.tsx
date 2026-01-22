@@ -66,13 +66,15 @@ export function MasonryGrid({
   // 同步新照片的选中状态
   useEffect(() => {
     setSelectedMap((prev) => {
-      const map = { ...prev }
+      const newMap = { ...prev }
+      let hasChanges = false
       photos.forEach((p) => {
-        if (!(p.id in map)) {
-          map[p.id] = p.is_selected
+        if (!(p.id in newMap)) {
+          newMap[p.id] = p.is_selected
+          hasChanges = true
         }
       })
-      return map
+      return hasChanges ? newMap : prev
     })
   }, [photos])
 
