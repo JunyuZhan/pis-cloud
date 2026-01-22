@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
+import { PhotoGroupManager } from './photo-group-manager'
 import type { Album, Photo } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,8 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [processingCount, setProcessingCount] = useState(0)
   const [filterSelected, setFilterSelected] = useState(false)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [photoGroupMap, setPhotoGroupMap] = useState<Map<string, string[]>>(new Map())
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -35,9 +38,56 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     setProcessingCount(pending.length)
   }, [initialPhotos])
 
-  const filteredPhotos = filterSelected 
-    ? photos.filter(p => p.is_selected)
-    : photos
+  // 加载照片分组映射
+  useEffect(() => {
+    const loadPhotoGroups = async () => {
+      try {
+        const response = await fetch(`/api/admin/albums/${album.id}/groups`)
+        if (response.ok) {
+          const data = await response.json()
+          const groups = data.groups || []
+          
+          // 获取所有分组的照片关联
+          const groupMap = new Map<string, string[]>()
+          await Promise.all(
+            groups.map(async (group: { id: string }) => {
+              try {
+                const photosResponse = await fetch(
+                  `/api/admin/albums/${album.id}/groups/${group.id}/photos`
+                )
+                if (photosResponse.ok) {
+                  const photosData = await photosResponse.json()
+                  groupMap.set(group.id, photosData.photo_ids || [])
+                }
+              } catch (error) {
+                console.error(`Failed to load photos for group ${group.id}:`, error)
+              }
+            })
+          )
+          setPhotoGroupMap(groupMap)
+        }
+      } catch (error) {
+        console.error('Failed to load photo groups:', error)
+      }
+    }
+    loadPhotoGroups()
+  }, [album.id, photos.length])
+
+  // 过滤照片
+  const filteredPhotos = photos.filter((p) => {
+    // 按选中状态过滤
+    if (filterSelected && !p.is_selected) {
+      return false
+    }
+    
+    // 按分组过滤
+    if (selectedGroupId) {
+      const groupPhotoIds = photoGroupMap.get(selectedGroupId) || []
+      return groupPhotoIds.includes(p.id)
+    }
+    
+    return true
+  })
 
   // 轮询检查处理中的照片
   useEffect(() => {
@@ -119,8 +169,8 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   }
 
   // 设置封面
-  const handleSetCover = async (photoId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleSetCover = async (photoId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
     
     try {
       const response = await fetch(`/api/admin/albums/${album.id}`, {
@@ -142,49 +192,110 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   }
 
   return (
-    <div className="space-y-6">
-      {/* 操作栏 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4 sm:space-y-6">
+      {/* 分组管理器 - 移动端优化 */}
+      <div className="card p-3 sm:p-4">
+        <PhotoGroupManager
+          albumId={album.id}
+          selectedGroupId={selectedGroupId}
+          onGroupSelect={setSelectedGroupId}
+        />
+      </div>
+
+      {/* 操作栏 - 移动端优化 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {/* 筛选按钮 */}
           <button
             onClick={() => setFilterSelected(!filterSelected)}
             className={cn(
-              "btn-ghost text-sm flex items-center gap-2 px-3 py-2 transition-colors",
-              filterSelected ? "text-red-500 bg-red-500/10" : "text-text-secondary hover:text-text-primary"
+              "btn-ghost text-sm flex items-center gap-2 px-3 py-2.5 transition-colors min-h-[44px]",
+              filterSelected ? "text-red-500 bg-red-500/10" : "text-text-secondary hover:text-text-primary active:scale-95"
             )}
             title="只看客户已选"
           >
-            <Heart className={cn("w-4 h-4", filterSelected && "fill-current")} />
+            <Heart className={cn("w-4 h-4 flex-shrink-0", filterSelected && "fill-current")} />
             <span className="hidden sm:inline">只看已选 ({photos.filter(p => p.is_selected).length})</span>
             <span className="sm:hidden">已选 ({photos.filter(p => p.is_selected).length})</span>
           </button>
           
-          <div className="w-px h-4 bg-border mx-2" />
+          <div className="w-px h-4 bg-border hidden sm:block" />
 
           {selectionMode ? (
             <>
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-secondary hidden sm:inline">
                 已选择 {selectedPhotos.size} 张
               </span>
-              <button onClick={clearSelection} className="btn-ghost text-sm">
+              <button onClick={clearSelection} className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95">
                 取消
               </button>
               {selectedPhotos.size > 0 && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={isDeleting}
-                  className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
-                >
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  删除
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedPhotos.size === 1 && (
+                    <button
+                      onClick={() => {
+                        const photoId = Array.from(selectedPhotos)[0]
+                        handleSetCover(photoId)
+                        clearSelection()
+                      }}
+                      className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="hidden sm:inline">设为封面</span>
+                      <span className="sm:hidden">封面</span>
+                    </button>
+                  )}
+                  {selectedGroupId && (
+                    <button
+                      onClick={async () => {
+                        const photoIds = Array.from(selectedPhotos)
+                        try {
+                          const response = await fetch(
+                            `/api/admin/albums/${album.id}/groups/${selectedGroupId}/photos`,
+                            {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ photo_ids: photoIds }),
+                            }
+                          )
+                          if (response.ok) {
+                            // 刷新分组映射
+                            const groupMap = new Map(photoGroupMap)
+                            const currentPhotoIds = groupMap.get(selectedGroupId) || []
+                            groupMap.set(selectedGroupId, [...currentPhotoIds, ...photoIds])
+                            setPhotoGroupMap(groupMap)
+                            clearSelection()
+                            alert('已添加到分组')
+                          } else {
+                            alert('添加到分组失败')
+                          }
+                        } catch (error) {
+                          console.error('Failed to assign photos to group:', error)
+                          alert('添加到分组失败')
+                        }
+                      }}
+                      className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
+                    >
+                      <Star className="w-4 h-4" />
+                      <span className="hidden sm:inline">添加到分组</span>
+                      <span className="sm:hidden">分组</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={isDeleting}
+                    className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    <span className="hidden sm:inline">删除</span>
+                  </button>
+                </div>
               )}
             </>
           ) : (
             <button
               onClick={() => setSelectionMode(true)}
-              className="btn-ghost text-sm"
+              className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
             >
               选择
             </button>
@@ -192,7 +303,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
         </div>
         <button
           onClick={() => setShowUploader(!showUploader)}
-          className="btn-primary"
+          className="btn-primary w-full sm:w-auto min-h-[44px] justify-center"
         >
           <Upload className="w-4 h-4" />
           {showUploader ? '收起' : '上传照片'}
@@ -219,9 +330,9 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
         </div>
       )}
 
-      {/* 照片网格 */}
+      {/* 照片网格 - 移动端优化 */}
       {filteredPhotos.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
           {filteredPhotos.map((photo) => (
             <div
               key={photo.id}

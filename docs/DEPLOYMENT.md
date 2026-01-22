@@ -94,9 +94,28 @@
 
 1. 进入项目 → **SQL Editor**
 2. 点击 **New query**
-3. 复制 `database/migrations/001_init.sql` 的全部内容
-4. 点击 **Run** 执行
-5. 确认左侧 Tables 出现 `albums` 和 `photos` 表
+3. 按顺序执行以下迁移文件（必须按顺序执行）：
+
+```sql
+-- 1. 初始化数据库结构
+-- 复制 database/migrations/001_init.sql 的全部内容
+-- 点击 Run 执行
+-- 确认出现 albums 和 photos 表
+
+-- 2. 修复 RLS 安全策略
+-- 复制 database/migrations/002_secure_rls.sql 的全部内容
+-- 点击 Run 执行
+
+-- 3. 添加相册高级功能
+-- 复制 database/migrations/003_album_features.sql 的全部内容
+-- 点击 Run 执行
+
+-- 4. 添加相册模板功能（可选，如需使用模板功能）
+-- 复制 database/migrations/004_album_templates.sql 的全部内容
+-- 点击 Run 执行
+```
+
+**注意**：迁移文件必须按顺序执行，后续迁移依赖前面的表结构。
 
 ### 4. 创建管理员账号
 

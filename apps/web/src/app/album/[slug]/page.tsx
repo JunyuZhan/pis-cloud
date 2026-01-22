@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AlbumClient } from '@/components/album/album-client'
 import { AlbumHero } from '@/components/album/album-hero'
 import { AlbumInfoBar } from '@/components/album/album-info-bar'
 import { AlbumStickyNav } from '@/components/album/album-sticky-nav'
-import { AlbumFooter } from '@/components/album/album-footer'
 import { AlbumShareButton } from '@/components/album/album-share-button'
+import { PhotoGroupFilter } from '@/components/album/photo-group-filter'
 import { type SortRule } from '@/components/album/sort-toggle'
 import { type LayoutMode } from '@/components/album/layout-toggle'
 import type { Database } from '@/types/database'
@@ -15,7 +16,95 @@ type Photo = Database['public']['Tables']['photos']['Row']
 
 interface AlbumPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ sort?: string; layout?: string }>
+  searchParams: Promise<{ sort?: string; layout?: string; group?: string }>
+}
+
+/**
+ * 生成动态 metadata（用于 Open Graph 和微信分享）
+ */
+export async function generateMetadata({ params }: AlbumPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await createClient()
+
+  const { data: album } = await supabase
+    .from('albums')
+    .select('title, description, share_title, share_description, share_image_url, cover_photo_id, slug')
+    .eq('slug', slug)
+    .is('deleted_at', null)
+    .single()
+
+  if (!album) {
+    return {
+      title: '相册不存在',
+    }
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || 'http://localhost:9000/pis-photos'
+  
+  // 使用自定义分享配置，如果没有则使用默认值
+  const shareTitle = (album as any).share_title || album.title
+  const shareDescription = (album as any).share_description || album.description || `查看 ${album.title} 的精彩照片`
+  
+  // 获取分享图片（优先使用自定义图片，否则使用封面图）
+  let shareImage = (album as any).share_image_url
+  if (!shareImage && album.cover_photo_id) {
+    const { data: coverPhoto } = await supabase
+      .from('photos')
+      .select('preview_key, thumb_key')
+      .eq('id', album.cover_photo_id)
+      .single()
+    
+    if (coverPhoto?.preview_key) {
+      shareImage = `${mediaUrl}/${coverPhoto.preview_key}`
+    } else if (coverPhoto?.thumb_key) {
+      shareImage = `${mediaUrl}/${coverPhoto.thumb_key}`
+    }
+  }
+  
+  // 如果没有图片，使用默认图片
+  if (!shareImage) {
+    shareImage = `${appUrl}/og-image.png` // 可以创建一个默认的 OG 图片
+  }
+
+  const shareUrl = `${appUrl}/album/${album.slug}`
+
+  return {
+    title: shareTitle,
+    description: shareDescription,
+    openGraph: {
+      type: 'website',
+      title: shareTitle,
+      description: shareDescription,
+      url: shareUrl,
+      siteName: 'PIS - 专业级摄影分享',
+      images: [
+        {
+          url: shareImage,
+          width: 1200,
+          height: 630,
+          alt: album.title,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: shareTitle,
+      description: shareDescription,
+      images: [shareImage],
+    },
+    // 微信分享 meta（通过其他 meta 标签实现）
+    other: {
+      'weixin:title': shareTitle,
+      'weixin:description': shareDescription,
+      'weixin:image': shareImage,
+      // 额外的 Open Graph 标签
+      'og:title': shareTitle,
+      'og:description': shareDescription,
+      'og:image': shareImage,
+      'og:url': shareUrl,
+    },
+  }
 }
 
 /**
@@ -23,7 +112,7 @@ interface AlbumPageProps {
  */
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { slug } = await params
-  const { sort, layout } = await searchParams
+  const { sort, layout, group } = await searchParams
   const supabase = await createClient()
 
   // 获取相册信息
@@ -53,6 +142,16 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     orderBy = 'created_at'
   }
 
+  // 获取分组列表（如果相册有分组）
+  const { data: groupsData } = await supabase
+    .from('photo_groups')
+    .select('*')
+    .eq('album_id', album.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  const groups = groupsData || []
+
   // 获取照片列表
   const { data: photosData } = await supabase
     .from('photos')
@@ -63,6 +162,21 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     .limit(20)
 
   const photos = (photosData || []) as Photo[]
+
+  // 获取照片分组关联（如果相册有分组）
+  let photoGroupMap: Map<string, string[]> = new Map()
+  if (groups.length > 0) {
+    for (const group of groups) {
+      const { data: assignments } = await supabase
+        .from('photo_group_assignments')
+        .select('photo_id')
+        .eq('group_id', group.id)
+      
+      if (assignments) {
+        photoGroupMap.set(group.id, assignments.map(a => a.photo_id))
+      }
+    }
+  }
 
   // 获取封面照片（优先使用设置的封面，否则用第一张）
   let coverPhoto: Photo | null = null
@@ -94,12 +208,31 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
         threshold={400}
       />
 
-      {/* 照片网格 */}
-      <div className="max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-8">
-        {/* 照片统计栏 */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-          <h2 className="text-lg font-medium">
-            全部照片 <span className="text-text-muted">({album.photo_count})</span>
+      {/* 照片网格 - 移动端优化 */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+        {/* 分组筛选器 */}
+        {groups.length > 0 && (
+          <PhotoGroupFilter
+            albumId={album.id}
+            albumSlug={album.slug}
+            selectedGroupId={group || null}
+            onGroupSelect={(groupId) => {
+              // 客户端导航，更新 URL 参数
+              const url = new URL(window.location.href)
+              if (groupId) {
+                url.searchParams.set('group', groupId)
+              } else {
+                url.searchParams.delete('group')
+              }
+              window.location.href = url.toString()
+            }}
+          />
+        )}
+
+        {/* 照片统计栏 - 移动端优化 */}
+        <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-border">
+          <h2 className="text-base sm:text-lg font-medium">
+            {group ? '分组照片' : '全部照片'} <span className="text-text-muted text-sm sm:text-base">({album.photo_count})</span>
           </h2>
           <div className="flex items-center gap-2">
             {/* 这里保留原来的排序和布局切换，但只在非吸顶状态显示 */}
@@ -109,9 +242,6 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
         {/* 照片列表 */}
         <AlbumClient album={album} initialPhotos={photos || []} layout={currentLayout} />
       </div>
-
-      {/* 底部版权栏 */}
-      <AlbumFooter album={album} />
     </main>
   )
 }

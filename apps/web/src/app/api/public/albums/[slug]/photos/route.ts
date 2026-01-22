@@ -30,6 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const sort = searchParams.get('sort') || 'capture_desc'
+    const groupId = searchParams.get('group')
 
     const supabase = await createClient()
 
@@ -50,6 +51,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const album = albumData as { id: string; sort_rule: string | null }
 
+    // 如果指定了分组，先获取分组中的照片ID
+    let photoIds: string[] | null = null
+    if (groupId) {
+      const { data: assignments } = await supabase
+        .from('photo_group_assignments')
+        .select('photo_id')
+        .eq('group_id', groupId)
+
+      if (assignments && assignments.length > 0) {
+        photoIds = assignments.map((a) => a.photo_id)
+      } else {
+        // 如果分组中没有照片，直接返回空结果
+        return NextResponse.json({
+          photos: [],
+          pagination: {
+            page: 1,
+            limit,
+            total: 0,
+            totalPages: 0,
+          },
+        })
+      }
+    }
+
     // 获取照片列表
     const offset = (page - 1) * limit
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
@@ -60,6 +85,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select('id, thumb_key, preview_key, width, height, exif, blur_data, captured_at, is_selected', { count: 'exact' })
       .eq('album_id', album.id)
       .eq('status', 'completed')
+      .is('deleted_at', null)
+
+    // 如果指定了分组，只查询分组中的照片
+    if (photoIds) {
+      query = query.in('id', photoIds)
+    }
 
     // 应用排序
     switch (sort) {

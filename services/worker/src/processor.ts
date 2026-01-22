@@ -10,13 +10,27 @@ export interface ProcessedResult {
   previewBuffer: Buffer;
 }
 
-export interface WatermarkConfig {
-  enabled: boolean;
+export interface SingleWatermark {
+  id?: string; // 用于UI管理
   type: 'text' | 'logo';
   text?: string;
   logoUrl?: string; // MinIO 或其他可访问的 Logo 图片 URL
-  opacity: number;
-  position: string; // 'center' | 'southeast' | ...
+  opacity: number; // 0-1
+  position: string; // 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+  size?: number; // 字体大小或Logo尺寸（可选，自动计算）
+  enabled?: boolean; // 单个水印是否启用
+}
+
+export interface WatermarkConfig {
+  enabled: boolean;
+  // 兼容旧格式：单个水印
+  type?: 'text' | 'logo';
+  text?: string;
+  logoUrl?: string;
+  opacity?: number;
+  position?: string;
+  // 新格式：多个水印（最多6个）
+  watermarks?: SingleWatermark[];
 }
 
 export class PhotoProcessor {
@@ -59,118 +73,56 @@ export class PhotoProcessor {
       const { width, height } = await previewPipeline.toBuffer().then(b => sharp(b).metadata());
       
       if (width && height) {
-        let watermarkBuffer: Buffer | null = null;
-        let gravity = 'center';
+        const composites: Array<{ input: Buffer; gravity: string }> = [];
 
-        // 确定位置
-        switch (watermarkConfig.position) {
-          case 'southeast': gravity = 'southeast'; break;
-          case 'southwest': gravity = 'southwest'; break;
-          case 'northeast': gravity = 'northeast'; break;
-          case 'northwest': gravity = 'northwest'; break;
-          case 'center': default: gravity = 'center'; break;
-        }
+        // 支持多个水印（新格式）
+        if (watermarkConfig.watermarks && Array.isArray(watermarkConfig.watermarks)) {
+          // 处理多个水印
+          for (const watermark of watermarkConfig.watermarks) {
+            if (watermark.enabled === false) continue; // 跳过禁用的水印
 
-        // 处理文字水印
-        if (watermarkConfig.type === 'text' && watermarkConfig.text) {
-          const fontSize = Math.floor(Math.min(width, height) * 0.05); // 5%
-          const svgText = `
-            <svg width="${width}" height="${height}">
-              <style>
-                .title { fill: rgba(255, 255, 255, ${watermarkConfig.opacity}); font-size: ${fontSize}px; font-family: sans-serif; font-weight: bold; }
-              </style>
-              <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="title">${watermarkConfig.text}</text>
-            </svg>
-          `;
-          watermarkBuffer = Buffer.from(svgText);
-        }
-        // 处理 Logo 水印
-        else if (watermarkConfig.type === 'logo' && watermarkConfig.logoUrl) {
-          try {
-            const response = await fetch(watermarkConfig.logoUrl);
-            if (response.ok) {
-              const logoBuffer = await response.arrayBuffer();
-              const logoSize = Math.floor(Math.min(width, height) * 0.15); // Logo 占 15%
-
-              // 调整 Logo 大小和透明度
-              // 注意: sharp 的 ensureAlpha() 和 composite() 对于透明度处理
-              // 这里我们使用 svg 来包装图片以应用透明度，或者使用 sharp 处理
-              // 为简单起见，这里假设 logo 是 png，我们调整大小并应用整体透明度
-              // sharp 调整透明度比较麻烦，通常通过 modulate 或 composite 时的 blend 选项
-              // 但最可靠的是 SVG 包装
-
-              // 简化方案：先 resize logo
-              const resizedLogo = await sharp(Buffer.from(logoBuffer))
-                .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-                .toBuffer();
-              
-              // 使用 SVG 包装以应用透明度
-              const { width: logoW, height: logoH } = await sharp(resizedLogo).metadata();
-              if (logoW && logoH) {
-                 const svgLogo = `
-                  <svg width="${width}" height="${height}">
-                    <image 
-                      href="data:image/png;base64,${resizedLogo.toString('base64')}" 
-                      x="${gravity.includes('west') || gravity === 'center' ? '5%' : (width - logoW - width * 0.05)}" 
-                      y="${gravity.includes('north') || gravity === 'center' ? '5%' : (height - logoH - height * 0.05)}" 
-                      width="${logoW}" 
-                      height="${logoH}" 
-                      opacity="${watermarkConfig.opacity}"
-                    />
-                  </svg>
-                `;
-                 // 对于 SVG 覆盖，gravity 设为 center 即可，因为坐标在 SVG 内部控制
-                 // 但为了复用下面的逻辑，我们这里稍微 hack 一下，或者直接用 buffer
-                 // 更好的方式：
-                 // 1. resize logo
-                 // 2. ensure alpha
-                 // 3. composite with opacity (sharp v0.33+ support opacity in composite options, but here we might be on older version)
-                 // Let's stick to the SVG wrapper for consistency if text works well, 
-                 // BUT for simplicity in this MVP, let's just composite the resized logo directly
-                 // and ignore opacity for now if complex, OR use the ensureAlpha channel manipulation.
-                 
-                 // 修正：使用 removeAlpha().ensureAlpha(opacity) 在旧版 sharp 不行
-                 // 让我们尝试使用 composite 的 blend 模式或 input options
-                 
-                 // 最终方案：调整 Logo 大小后直接合成。透明度暂不支持（除非 Logo 本身半透明），
-                 // 或者使用 SVG 包装方案（更通用）。
-                 
-                 // 使用 SVG 包装方案：
-                 const logoBase64 = resizedLogo.toString('base64');
-                 // 根据 gravity 计算 x, y
-                 let x = '50%', y = '50%';
-                 let anchor = 'middle', baseline = 'middle';
-                 
-                 // 简单的 SVG 覆盖全图
-                 const svgWrapper = `
-                    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-                      <image
-                        href="data:image/png;base64,${logoBase64}"
-                        width="${logoW}"
-                        height="${logoH}"
-                        opacity="${watermarkConfig.opacity}"
-                        x="${gravity.includes('west') ? '5%' : gravity.includes('east') ? '95%' : '50%'}"
-                        y="${gravity.includes('north') ? '5%' : gravity.includes('south') ? '95%' : '50%'}"
-                        transform="translate(${gravity.includes('west') ? 0 : gravity.includes('east') ? -logoW : -logoW/2}, ${gravity.includes('north') ? 0 : gravity.includes('south') ? -logoH : -logoH/2})"
-                      />
-                    </svg>
-                 `;
-                 watermarkBuffer = Buffer.from(svgWrapper);
-                 gravity = 'center'; // SVG 已经定位好了
-              }
+            const watermarkBuffer = await this.createWatermarkBuffer(
+              watermark,
+              width,
+              height
+            );
+            
+            if (watermarkBuffer) {
+              const gravity = this.positionToGravity(watermark.position);
+              composites.push({
+                input: watermarkBuffer,
+                gravity,
+              });
             }
-          } catch (e) {
-            console.error('Failed to load watermark logo:', e);
+          }
+        } else {
+          // 兼容旧格式：单个水印
+          const singleWatermark: SingleWatermark = {
+            type: watermarkConfig.type || 'text',
+            text: watermarkConfig.text,
+            logoUrl: watermarkConfig.logoUrl,
+            opacity: watermarkConfig.opacity || 0.5,
+            position: watermarkConfig.position || 'center',
+          };
+
+          const watermarkBuffer = await this.createWatermarkBuffer(
+            singleWatermark,
+            width,
+            height
+          );
+
+          if (watermarkBuffer) {
+            const gravity = this.positionToGravity(singleWatermark.position);
+            composites.push({
+              input: watermarkBuffer,
+              gravity,
+            });
           }
         }
 
-        if (watermarkBuffer) {
-          previewPipeline = previewPipeline.composite([
-            {
-              input: watermarkBuffer,
-              gravity: gravity as any,
-            },
-          ]);
+        // 应用所有水印
+        if (composites.length > 0) {
+          previewPipeline = previewPipeline.composite(composites);
         }
       }
     }
@@ -186,6 +138,152 @@ export class PhotoProcessor {
       thumbBuffer,
       previewBuffer,
     };
+  }
+
+  /**
+   * 创建单个水印的 Buffer
+   */
+  private async createWatermarkBuffer(
+    watermark: SingleWatermark,
+    imageWidth: number,
+    imageHeight: number
+  ): Promise<Buffer | null> {
+    if (watermark.type === 'text' && watermark.text) {
+      const fontSize = watermark.size || Math.floor(Math.min(imageWidth, imageHeight) * 0.05);
+      const { x, y, anchor, baseline } = this.getTextPosition(watermark.position, imageWidth, imageHeight);
+      
+      const svgText = `
+        <svg width="${imageWidth}" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            .watermark { fill: rgba(255, 255, 255, ${watermark.opacity}); font-size: ${fontSize}px; font-family: sans-serif; font-weight: bold; }
+          </style>
+          <text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="${baseline}" class="watermark">${this.escapeXml(watermark.text)}</text>
+        </svg>
+      `;
+      return Buffer.from(svgText);
+    } else if (watermark.type === 'logo' && watermark.logoUrl) {
+      try {
+        const response = await fetch(watermark.logoUrl);
+        if (response.ok) {
+          const logoBuffer = await response.arrayBuffer();
+          const logoSize = watermark.size || Math.floor(Math.min(imageWidth, imageHeight) * 0.15);
+
+          const resizedLogo = await sharp(Buffer.from(logoBuffer))
+            .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .toBuffer();
+
+          const { width: logoW, height: logoH } = await sharp(resizedLogo).metadata();
+          if (logoW && logoH) {
+            const { x, y } = this.getImagePosition(watermark.position, imageWidth, imageHeight, logoW, logoH);
+            const logoBase64 = resizedLogo.toString('base64');
+
+            const svgLogo = `
+              <svg width="${imageWidth}" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg">
+                <image
+                  href="data:image/png;base64,${logoBase64}"
+                  width="${logoW}"
+                  height="${logoH}"
+                  opacity="${watermark.opacity}"
+                  x="${x}"
+                  y="${y}"
+                />
+              </svg>
+            `;
+            return Buffer.from(svgLogo);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load watermark logo:', e);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 将位置字符串转换为 Sharp gravity
+   */
+  private positionToGravity(position: string): string {
+    const positionMap: Record<string, string> = {
+      'top-left': 'northwest',
+      'top-center': 'north',
+      'top-right': 'northeast',
+      'center-left': 'west',
+      'center': 'center',
+      'center-right': 'east',
+      'bottom-left': 'southwest',
+      'bottom-center': 'south',
+      'bottom-right': 'southeast',
+      // 兼容旧格式
+      'northwest': 'northwest',
+      'northeast': 'northeast',
+      'southwest': 'southwest',
+      'southeast': 'southeast',
+    };
+    return positionMap[position] || 'center';
+  }
+
+  /**
+   * 获取文字水印的位置坐标
+   */
+  private getTextPosition(
+    position: string,
+    width: number,
+    height: number
+  ): { x: string; y: string; anchor: string; baseline: string } {
+    const margin = Math.min(width, height) * 0.05; // 5% 边距
+
+    const positions: Record<string, { x: string; y: string; anchor: string; baseline: string }> = {
+      'top-left': { x: `${margin}`, y: `${margin}`, anchor: 'start', baseline: 'hanging' },
+      'top-center': { x: '50%', y: `${margin}`, anchor: 'middle', baseline: 'hanging' },
+      'top-right': { x: `${width - margin}`, y: `${margin}`, anchor: 'end', baseline: 'hanging' },
+      'center-left': { x: `${margin}`, y: '50%', anchor: 'start', baseline: 'middle' },
+      'center': { x: '50%', y: '50%', anchor: 'middle', baseline: 'middle' },
+      'center-right': { x: `${width - margin}`, y: '50%', anchor: 'end', baseline: 'middle' },
+      'bottom-left': { x: `${margin}`, y: `${height - margin}`, anchor: 'start', baseline: 'alphabetic' },
+      'bottom-center': { x: '50%', y: `${height - margin}`, anchor: 'middle', baseline: 'alphabetic' },
+      'bottom-right': { x: `${width - margin}`, y: `${height - margin}`, anchor: 'end', baseline: 'alphabetic' },
+    };
+
+    return positions[position] || positions['center'];
+  }
+
+  /**
+   * 获取图片水印的位置坐标
+   */
+  private getImagePosition(
+    position: string,
+    imageWidth: number,
+    imageHeight: number,
+    logoWidth: number,
+    logoHeight: number
+  ): { x: number; y: number } {
+    const margin = Math.min(imageWidth, imageHeight) * 0.05; // 5% 边距
+
+    const positions: Record<string, { x: number; y: number }> = {
+      'top-left': { x: margin, y: margin },
+      'top-center': { x: (imageWidth - logoWidth) / 2, y: margin },
+      'top-right': { x: imageWidth - logoWidth - margin, y: margin },
+      'center-left': { x: margin, y: (imageHeight - logoHeight) / 2 },
+      'center': { x: (imageWidth - logoWidth) / 2, y: (imageHeight - logoHeight) / 2 },
+      'center-right': { x: imageWidth - logoWidth - margin, y: (imageHeight - logoHeight) / 2 },
+      'bottom-left': { x: margin, y: imageHeight - logoHeight - margin },
+      'bottom-center': { x: (imageWidth - logoWidth) / 2, y: imageHeight - logoHeight - margin },
+      'bottom-right': { x: imageWidth - logoWidth - margin, y: imageHeight - logoHeight - margin },
+    };
+
+    return positions[position] || positions['center'];
+  }
+
+  /**
+   * 转义 XML 特殊字符
+   */
+  private escapeXml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   private async generateBlurHash(): Promise<string> {

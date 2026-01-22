@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download } from 'lucide-react'
 import type { Database } from '@/types/database'
+import { MultiWatermarkManager, type WatermarkItem } from './multi-watermark-manager'
 
 type Album = Database['public']['Tables']['albums']['Row']
 
@@ -15,6 +16,53 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // 解析水印配置（兼容旧格式和新格式）
+  const parseWatermarkConfig = (config: any) => {
+    if (!config) {
+      return {
+        watermarks: [{
+          id: 'watermark-1',
+          type: 'text' as const,
+          text: '© PIS Photography',
+          opacity: 0.5,
+          position: 'center',
+          enabled: true,
+        }],
+      }
+    }
+
+    // 新格式：包含 watermarks 数组
+    if (config.watermarks && Array.isArray(config.watermarks)) {
+      return {
+        watermarks: config.watermarks.map((w: any, index: number) => ({
+          id: w.id || `watermark-${index + 1}`,
+          type: w.type || 'text',
+          text: w.text,
+          logoUrl: w.logoUrl,
+          opacity: w.opacity ?? 0.5,
+          position: w.position || 'center',
+          size: w.size,
+          enabled: w.enabled !== false,
+        })),
+      }
+    }
+
+    // 旧格式：单个水印配置
+    return {
+      watermarks: [{
+        id: 'watermark-1',
+        type: config.type || 'text',
+        text: config.text,
+        logoUrl: config.logoUrl,
+        opacity: config.opacity ?? 0.5,
+        position: config.position || 'center',
+        enabled: true,
+      }],
+    }
+  }
+
+  const initialWatermarkConfig = parseWatermarkConfig((album.watermark_config as any))
+
   const [formData, setFormData] = useState({
     title: album.title,
     description: album.description || '',
@@ -31,12 +79,11 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     show_exif: album.show_exif ?? true,
     // 水印设置
     watermark_enabled: album.watermark_enabled ?? false,
-    watermark_type: album.watermark_type || 'text',
-    watermark_config: (album.watermark_config as any) || {
-      text: '© PIS Photography',
-      opacity: 0.5,
-      position: 'center',
-    },
+    watermark_config: initialWatermarkConfig,
+    // 分享配置
+    share_title: (album as any).share_title || '',
+    share_description: (album as any).share_description || '',
+    share_image_url: (album as any).share_image_url || '',
   })
 
   const handleChange = (field: string, value: any) => {
@@ -50,15 +97,30 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     }))
   }
 
+  const handleWatermarksChange = (watermarks: WatermarkItem[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      watermark_config: { watermarks },
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // 准备提交数据，将 watermarks 数组转换为正确的格式
+      const submitData = {
+        ...formData,
+        watermark_config: formData.watermark_config.watermarks
+          ? { watermarks: formData.watermark_config.watermarks }
+          : formData.watermark_config,
+      }
+
       const response = await fetch(`/api/admin/albums/${album.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       if (!response.ok) throw new Error('保存失败')
@@ -284,106 +346,70 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         </div>
 
         {formData.watermark_enabled && (
-          <div className="space-y-4 pt-4 border-t border-border">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                水印类型
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="watermark_type"
-                    value="text"
-                    checked={formData.watermark_type === 'text'}
-                    onChange={(e) => handleChange('watermark_type', e.target.value)}
-                    className="radio"
-                  />
-                  <span>文字水印</span>
-                </label>
-                {/* Logo 水印配置 */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="watermark_type"
-                    value="logo"
-                    checked={formData.watermark_type === 'logo'}
-                    onChange={(e) => handleChange('watermark_type', e.target.value)}
-                    className="radio"
-                  />
-                  <span>Logo 图片</span>
-                </label>
-              </div>
-            </div>
-
-            {formData.watermark_type === 'text' && (
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  水印文字
-                </label>
-                <input
-                  type="text"
-                  value={formData.watermark_config.text}
-                  onChange={(e) => handleWatermarkConfigChange('text', e.target.value)}
-                  className="input"
-                  placeholder="© Your Name"
-                />
-              </div>
-            )}
-
-            {formData.watermark_type === 'logo' && (
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Logo URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.watermark_config.logoUrl || ''}
-                  onChange={(e) => handleWatermarkConfigChange('logoUrl', e.target.value)}
-                  className="input"
-                  placeholder="https://example.com/logo.png"
-                />
-                <p className="text-xs text-text-muted mt-1">
-                  请输入可公开访问的图片链接（建议使用 PNG 透明底图）
-                </p>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                透明度 ({Math.round(formData.watermark_config.opacity * 100)}%)
-              </label>
-              <input
-                type="range"
-                min="0.1"
-                max="1"
-                step="0.1"
-                value={formData.watermark_config.opacity}
-                onChange={(e) =>
-                  handleWatermarkConfigChange('opacity', parseFloat(e.target.value))
-                }
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                位置
-              </label>
-              <select
-                value={formData.watermark_config.position}
-                onChange={(e) => handleWatermarkConfigChange('position', e.target.value)}
-                className="input"
-              >
-                <option value="center">居中 (Center)</option>
-                <option value="southeast">右下 (Bottom Right)</option>
-                <option value="southwest">左下 (Bottom Left)</option>
-                <option value="northeast">右上 (Top Right)</option>
-                <option value="northwest">左上 (Top Left)</option>
-              </select>
-            </div>
+          <div className="pt-4 border-t border-border">
+            <MultiWatermarkManager
+              watermarks={formData.watermark_config.watermarks || []}
+              onChange={handleWatermarksChange}
+            />
           </div>
         )}
+      </section>
+
+      {/* 分享配置 */}
+      <section className="card space-y-6">
+        <h2 className="text-lg font-medium">分享设置</h2>
+        <p className="text-sm text-text-muted">
+          自定义分享到微信、朋友圈等社交平台时显示的卡片信息
+        </p>
+
+        <div className="space-y-4 pt-4 border-t border-border">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              分享标题
+            </label>
+            <input
+              type="text"
+              value={formData.share_title}
+              onChange={(e) => handleChange('share_title', e.target.value)}
+              className="input"
+              placeholder={album.title}
+            />
+            <p className="text-xs text-text-muted mt-1">
+              留空则使用相册标题
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              分享描述
+            </label>
+            <textarea
+              value={formData.share_description}
+              onChange={(e) => handleChange('share_description', e.target.value)}
+              className="input min-h-[80px] resize-none"
+              placeholder={album.description || '查看精彩照片'}
+            />
+            <p className="text-xs text-text-muted mt-1">
+              留空则使用相册描述或默认文案
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              分享图片 URL
+            </label>
+            <input
+              type="url"
+              value={formData.share_image_url}
+              onChange={(e) => handleChange('share_image_url', e.target.value)}
+              className="input"
+              placeholder="https://example.com/share-image.jpg"
+            />
+            <p className="text-xs text-text-muted mt-1">
+              建议尺寸：1200x630px。留空则使用相册封面图
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* 提交按钮 */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Copy, Check } from 'lucide-react'
 import {
@@ -11,6 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import type { AlbumTemplate } from '@/types/database'
 
 interface CreateAlbumDialogProps {
   open: boolean
@@ -21,6 +22,8 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [templateId, setTemplateId] = useState<string>('')
+  const [templates, setTemplates] = useState<AlbumTemplate[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<{
@@ -29,6 +32,24 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
     shareUrl: string
   } | null>(null)
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      loadTemplates()
+    }
+  }, [open])
+
+  const loadTemplates = async () => {
+    try {
+      const res = await fetch('/api/admin/templates')
+      const data = await res.json()
+      if (res.ok) {
+        setTemplates(data.templates || [])
+      }
+    } catch (error) {
+      console.error('加载模板失败:', error)
+    }
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,10 +62,36 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
     setError('')
 
     try {
+      // 如果选择了模板，先获取模板配置
+      let templateConfig = {}
+      if (templateId) {
+        const templateRes = await fetch(`/api/admin/templates/${templateId}`)
+        if (templateRes.ok) {
+          const template = await templateRes.json()
+          templateConfig = {
+            is_public: template.is_public,
+            layout: template.layout,
+            sort_rule: template.sort_rule,
+            allow_download: template.allow_download,
+            allow_batch_download: template.allow_batch_download,
+            show_exif: template.show_exif,
+            password: template.password,
+            expires_at: template.expires_at,
+            watermark_enabled: template.watermark_enabled,
+            watermark_type: template.watermark_type,
+            watermark_config: template.watermark_config,
+          }
+        }
+      }
+
       const res = await fetch('/api/admin/albums', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), description: description.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          ...templateConfig,
+        }),
       })
 
       const data = await res.json()
@@ -77,6 +124,7 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
     }
     setTitle('')
     setDescription('')
+    setTemplateId('')
     setError('')
     setCreated(null)
     onOpenChange(false)
@@ -134,6 +182,33 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
                   placeholder="可选的相册描述..."
                 />
               </div>
+
+              {templates.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="template"
+                    className="block text-sm font-medium text-text-secondary mb-2"
+                  >
+                    使用模板（可选）
+                  </label>
+                  <select
+                    id="template"
+                    value={templateId}
+                    onChange={(e) => setTemplateId(e.target.value)}
+                    className="input"
+                  >
+                    <option value="">不使用模板</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-text-muted mt-1">
+                    选择模板将自动应用模板的配置（布局、水印等）
+                  </p>
+                </div>
+              )}
 
               <DialogFooter className="mt-6 flex-col gap-3 sm:flex-row sm:gap-2">
                 <button

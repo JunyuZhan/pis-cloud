@@ -29,9 +29,9 @@ export default async function AdminLayout({
       {/* 移动端侧边栏 */}
       <MobileSidebar user={user} />
 
-      {/* 主内容区 */}
+      {/* 主内容区 - 移动端优化 */}
       <main className="md:ml-64 min-h-screen">
-        <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
+        <div className="p-3 sm:p-4 md:p-8 pt-16 md:pt-8 safe-area-inset-bottom">{children}</div>
       </main>
     </div>
   )

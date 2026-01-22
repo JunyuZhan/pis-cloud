@@ -116,7 +116,11 @@ pnpm setup
 #### 1. 配置 Supabase
 
 1. 创建 [Supabase](https://supabase.com) 项目
-2. 在 SQL Editor 中执行 `database/migrations/001_init.sql`
+2. 在 SQL Editor 中按顺序执行以下迁移文件：
+   - `database/migrations/001_init.sql` - 初始化数据库结构
+   - `database/migrations/002_secure_rls.sql` - 修复 RLS 安全策略
+   - `database/migrations/003_album_features.sql` - 添加相册高级功能
+   - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
 3. 在 Authentication > Users 创建管理员账号
 4. 复制 API Keys (Settings → API)
 
@@ -185,7 +189,11 @@ pnpm dev
 #### 步骤 1: 配置 Supabase (5分钟)
 
 1. [supabase.com](https://supabase.com) → 创建项目
-2. SQL Editor → 执行 `database/migrations/001_init.sql`
+2. SQL Editor → 按顺序执行以下迁移文件：
+   - `database/migrations/001_init.sql` - 初始化数据库结构
+   - `database/migrations/002_secure_rls.sql` - 修复 RLS 安全策略
+   - `database/migrations/003_album_features.sql` - 添加相册高级功能
+   - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
 3. Authentication → Users → 创建管理员账号
 4. 记录 Project URL + API Keys
 
@@ -248,10 +256,18 @@ docker-compose logs -f worker
 | 功能 | 描述 |
 |------|------|
 | 相册管理 | 创建、编辑、删除相册 |
+| 相册批量管理 | 批量选择、批量删除多个相册 |
+| 相册复制 | 一键复制相册配置，快速创建相同设置的相册 |
+| 相册模板 | 创建和管理相册配置模板，快速复用设置 |
 | 照片上传 | 批量上传，支持 JPG/PNG/HEIC |
-| 水印配置 | 文字水印，可调透明度和位置 |
+| 照片批量管理 | 批量选择、批量删除、快速设置封面 |
+| 打包下载 | 生成 ZIP 文件，包含有水印和无水印两个版本 |
+| 多位置水印 | 支持最多6个水印，可在9个位置灵活配置 |
+| 微信分享优化 | 自定义分享卡片（标题、描述、图片） |
 | 访问控制 | 公开/私有相册，下载权限 |
 | 照片排序 | 手动排序或按拍摄时间 |
+
+> 📖 详细使用指南：[docs/NEW_FEATURES_GUIDE.md](docs/NEW_FEATURES_GUIDE.md)
 
 ### 访客功能
 

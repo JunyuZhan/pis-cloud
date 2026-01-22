@@ -36,6 +36,10 @@ export interface Database {
           watermark_enabled: boolean
           watermark_type: 'text' | 'logo' | null
           watermark_config: Json
+          // 分享配置
+          share_title: string | null
+          share_description: string | null
+          share_image_url: string | null
           // 统计
           photo_count: number
           selected_count: number
@@ -62,6 +66,9 @@ export interface Database {
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
+          share_title?: string | null
+          share_description?: string | null
+          share_image_url?: string | null
           photo_count?: number
           selected_count?: number
           view_count?: number
@@ -86,6 +93,9 @@ export interface Database {
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
+          share_title?: string | null
+          share_description?: string | null
+          share_image_url?: string | null
           photo_count?: number
           selected_count?: number
           view_count?: number
@@ -156,6 +166,155 @@ export interface Database {
           updated_at?: string
         }
       }
+      album_templates: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          is_public: boolean
+          layout: 'masonry' | 'grid' | 'carousel'
+          sort_rule: 'capture_desc' | 'capture_asc' | 'manual'
+          allow_download: boolean
+          allow_batch_download: boolean
+          show_exif: boolean
+          password: string | null
+          expires_at: string | null
+          watermark_enabled: boolean
+          watermark_type: 'text' | 'logo' | null
+          watermark_config: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          is_public?: boolean
+          layout?: 'masonry' | 'grid' | 'carousel'
+          sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+          allow_download?: boolean
+          allow_batch_download?: boolean
+          show_exif?: boolean
+          password?: string | null
+          expires_at?: string | null
+          watermark_enabled?: boolean
+          watermark_type?: 'text' | 'logo' | null
+          watermark_config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          is_public?: boolean
+          layout?: 'masonry' | 'grid' | 'carousel'
+          sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+          allow_download?: boolean
+          allow_batch_download?: boolean
+          show_exif?: boolean
+          password?: string | null
+          expires_at?: string | null
+          watermark_enabled?: boolean
+          watermark_type?: 'text' | 'logo' | null
+          watermark_config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      package_downloads: {
+        Row: {
+          id: string
+          album_id: string
+          photo_ids: string[]
+          include_watermarked: boolean
+          include_original: boolean
+          status: 'pending' | 'processing' | 'completed' | 'failed'
+          zip_key: string | null
+          file_size: number | null
+          download_url: string | null
+          expires_at: string | null
+          created_at: string
+          updated_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          album_id: string
+          photo_ids: string[]
+          include_watermarked?: boolean
+          include_original?: boolean
+          status?: 'pending' | 'processing' | 'completed' | 'failed'
+          zip_key?: string | null
+          file_size?: number | null
+          download_url?: string | null
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          album_id?: string
+          photo_ids?: string[]
+          include_watermarked?: boolean
+          include_original?: boolean
+          status?: 'pending' | 'processing' | 'completed' | 'failed'
+          zip_key?: string | null
+          file_size?: number | null
+          download_url?: string | null
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+      }
+      photo_groups: {
+        Row: {
+          id: string
+          album_id: string
+          name: string
+          description: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          album_id: string
+          name: string
+          description?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          album_id?: string
+          name?: string
+          description?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      photo_group_assignments: {
+        Row: {
+          photo_id: string
+          group_id: string
+          created_at: string
+        }
+        Insert: {
+          photo_id: string
+          group_id: string
+          created_at?: string
+        }
+        Update: {
+          photo_id?: string
+          group_id?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -177,3 +336,18 @@ export type AlbumUpdate = Database['public']['Tables']['albums']['Update']
 export type Photo = Database['public']['Tables']['photos']['Row']
 export type PhotoInsert = Database['public']['Tables']['photos']['Insert']
 export type PhotoUpdate = Database['public']['Tables']['photos']['Update']
+
+export type AlbumTemplate = Database['public']['Tables']['album_templates']['Row']
+export type AlbumTemplateInsert = Database['public']['Tables']['album_templates']['Insert']
+export type AlbumTemplateUpdate = Database['public']['Tables']['album_templates']['Update']
+
+export type PackageDownload = Database['public']['Tables']['package_downloads']['Row']
+export type PackageDownloadInsert = Database['public']['Tables']['package_downloads']['Insert']
+export type PackageDownloadUpdate = Database['public']['Tables']['package_downloads']['Update']
+
+export type PhotoGroup = Database['public']['Tables']['photo_groups']['Row']
+export type PhotoGroupInsert = Database['public']['Tables']['photo_groups']['Insert']
+export type PhotoGroupUpdate = Database['public']['Tables']['photo_groups']['Update']
+
+export type PhotoGroupAssignment = Database['public']['Tables']['photo_group_assignments']['Row']
+export type PhotoGroupAssignmentInsert = Database['public']['Tables']['photo_group_assignments']['Insert']

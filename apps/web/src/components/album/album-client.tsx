@@ -31,6 +31,7 @@ interface PhotosResponse {
 export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumClientProps) {
   const searchParams = useSearchParams()
   const sort = searchParams.get('sort') || album.sort_rule || 'capture_desc'
+  const groupId = searchParams.get('group')
 
   const {
     data,
@@ -39,11 +40,17 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['album-photos', album.slug, sort],
+    queryKey: ['album-photos', album.slug, sort, groupId],
     queryFn: async ({ pageParam = 1 }) => {
-      const res = await fetch(
-        `/api/public/albums/${album.slug}/photos?page=${pageParam}&limit=20&sort=${sort}`
-      )
+      const url = new URL(`/api/public/albums/${album.slug}/photos`, window.location.origin)
+      url.searchParams.set('page', pageParam.toString())
+      url.searchParams.set('limit', '20')
+      url.searchParams.set('sort', sort)
+      if (groupId) {
+        url.searchParams.set('group', groupId)
+      }
+      
+      const res = await fetch(url.toString())
       if (!res.ok) throw new Error('Failed to fetch photos')
       return res.json() as Promise<PhotosResponse>
     },

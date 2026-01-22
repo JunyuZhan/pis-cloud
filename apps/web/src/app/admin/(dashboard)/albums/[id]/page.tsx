@@ -4,6 +4,7 @@ import { ArrowLeft, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { AlbumDetailClient } from '@/components/admin/album-detail-client'
 import { ShareLinkButton } from '@/components/admin/share-link-button'
+import { PackageDownloadButton } from '@/components/admin/package-download-button'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -56,23 +57,29 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
         </Link>
       </div>
 
-      {/* 页面标题 */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-serif font-bold">{album.title}</h1>
-          <p className="text-text-secondary mt-1">
+      {/* 页面标题 - 移动端优化 */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-serif font-bold truncate">{album.title}</h1>
+          <p className="text-text-secondary mt-1 text-sm sm:text-base">
             {album.photo_count} 张照片 · {album.is_public ? '公开' : '私有'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* 打包下载 */}
+          <PackageDownloadButton
+            albumId={id}
+            photoCount={album.photo_count}
+            selectedCount={album.selected_count || 0}
+          />
           {/* 分享链接 */}
           <ShareLinkButton url={shareUrl} albumTitle={album.title} />
           <Link
             href={`/admin/albums/${id}/settings`}
-            className="btn-secondary"
+            className="btn-secondary min-h-[44px] px-3 sm:px-4"
           >
             <Settings className="w-4 h-4" />
-            设置
+            <span className="hidden sm:inline">设置</span>
           </Link>
         </div>
       </div>

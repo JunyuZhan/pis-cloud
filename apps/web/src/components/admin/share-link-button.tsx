@@ -59,6 +59,7 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
       >
         <Share2 className="w-4 h-4" />
         <span className="hidden sm:inline">分享相册</span>
+        <span className="sm:hidden">分享</span>
       </button>
 
       {showDropdown && (

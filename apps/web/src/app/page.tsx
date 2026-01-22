@@ -102,15 +102,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-border">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-text-muted text-sm">
-            © 2024 PIS Photography. 专业级摄影分享系统
-          </p>
-        </div>
-      </footer>
     </main>
   )
 }

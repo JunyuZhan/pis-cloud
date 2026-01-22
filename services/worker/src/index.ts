@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import http from 'http';
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, Queue } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
 import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
 import { 
@@ -11,9 +11,11 @@ import {
   initMultipartUpload,
   uploadPart,
   completeMultipartUpload,
-  abortMultipartUpload
+  abortMultipartUpload,
+  getPresignedGetUrl
 } from './lib/minio.js';
 import { PhotoProcessor } from './processor.js';
+import { PackageCreator } from './package-creator.js';
 
 // 检查必要的环境变量
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -32,6 +34,14 @@ interface PhotoJobData {
   photoId: string;
   albumId: string;
   originalKey: string;
+}
+
+interface PackageJobData {
+  packageId: string;
+  albumId: string;
+  photoIds: string[];
+  includeWatermarked: boolean;
+  includeOriginal: boolean;
 }
 
 console.log('🚀 PIS Worker Starting...');
@@ -61,10 +71,18 @@ const worker = new Worker<PhotoJobData>(
         .eq('id', albumId)
         .single();
 
+      // 构建水印配置（支持新旧格式）
+      const watermarkConfigRaw = (album?.watermark_config as any) || {};
       const watermarkConfig = {
         enabled: album?.watermark_enabled ?? false,
-        type: album?.watermark_type ?? 'text',
-        ...((album?.watermark_config as any) || {}),
+        // 如果包含 watermarks 数组，使用新格式
+        watermarks: watermarkConfigRaw.watermarks || undefined,
+        // 兼容旧格式
+        type: album?.watermark_type ?? watermarkConfigRaw.type ?? 'text',
+        text: watermarkConfigRaw.text,
+        logoUrl: watermarkConfigRaw.logoUrl,
+        opacity: watermarkConfigRaw.opacity ?? 0.5,
+        position: watermarkConfigRaw.position ?? 'center',
       };
 
       // 4. 处理图片 (Sharp)
@@ -144,6 +162,119 @@ worker.on('failed', (job, err) => {
 });
 
 console.log(`✅ Worker listening on queue: ${QUEUE_NAME}`);
+
+// ============================================
+// 打包下载 Worker
+// ============================================
+const packageQueue = new Queue('package-downloads', { connection });
+
+const packageWorker = new Worker<PackageJobData>(
+  'package-downloads',
+  async (job: Job<PackageJobData>) => {
+    const { packageId, albumId, photoIds, includeWatermarked, includeOriginal } = job.data;
+    console.log(`[Package ${job.id}] Processing package ${packageId} for album ${albumId}`);
+
+    try {
+      // 1. 更新状态为 processing
+      await supabase
+        .from('package_downloads')
+        .update({ status: 'processing' })
+        .eq('id', packageId);
+
+      // 2. 获取相册水印配置和标题
+      const { data: album } = await supabase
+        .from('albums')
+        .select('title, watermark_enabled, watermark_type, watermark_config')
+        .eq('id', albumId)
+        .single();
+
+      const watermarkConfig = album?.watermark_enabled
+        ? {
+            enabled: true,
+            type: album.watermark_type || 'text',
+            ...((album.watermark_config as any) || {}),
+          }
+        : undefined;
+
+      // 3. 获取照片信息
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('id, filename, original_key, preview_key')
+        .in('id', photoIds)
+        .eq('status', 'completed');
+
+      if (!photos || photos.length === 0) {
+        throw new Error('No photos found');
+      }
+
+      // 4. 创建 ZIP 包
+      console.time(`[Package ${job.id}] Create ZIP`);
+      const zipBuffer = await PackageCreator.createPackage({
+        photos: photos.map(p => ({
+          id: p.id,
+          filename: p.filename,
+          originalKey: p.original_key,
+          previewKey: p.preview_key,
+        })),
+        albumId,
+        watermarkConfig,
+        includeWatermarked,
+        includeOriginal,
+      });
+      console.timeEnd(`[Package ${job.id}] Create ZIP`);
+
+      // 5. 上传 ZIP 到 MinIO
+      const zipKey = `packages/${albumId}/${packageId}.zip`;
+      const albumTitle = (album as any)?.title || 'photos';
+      console.time(`[Package ${job.id}] Upload ZIP`);
+      await uploadFile(zipKey, zipBuffer, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${albumTitle}.zip"`,
+      });
+      console.timeEnd(`[Package ${job.id}] Upload ZIP`);
+
+      // 6. 生成下载链接（15天有效期）
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 15);
+      const downloadUrl = await getPresignedGetUrl(zipKey, 15 * 24 * 60 * 60); // 15天
+
+      // 7. 更新数据库
+      await supabase
+        .from('package_downloads')
+        .update({
+          status: 'completed',
+          zip_key: zipKey,
+          file_size: zipBuffer.length,
+          download_url: downloadUrl,
+          expires_at: expiresAt.toISOString(),
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', packageId);
+
+      console.log(`[Package ${job.id}] Completed successfully`);
+    } catch (err: any) {
+      console.error(`[Package ${job.id}] Failed:`, err);
+
+      // 更新状态为 failed
+      await supabase
+        .from('package_downloads')
+        .update({ status: 'failed' })
+        .eq('id', packageId);
+
+      throw err;
+    }
+  },
+  {
+    connection,
+    concurrency: 2, // 打包任务并发数较低，因为资源消耗大
+  }
+);
+
+packageWorker.on('failed', (job, err) => {
+  console.error(`❌ Package job ${job?.id} failed:`, err.message);
+});
+
+console.log(`✅ Package worker listening on queue: package-downloads`);
 
 // ============================================
 // HTTP API 服务器 (用于接收上传请求)

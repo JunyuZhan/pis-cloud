@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, FolderOpen } from 'lucide-react'
+import { Plus, FolderOpen, Trash2, Check, Loader2, Copy } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import type { Album } from '@/types/database'
+import { cn } from '@/lib/utils'
 
 export type AlbumWithCover = Album & {
   cover_thumb_key?: string | null
@@ -17,8 +19,98 @@ interface AlbumListProps {
 }
 
 export function AlbumList({ initialAlbums }: AlbumListProps) {
-  const [albums] = useState<AlbumWithCover[]>(initialAlbums)
+  const router = useRouter()
+  const [albums, setAlbums] = useState<AlbumWithCover[]>(initialAlbums)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setAlbums(initialAlbums)
+  }, [initialAlbums])
+
+  const toggleSelection = (albumId: string) => {
+    const newSelected = new Set(selectedAlbums)
+    if (newSelected.has(albumId)) {
+      newSelected.delete(albumId)
+    } else {
+      newSelected.add(albumId)
+    }
+    setSelectedAlbums(newSelected)
+  }
+
+  const clearSelection = () => {
+    setSelectedAlbums(new Set())
+    setSelectionMode(false)
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedAlbums.size === 0) return
+
+    if (!confirm(`确定要删除选中的 ${selectedAlbums.size} 个相册吗？此操作不可恢复。`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch('/api/admin/albums/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumIds: Array.from(selectedAlbums),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('删除失败')
+      }
+
+      const result = await response.json()
+      alert(result.message || '删除成功')
+
+      // 更新本地状态
+      setAlbums((prev) => prev.filter((a) => !selectedAlbums.has(a.id)))
+      clearSelection()
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert('删除失败，请重试')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleDuplicate = async (albumId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!confirm('确定要复制这个相册吗？将复制所有配置，但不包含照片。')) {
+      return
+    }
+
+    setDuplicatingId(albumId)
+    try {
+      const response = await fetch(`/api/admin/albums/${albumId}/duplicate`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('复制失败')
+      }
+
+      const result = await response.json()
+      alert('相册已复制')
+      router.refresh()
+      router.push(`/admin/albums/${result.id}`)
+    } catch (error) {
+      console.error(error)
+      alert('复制失败，请重试')
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
 
   return (
     <div>
@@ -30,20 +122,63 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
             管理您的所有摄影作品集
           </p>
         </div>
-        <button
-          onClick={() => setCreateDialogOpen(true)}
-          className="btn-primary w-full md:w-auto"
-        >
-          <Plus className="w-4 h-4" />
-          新建相册
-        </button>
+        <div className="flex items-center gap-3">
+          {selectionMode ? (
+            <>
+              <span className="text-sm text-text-secondary">
+                已选择 {selectedAlbums.size} 个
+              </span>
+              <button onClick={clearSelection} className="btn-ghost text-sm">
+                取消
+              </button>
+              {selectedAlbums.size > 0 && (
+                <button
+                  onClick={handleBatchDelete}
+                  disabled={isDeleting}
+                  className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  删除
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setSelectionMode(true)}
+                className="btn-secondary w-full md:w-auto"
+              >
+                批量管理
+              </button>
+              <button
+                onClick={() => setCreateDialogOpen(true)}
+                className="btn-primary w-full md:w-auto"
+              >
+                <Plus className="w-4 h-4" />
+                新建相册
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 相册网格 */}
       {albums.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {albums.map((album) => (
-            <AlbumCard key={album.id} album={album} />
+            <AlbumCard
+              key={album.id}
+              album={album}
+              selectionMode={selectionMode}
+              isSelected={selectedAlbums.has(album.id)}
+              onToggleSelection={() => toggleSelection(album.id)}
+              onDuplicate={handleDuplicate}
+              isDuplicating={duplicatingId === album.id}
+            />
           ))}
         </div>
       ) : (
@@ -73,7 +208,21 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   )
 }
 
-function AlbumCard({ album }: { album: AlbumWithCover }) {
+function AlbumCard({
+  album,
+  selectionMode,
+  isSelected,
+  onToggleSelection,
+  onDuplicate,
+  isDuplicating,
+}: {
+  album: AlbumWithCover
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelection?: () => void
+  onDuplicate?: (albumId: string, e: React.MouseEvent) => void
+  isDuplicating?: boolean
+}) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
   const coverUrl = album.cover_thumb_key
     ? `${mediaUrl}/${album.cover_thumb_key}`
@@ -81,11 +230,36 @@ function AlbumCard({ album }: { album: AlbumWithCover }) {
     ? `${mediaUrl}/thumbs/${album.id}/${album.cover_photo_id}.jpg`
     : null
 
-  return (
-    <Link
-      href={`/admin/albums/${album.id}`}
-      className="card group hover:border-border-light transition-all"
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionMode && onToggleSelection) {
+      e.preventDefault()
+      onToggleSelection()
+    }
+  }
+
+  const CardContent = (
+    <div
+      className={cn(
+        'card group transition-all',
+        selectionMode ? 'cursor-pointer' : 'hover:border-border-light',
+        isSelected && 'ring-2 ring-accent'
+      )}
+      onClick={handleClick}
     >
+      {/* 选择指示器 */}
+      {selectionMode && (
+        <div
+          className={cn(
+            'absolute top-2 right-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors',
+            isSelected
+              ? 'bg-accent border-accent'
+              : 'border-white/50 bg-black/30'
+          )}
+        >
+          {isSelected && <Check className="w-4 h-4 text-background" />}
+        </div>
+      )}
+
       {/* 封面图 */}
       <div className="aspect-[4/3] bg-surface rounded-lg mb-4 overflow-hidden relative">
         {coverUrl ? (
@@ -93,7 +267,10 @@ function AlbumCard({ album }: { album: AlbumWithCover }) {
             src={coverUrl}
             alt={album.title}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className={cn(
+              'object-cover transition-transform duration-300',
+              !selectionMode && 'group-hover:scale-105'
+            )}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -101,6 +278,24 @@ function AlbumCard({ album }: { album: AlbumWithCover }) {
           </div>
         )}
       </div>
+
+      {/* 操作按钮（悬停显示） */}
+      {!selectionMode && (
+        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+          <button
+            onClick={(e) => onDuplicate?.(album.id, e)}
+            disabled={isDuplicating}
+            className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
+            title="复制相册配置"
+          >
+            {isDuplicating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 相册信息 */}
       <div className="flex items-start justify-between">
@@ -127,6 +322,12 @@ function AlbumCard({ album }: { album: AlbumWithCover }) {
           </p>
         </div>
       </div>
-    </Link>
+    </div>
   )
+
+  if (selectionMode) {
+    return CardContent
+  }
+
+  return <Link href={`/admin/albums/${album.id}`}>{CardContent}</Link>
 }
