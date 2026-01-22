@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Upload, Trash2, Check, Loader2 } from 'lucide-react'
@@ -22,11 +22,38 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [selectionMode, setSelectionMode] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [processingCount, setProcessingCount] = useState(0)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
   useEffect(() => {
     setPhotos(initialPhotos)
+    // 检查是否有处理中的照片
+    const pending = initialPhotos.filter(p => p.status === 'pending' || p.status === 'processing')
+    setProcessingCount(pending.length)
   }, [initialPhotos])
+
+  // 轮询检查处理中的照片
+  useEffect(() => {
+    if (processingCount > 0) {
+      // 开始轮询
+      pollIntervalRef.current = setInterval(() => {
+        router.refresh()
+      }, 3000) // 每 3 秒刷新一次
+    } else {
+      // 停止轮询
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+    }
+  }, [processingCount, router])
 
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
 
@@ -137,6 +164,16 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
         </div>
       )}
 
+      {/* 处理状态提示 */}
+      {processingCount > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg text-sm">
+          <Loader2 className="w-4 h-4 text-accent animate-spin" />
+          <span className="text-text-secondary">
+            {processingCount} 张照片正在处理中，将自动刷新...
+          </span>
+        </div>
+      )}
+
       {/* 照片网格 */}
       {photos.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -164,7 +201,8 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="w-6 h-6 text-accent animate-spin" />
                   <span className="text-text-muted text-xs">处理中...</span>
                 </div>
               )}
