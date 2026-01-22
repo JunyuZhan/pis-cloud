@@ -30,7 +30,6 @@ export function PhotoLightbox({
   onSelectChange,
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
-  const [mounted, setMounted] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(index)
   const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
@@ -39,13 +38,8 @@ export function PhotoLightbox({
     })
     return map
   })
-  // 跟踪哪些照片已加载原图
+  // 跟踪哪些照片已加载原图（用户点击"查看原图"后）
   const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
-
-  // 确保只在客户端挂载后渲染，避免 hydration 错误
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // 同步外部传入的 index 到内部 state
   useEffect(() => {
@@ -56,10 +50,9 @@ export function PhotoLightbox({
 
   const currentPhoto = photos[currentIndex] || photos[0]
 
-  // 构建 slides，默认使用预览图，已加载原图的则使用原图
-  // 只在客户端挂载后构建，避免 hydration 错误
+  // 构建 slides，默认使用预览图，点击"查看原图"后才使用原图
   const slides = useMemo(() => {
-    if (!mounted || photos.length === 0) {
+    if (photos.length === 0) {
       return []
     }
     
@@ -88,22 +81,22 @@ export function PhotoLightbox({
         .filter(Boolean)
         .join(' · ')
 
-      // 如果已加载原图，使用原图；否则使用预览图
-      const imageKey = loadedOriginals.has(photo.id) 
-        ? photo.original_key 
-        : (photo.preview_key || photo.thumb_key || photo.original_key)
-
-      // 格式化日期时间（使用固定格式，避免服务端和客户端不一致）
+      // 格式化日期时间（使用固定格式）
       let formattedDateTime: string | undefined
       if (dateTime) {
         try {
           const date = new Date(dateTime)
-          // 使用固定格式：YYYY-MM-DD HH:mm:ss
           formattedDateTime = date.toISOString().replace('T', ' ').slice(0, 19)
         } catch {
           formattedDateTime = undefined
         }
       }
+
+      // 默认使用预览图，如果用户点击了"查看原图"才使用原图
+      const useOriginal = loadedOriginals.has(photo.id)
+      const imageKey = useOriginal && photo.original_key
+        ? photo.original_key
+        : (photo.preview_key || photo.thumb_key || photo.original_key)
 
       return {
         src: `${mediaUrl}/${imageKey}`,
@@ -111,35 +104,28 @@ export function PhotoLightbox({
         height: photo.height || 0,
         title: photo.filename,
         description: exifString || formattedDateTime,
-        // 保存photo id和original_key用于后续加载原图
         photoId: photo.id,
         originalKey: photo.original_key,
         previewKey: photo.preview_key,
       }
     })
-  }, [photos, loadedOriginals, mediaUrl, mounted])
+  }, [photos, loadedOriginals, mediaUrl])
 
   // 加载当前照片的原图
   const handleLoadOriginal = useCallback(() => {
-    if (!currentPhoto || !mounted) return
+    if (!currentPhoto) return
     
-    // 如果已经有预览图，才需要加载原图
-    if (currentPhoto.preview_key && currentPhoto.preview_key !== currentPhoto.original_key) {
+    // 如果照片有原图且与原图不同，则加载原图
+    if (currentPhoto.original_key && 
+        currentPhoto.preview_key && 
+        currentPhoto.preview_key !== currentPhoto.original_key) {
       setLoadedOriginals((prev) => new Set(prev).add(currentPhoto.id))
     }
-  }, [currentPhoto, mounted])
+  }, [currentPhoto])
 
-  // 检查当前照片是否已加载原图
-  // 如果照片有预览图且预览图与原图不同，且还没有加载过原图，则显示"查看原图"按钮
-  const isOriginalLoaded = currentPhoto && mounted
-    ? loadedOriginals.has(currentPhoto.id) || 
-      !currentPhoto.preview_key || 
-      currentPhoto.preview_key === currentPhoto.original_key ||
-      !currentPhoto.original_key
-    : false
-  
   // 检查是否需要显示"查看原图"按钮
-  const showLoadOriginalButton = currentPhoto && mounted && 
+  // 条件：有预览图、有原图、预览图与原图不同、且未加载过原图
+  const showLoadOriginalButton = currentPhoto && 
     currentPhoto.preview_key && 
     currentPhoto.original_key &&
     currentPhoto.preview_key !== currentPhoto.original_key &&
@@ -147,7 +133,7 @@ export function PhotoLightbox({
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
-    if (!currentPhoto || !mounted) return
+    if (!currentPhoto) return
 
     try {
       const res = await fetch(`/api/public/download/${currentPhoto.id}`)
@@ -169,11 +155,11 @@ export function PhotoLightbox({
     } catch {
       alert('下载失败，请重试')
     }
-  }, [currentPhoto, mounted])
+  }, [currentPhoto])
 
   // 选片功能
   const handleSelect = useCallback(async () => {
-    if (!currentPhoto || !mounted) return
+    if (!currentPhoto) return
 
     const newSelected = !selectedMap[currentPhoto.id]
     setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: newSelected }))
@@ -194,16 +180,10 @@ export function PhotoLightbox({
     } catch {
       setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: !newSelected }))
     }
-  }, [currentPhoto, selectedMap, onSelectChange, mounted])
-
-  // 防止 hydration 错误：只在客户端挂载后且打开时才渲染 Lightbox
-  // yet-another-react-lightbox 不支持 SSR，必须完全在客户端渲染
-  if (!mounted) {
-    return null
-  }
+  }, [currentPhoto, selectedMap, onSelectChange])
 
   // 如果未打开或没有照片，不渲染
-  if (!open || photos.length === 0 || slides.length === 0) {
+  if (!open || photos.length === 0) {
     return null
   }
 
