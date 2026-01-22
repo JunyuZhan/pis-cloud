@@ -74,18 +74,36 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
       const { photoId, uploadUrl, originalKey, albumId: respAlbumId } = await credRes.json()
 
-      // 2. 直接上传到 MinIO (Presigned URL)
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: uploadFile.file,
-        headers: {
-          'Content-Type': uploadFile.file.type,
-        },
-      })
+      // 2. 使用 XMLHttpRequest 上传以获取进度
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100)
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadFile.id ? { ...f, progress } : f
+              )
+            )
+          }
+        }
 
-      if (!uploadRes.ok) {
-        throw new Error('上传失败')
-      }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error('上传失败'))
+          }
+        }
+
+        xhr.onerror = () => reject(new Error('网络错误'))
+        xhr.ontimeout = () => reject(new Error('上传超时'))
+
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', uploadFile.file.type)
+        xhr.send(uploadFile.file)
+      })
 
       // 3. 通知后端触发处理
       await fetch('/api/admin/photos/process', {
@@ -225,13 +243,27 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
                 {/* 文件信息 */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.file.name}</p>
-                  <p className="text-xs text-text-muted">
-                    {formatFileSize(file.file.size)}
-                    {file.error && (
-                      <span className="text-red-400 ml-2">{file.error}</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-medium truncate">{file.file.name}</p>
+                    {file.status === 'uploading' && (
+                      <span className="text-xs text-accent ml-2">{file.progress}%</span>
                     )}
-                  </p>
+                  </div>
+                  {file.status === 'uploading' ? (
+                    <div className="w-full h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-accent transition-all duration-300 ease-out"
+                        style={{ width: `${file.progress}%` }}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted">
+                      {formatFileSize(file.file.size)}
+                      {file.error && (
+                        <span className="text-red-400 ml-2">{file.error}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 {/* 移除按钮 */}
