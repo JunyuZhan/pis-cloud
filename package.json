@@ -1,0 +1,26 @@
+{
+  "name": "pis",
+  "version": "1.0.0",
+  "private": true,
+  "description": "专业级私有化即时摄影分享系统 (Private Instant photo Sharing)",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "setup": "bash scripts/setup.sh",
+    "docker:up": "cd docker && docker-compose up -d",
+    "docker:down": "cd docker && docker-compose down",
+    "docker:logs": "cd docker && docker-compose logs -f",
+    "db:migrate": "cd database && pnpm migrate",
+    "db:types": "cd apps/web && pnpm supabase:types"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.0",
+    "turbo": "^2.3.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

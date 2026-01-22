@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 5 5 5;
+    --surface: 10 10 10;
+    --accent: 212 175 55;
+  }
+
+  body {
+    @apply bg-background text-text-primary antialiased;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-light;
+  }
+}
+
+@layer components {
+  /* 毛玻璃效果 */
+  .glass {
+    @apply bg-surface/80 backdrop-blur-xl border border-border;
+  }
+
+  /* 金色渐变按钮 */
+  .btn-accent {
+    @apply bg-gradient-to-r from-accent to-yellow-500 text-background font-semibold 
+           px-6 py-2 rounded-lg transition-all duration-200
+           hover:shadow-lg hover:shadow-accent/25 hover:scale-[1.02]
+           active:scale-[0.98];
+  }
+
+  /* 基础按钮 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 
+           font-medium transition-all duration-200 disabled:opacity-50 
+           disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-background hover:bg-accent-hover;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-elevated text-text-primary border border-border 
+           hover:bg-surface hover:border-border-light;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-surface;
+  }
+
+  /* 输入框 */
+  .input {
+    @apply w-full px-4 py-2 bg-surface-elevated border border-border rounded-lg
+           text-text-primary placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
+           transition-all duration-200;
+  }
+
+  /* 卡片 */
+  .card {
+    @apply bg-surface-elevated border border-border rounded-xl p-6;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
