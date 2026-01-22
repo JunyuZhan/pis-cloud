@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation'
 import { Upload, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { cn, formatFileSize } from '@/lib/utils'
 
+// 格式化网速
+function formatSpeed(bytesPerSecond: number): string {
+  if (bytesPerSecond >= 1024 * 1024) {
+    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`
+  } else if (bytesPerSecond >= 1024) {
+    return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`
+  }
+  return `${bytesPerSecond.toFixed(0)} B/s`
+}
+
 interface PhotoUploaderProps {
   albumId: string
   onComplete?: () => void
@@ -15,6 +25,7 @@ interface UploadFile {
   file: File
   status: 'pending' | 'uploading' | 'completed' | 'failed'
   progress: number
+  speed?: number // bytes per second
   error?: string
 }
 
@@ -77,13 +88,30 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 2. 使用 XMLHttpRequest 上传以获取进度
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
+        const startTime = Date.now()
+        let lastLoaded = 0
+        let lastTime = startTime
         
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             const progress = Math.round((event.loaded / event.total) * 100)
+            const now = Date.now()
+            const timeDiff = (now - lastTime) / 1000 // seconds
+            
+            // 计算瞬时速度 (每 200ms 更新一次)
+            let speed = 0
+            if (timeDiff >= 0.2) {
+              const bytesDiff = event.loaded - lastLoaded
+              speed = bytesDiff / timeDiff
+              lastLoaded = event.loaded
+              lastTime = now
+            }
+            
             setFiles((prev) =>
               prev.map((f) =>
-                f.id === uploadFile.id ? { ...f, progress } : f
+                f.id === uploadFile.id 
+                  ? { ...f, progress, ...(speed > 0 ? { speed } : {}) } 
+                  : f
               )
             )
           }
@@ -246,7 +274,12 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-medium truncate">{file.file.name}</p>
                     {file.status === 'uploading' && (
-                      <span className="text-xs text-accent ml-2">{file.progress}%</span>
+                      <div className="flex items-center gap-2 ml-2 shrink-0">
+                        <span className="text-xs text-accent">{file.progress}%</span>
+                        {file.speed && (
+                          <span className="text-xs text-text-muted">{formatSpeed(file.speed)}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                   {file.status === 'uploading' ? (

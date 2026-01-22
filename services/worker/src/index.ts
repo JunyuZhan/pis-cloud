@@ -194,6 +194,8 @@ const server = http.createServer(async (req, res) => {
     const key = url.searchParams.get('key');
     const contentType = req.headers['content-type'] || 'application/octet-stream';
     
+    console.log(`[Upload] Received upload request for key: ${key}`);
+    
     if (!key) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Missing key parameter' }));
@@ -205,7 +207,9 @@ const server = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
+        console.log(`[Upload] Uploading ${buffer.length} bytes to MinIO: ${key}`);
         await uploadFile(key, buffer, { 'Content-Type': contentType });
+        console.log(`[Upload] Successfully uploaded: ${key}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, key }));
       } catch (err: any) {

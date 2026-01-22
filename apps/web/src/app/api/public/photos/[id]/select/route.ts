@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -15,6 +15,8 @@ interface RouteParams {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
+    // 使用 Admin Client 绕过 RLS 进行更新，同时在代码层面严格控制权限
+    const supabaseAdmin = createAdminClient()
     const supabase = await createClient()
 
     // 解析请求体
@@ -29,6 +31,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 首先验证照片存在且所属相册未删除
+    // 这里可以使用普通客户端利用 RLS 进行安全查询，确保用户只能看到该看到的数据
     const { data: photo, error: photoError } = await supabase
       .from('photos')
       .select(`
@@ -51,7 +54,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 更新选中状态
-    const { data: updatedPhoto, error: updateError } = await supabase
+    // 使用 Admin Client 执行更新操作，因为我们已经移除了匿名用户的 UPDATE 权限
+    const { data: updatedPhoto, error: updateError } = await supabaseAdmin
       .from('photos')
       .update({ is_selected: isSelected })
       .eq('id', id)
