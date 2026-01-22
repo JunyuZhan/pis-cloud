@@ -32,6 +32,21 @@ export function AlbumHero({ album, coverPhoto }: AlbumHeroProps) {
     })
   }
 
+  // 格式化日期时间（用于活动时间）
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleString('zh-CN', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const eventDate = (album as any).event_date
+  const location = (album as any).location
+
   // 模拟浏览量（后续可替换为真实数据）
   const viewCount = (album as any).view_count || Math.floor(Math.random() * 500) + 100
   const selectedCount = (album as any).selected_count || 0
@@ -116,25 +131,32 @@ export function AlbumHero({ album, coverPhoto }: AlbumHeroProps) {
             transition={{ delay: 0.4 }}
             className="flex flex-wrap items-center gap-4 md:gap-6 text-white/80"
           >
-            {/* 日期 */}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span className="text-sm">{formatDate(album.created_at)}</span>
-            </div>
+            {/* 活动时间（优先显示，如果没有则显示创建时间） */}
+            {eventDate ? (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm">{formatDateTime(eventDate)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm">{formatDate(album.created_at)}</span>
+              </div>
+            )}
+
+            {/* 活动地点 */}
+            {location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm">{location}</span>
+              </div>
+            )}
 
             {/* 照片数量 */}
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               <span className="text-sm">{album.photo_count} 张照片</span>
             </div>
-
-            {/* 地点（如果有） */}
-            {album.description && album.description.includes('地点') && (
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span className="text-sm">活动现场</span>
-              </div>
-            )}
           </motion.div>
         </div>
       </div>

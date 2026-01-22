@@ -7,6 +7,7 @@ import { AlbumInfoBar } from '@/components/album/album-info-bar'
 import { AlbumStickyNav } from '@/components/album/album-sticky-nav'
 import { AlbumShareButton } from '@/components/album/album-share-button'
 import { PhotoGroupFilter } from '@/components/album/photo-group-filter'
+import { FloatingActions } from '@/components/album/floating-actions'
 import { type SortRule } from '@/components/album/sort-toggle'
 import { type LayoutMode } from '@/components/album/layout-toggle'
 import type { Database } from '@/types/database'
@@ -224,16 +225,6 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
             albumId={album.id}
             albumSlug={album.slug}
             selectedGroupId={group || null}
-            onGroupSelect={(groupId) => {
-              // 客户端导航，更新 URL 参数
-              const url = new URL(window.location.href)
-              if (groupId) {
-                url.searchParams.set('group', groupId)
-              } else {
-                url.searchParams.delete('group')
-              }
-              window.location.href = url.toString()
-            }}
           />
         )}
 
@@ -250,6 +241,9 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
         {/* 照片列表 */}
         <AlbumClient album={album} initialPhotos={photos || []} layout={currentLayout} />
       </div>
+
+      {/* 浮动操作按钮组 */}
+      <FloatingActions album={album} currentSort={currentSort} />
     </main>
   )
 }

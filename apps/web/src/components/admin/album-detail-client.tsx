@@ -135,13 +135,30 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       return
     }
 
+    await deletePhotos(Array.from(selectedPhotos))
+  }
+
+  const handleDeletePhoto = async (photoId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
+    if (!confirm('确定要删除这张照片吗？此操作不可恢复。')) {
+      return
+    }
+
+    await deletePhotos([photoId])
+  }
+
+  const deletePhotos = async (photoIds: string[]) => {
     setIsDeleting(true)
     try {
       const response = await fetch(`/api/admin/albums/${album.id}/photos`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          photoIds: Array.from(selectedPhotos),
+          photoIds,
         }),
       })
 
@@ -153,8 +170,10 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       alert(result.message || '删除成功')
       
       // 更新本地状态
-      setPhotos((prev) => prev.filter((p) => !selectedPhotos.has(p.id)))
-      clearSelection()
+      setPhotos((prev) => prev.filter((p) => !photoIds.includes(p.id)))
+      if (photoIds.length === selectedPhotos.size) {
+        clearSelection()
+      }
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -382,15 +401,27 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
-              {/* 设置封面按钮 (悬停显示) */}
-              {!selectionMode && coverPhotoId !== photo.id && photo.thumb_key && (
-                <button
-                  onClick={(e) => handleSetCover(photo.id, e)}
-                  className="absolute bottom-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 px-2 py-1 rounded-full text-xs text-white flex items-center gap-1"
-                >
-                  <ImageIcon className="w-3 h-3" />
-                  设为封面
-                </button>
+              {/* 操作按钮 (悬停显示) */}
+              {!selectionMode && photo.thumb_key && (
+                <div className="absolute bottom-2 left-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                  {coverPhotoId !== photo.id && (
+                    <button
+                      onClick={(e) => handleSetCover(photo.id, e)}
+                      className="flex-1 bg-black/60 hover:bg-black/80 px-2 py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1"
+                    >
+                      <ImageIcon className="w-3 h-3" />
+                      设为封面
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => handleDeletePhoto(photo.id, e)}
+                    className="bg-red-500/80 hover:bg-red-600 px-2 py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1 min-w-[60px]"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    删除
+                  </button>
+                </div>
               )}
 
               {/* 选择指示器 (管理员批量操作) */}

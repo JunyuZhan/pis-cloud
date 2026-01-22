@@ -66,6 +66,8 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const [formData, setFormData] = useState({
     title: album.title,
     description: album.description || '',
+    event_date: (album as any).event_date ? new Date((album as any).event_date).toISOString().slice(0, 16) : '',
+    location: (album as any).location || '',
     is_public: album.is_public ?? false,
     // 访问控制
     password: (album as any).password || '',
@@ -112,6 +114,8 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
       // 准备提交数据，将 watermarks 数组转换为正确的格式
       const submitData = {
         ...formData,
+        event_date: formData.event_date || null,
+        location: formData.location.trim() || null,
         watermark_config: formData.watermark_config.watermarks
           ? { watermarks: formData.watermark_config.watermarks }
           : formData.watermark_config,
@@ -162,6 +166,35 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
             onChange={(e) => handleChange('description', e.target.value)}
             className="input min-h-[100px] resize-none"
           />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              活动时间
+            </label>
+            <input
+              type="datetime-local"
+              value={formData.event_date}
+              onChange={(e) => handleChange('event_date', e.target.value)}
+              className="input"
+            />
+            <p className="text-xs text-text-muted mt-1">实际活动日期（可选）</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              活动地点
+            </label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => handleChange('location', e.target.value)}
+              className="input"
+              placeholder="例如：北京国际会议中心"
+            />
+            <p className="text-xs text-text-muted mt-1">活动举办地点（可选）</p>
+          </div>
         </div>
       </section>
 

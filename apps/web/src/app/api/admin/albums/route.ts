@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
     const {
       title,
       description,
+      event_date,
+      location,
       is_public,
       layout,
       sort_rule,
@@ -151,6 +153,8 @@ export async function POST(request: NextRequest) {
     const insertData: AlbumInsert = {
       title: title.trim(),
       description: description?.trim() || null,
+      event_date: event_date || null,
+      location: location?.trim() || null,
       is_public: is_public ?? false,
       layout: layout || 'masonry',
       sort_rule: sort_rule || 'capture_desc',

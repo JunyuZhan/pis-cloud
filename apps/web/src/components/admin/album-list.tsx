@@ -177,7 +177,9 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
               isSelected={selectedAlbums.has(album.id)}
               onToggleSelection={() => toggleSelection(album.id)}
               onDuplicate={handleDuplicate}
+              onDelete={handleDeleteAlbum}
               isDuplicating={duplicatingId === album.id}
+              isDeleting={isDeleting}
             />
           ))}
         </div>
@@ -214,14 +216,18 @@ function AlbumCard({
   isSelected,
   onToggleSelection,
   onDuplicate,
+  onDelete,
   isDuplicating,
+  isDeleting,
 }: {
   album: AlbumWithCover
   selectionMode?: boolean
   isSelected?: boolean
   onToggleSelection?: () => void
   onDuplicate?: (albumId: string, e: React.MouseEvent) => void
+  onDelete?: (albumId: string, e: React.MouseEvent) => void
   isDuplicating?: boolean
+  isDeleting?: boolean
 }) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
   const coverUrl = album.cover_thumb_key
@@ -294,20 +300,50 @@ function AlbumCard({
               <Copy className="w-4 h-4" />
             )}
           </button>
+          <button
+            onClick={(e) => onDelete?.(album.id, e)}
+            disabled={isDeleting}
+            className="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
+            title="删除相册"
+          >
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </button>
         </div>
       )}
 
       {/* 相册信息 */}
       <div className="flex items-start justify-between">
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="font-medium text-lg mb-1 group-hover:text-accent transition-colors">
             {album.title}
           </h3>
-          <p className="text-text-secondary text-sm">
-            {album.photo_count} 张照片
-          </p>
+          <div className="space-y-1">
+            <p className="text-text-secondary text-sm">
+              {album.photo_count} 张照片
+            </p>
+            {(album as any).event_date && (
+              <p className="text-text-muted text-xs">
+                活动时间：{new Date((album as any).event_date).toLocaleString('zh-CN', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            )}
+            {(album as any).location && (
+              <p className="text-text-muted text-xs">
+                地点：{(album as any).location}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0 ml-4">
           <span
             className={`inline-block px-2 py-1 text-xs rounded-full ${
               album.is_public

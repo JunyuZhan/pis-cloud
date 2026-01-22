@@ -113,6 +113,22 @@
 -- 4. 添加相册模板功能（可选，如需使用模板功能）
 -- 复制 database/migrations/004_album_templates.sql 的全部内容
 -- 点击 Run 执行
+
+-- 5. 添加打包下载功能（可选，如需使用打包下载）
+-- 复制 database/migrations/005_package_downloads.sql 的全部内容
+-- 点击 Run 执行
+
+-- 6. 添加相册分享配置（可选，如需使用微信分享优化）
+-- 复制 database/migrations/006_album_share_config.sql 的全部内容
+-- 点击 Run 执行
+
+-- 7. 添加相册分组功能（可选，如需使用照片分组）
+-- 复制 database/migrations/007_photo_groups.sql 的全部内容
+-- 点击 Run 执行
+
+-- 8. 添加相册活动元数据（可选，如需使用活动时间和地点）
+-- 复制 database/migrations/008_album_event_metadata.sql 的全部内容
+-- 点击 Run 执行
 ```
 
 **注意**：迁移文件必须按顺序执行，后续迁移依赖前面的表结构。

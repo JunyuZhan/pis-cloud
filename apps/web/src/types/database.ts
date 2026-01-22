@@ -40,6 +40,9 @@ export interface Database {
           share_title: string | null
           share_description: string | null
           share_image_url: string | null
+          // 活动元数据
+          event_date: string | null
+          location: string | null
           // 统计
           photo_count: number
           selected_count: number
@@ -69,6 +72,8 @@ export interface Database {
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null
+          event_date?: string | null
+          location?: string | null
           photo_count?: number
           selected_count?: number
           view_count?: number
@@ -96,6 +101,8 @@ export interface Database {
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null
+          event_date?: string | null
+          location?: string | null
           photo_count?: number
           selected_count?: number
           view_count?: number

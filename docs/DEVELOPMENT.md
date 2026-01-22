@@ -318,6 +318,144 @@ database/migrations/004_album_templates.sql
 
 ---
 
+### 相册活动元数据
+
+支持为相册添加活动时间和地点信息，方便访客了解活动详情。
+
+#### 数据库迁移
+
+运行以下迁移文件以启用活动元数据功能：
+
+```bash
+# 在 Supabase Dashboard 的 SQL Editor 中执行
+database/migrations/008_album_event_metadata.sql
+```
+
+#### 新增字段
+
+- `event_date` (TIMESTAMPTZ): 活动时间（实际活动日期，区别于相册创建时间）
+- `location` (TEXT): 活动地点
+
+#### 使用方式
+
+1. **创建相册时设置**：
+   - 在创建相册对话框中填写"活动时间"和"活动地点"
+   - 活动时间为可选，支持日期时间选择器
+   - 活动地点为可选文本输入
+
+2. **编辑相册设置**：
+   - 在相册设置页面的"基本信息"部分
+   - 可以修改活动时间和地点
+   - 保存后立即生效
+
+3. **访客查看**：
+   - 在相册封面 Hero 区域显示活动时间和地点
+   - 如果设置了活动时间，优先显示活动时间而非创建时间
+   - 地点信息以图标形式展示
+
+#### 代码位置
+
+- 数据库迁移：`database/migrations/008_album_event_metadata.sql`
+- 类型定义：`apps/web/src/types/database.ts` (albums 表)
+- 创建表单：`apps/web/src/components/admin/create-album-dialog.tsx`
+- 设置表单：`apps/web/src/components/admin/album-settings-form.tsx`
+- 展示组件：`apps/web/src/components/album/album-hero.tsx`
+- 列表展示：`apps/web/src/components/admin/album-list.tsx`
+- API 路由：`apps/web/src/app/api/admin/albums/route.ts` (POST)
+
+---
+
+### 照片和相册删除功能
+
+支持删除单张照片和单个相册，提供更灵活的内容管理。
+
+#### 照片删除
+
+**功能说明**：
+- 支持在相册详情页删除单张照片
+- 支持批量删除多张照片（已有功能）
+- 删除操作不可恢复，需确认
+
+**使用方式**：
+1. **单张删除**：
+   - 在相册详情页，鼠标悬停在照片上
+   - 点击照片底部的"删除"按钮
+   - 确认后删除该照片
+
+2. **批量删除**：
+   - 点击"批量管理"按钮
+   - 选择要删除的照片
+   - 点击"删除选中照片"按钮
+   - 确认后批量删除
+
+**API 端点**：
+- `DELETE /api/admin/albums/[id]/photos` - 批量删除照片
+
+**代码位置**：
+- UI 组件：`apps/web/src/components/admin/album-detail-client.tsx`
+- API 路由：`apps/web/src/app/api/admin/albums/[id]/photos/route.ts`
+
+#### 相册删除
+
+**功能说明**：
+- 支持在相册列表页删除单个相册
+- 支持批量删除多个相册（已有功能）
+- 删除为软删除（设置 `deleted_at` 字段）
+
+**使用方式**：
+1. **单张删除**：
+   - 在相册列表页，鼠标悬停在相册卡片上
+   - 点击右上角的删除按钮（垃圾桶图标）
+   - 确认后删除该相册
+
+2. **批量删除**：
+   - 点击"批量管理"按钮
+   - 选择要删除的相册
+   - 点击"删除"按钮
+   - 确认后批量删除
+
+**API 端点**：
+- `DELETE /api/admin/albums/[id]` - 删除单个相册（软删除）
+- `DELETE /api/admin/albums/batch` - 批量删除相册
+
+**代码位置**：
+- UI 组件：`apps/web/src/components/admin/album-list.tsx`
+- API 路由：`apps/web/src/app/api/admin/albums/[id]/route.ts`
+
+**注意事项**：
+- 删除相册会同时删除相册中的所有照片
+- 删除操作会设置 `deleted_at` 字段，数据不会物理删除
+- 已删除的相册不会在列表中显示
+
+---
+
+### 照片查看客户端错误修复
+
+修复了访客相册页面中照片分组筛选器的客户端错误。
+
+#### 问题描述
+
+在服务端组件中使用了 `window.location.href`，导致客户端渲染错误。
+
+#### 修复方案
+
+将分组筛选器的导航逻辑移到客户端组件中，使用 Next.js 的 `useRouter` 和 `useSearchParams` 处理 URL 参数更新。
+
+#### 代码变更
+
+- 文件：`apps/web/src/components/album/photo-group-filter.tsx`
+- 变更：添加 `useRouter` 和 `useSearchParams` hooks，实现客户端导航
+- 文件：`apps/web/src/app/album/[slug]/page.tsx`
+- 变更：移除服务端组件中的 `window` 对象使用
+
+#### 影响范围
+
+- ✅ 修复了照片查看页面的客户端错误
+- ✅ 分组筛选功能正常工作
+- ✅ URL 参数更新正常
+
+---
+
 ## 代码规范
 
 ### TypeScript
@@ -561,8 +699,12 @@ pnpm dev
 - 📱 微信分享优化设置
 - 📋 相册复制功能说明
 - 🎯 相册模板管理
+- 📅 相册活动元数据（活动时间、地点）
+- 🗑️ 照片和相册删除功能
 - 🔄 批量操作技巧
 - ❓ 常见问题解答
+
+**最后更新**: 2026-01-24
 
 ---
 

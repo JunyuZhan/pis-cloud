@@ -22,6 +22,8 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [eventDate, setEventDate] = useState('')
+  const [location, setLocation] = useState('')
   const [templateId, setTemplateId] = useState<string>('')
   const [templates, setTemplates] = useState<AlbumTemplate[]>([])
   const [loading, setLoading] = useState(false)
@@ -90,6 +92,8 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
+          event_date: eventDate || null,
+          location: location.trim() || null,
           ...templateConfig,
         }),
       })
@@ -124,6 +128,8 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
     }
     setTitle('')
     setDescription('')
+    setEventDate('')
+    setLocation('')
     setTemplateId('')
     setError('')
     setCreated(null)
@@ -181,6 +187,47 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
                   className="input min-h-[80px] resize-none"
                   placeholder="可选的相册描述..."
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="eventDate"
+                    className="block text-sm font-medium text-text-secondary mb-2"
+                  >
+                    活动时间
+                  </label>
+                  <input
+                    id="eventDate"
+                    type="datetime-local"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="input"
+                  />
+                  <p className="text-xs text-text-muted mt-1">
+                    实际活动日期（可选）
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="location"
+                    className="block text-sm font-medium text-text-secondary mb-2"
+                  >
+                    活动地点
+                  </label>
+                  <input
+                    id="location"
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="input"
+                    placeholder="例如：北京国际会议中心"
+                  />
+                  <p className="text-xs text-text-muted mt-1">
+                    活动举办地点（可选）
+                  </p>
+                </div>
               </div>
 
               {templates.length > 0 && (
