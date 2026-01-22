@@ -72,7 +72,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         throw new Error('获取上传凭证失败')
       }
 
-      const { photoId, uploadUrl, originalKey, albumId } = await credRes.json()
+      const { photoId, uploadUrl, originalKey, albumId: respAlbumId } = await credRes.json()
 
       // 2. 直接上传到 MinIO (Presigned URL)
       const uploadRes = await fetch(uploadUrl, {
@@ -91,7 +91,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       await fetch('/api/admin/photos/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoId, albumId, originalKey }),
+        body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
       })
 
       // 更新状态为完成
