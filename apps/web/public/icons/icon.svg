@@ -1,25 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
-  <!-- PIS Logo - 3D Isometric Cube -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- PIS Logo - 精确复制 3D 立方体设计 -->
   
-  <!-- 左面 - P (灰色) -->
-  <path d="M100 30 L30 70 Q20 76 20 88 L20 150 Q20 162 30 168 L100 208 L100 110 L100 30" 
-        fill="#757575"/>
+  <!-- 左面 - P (灰色，带圆角) -->
+  <path d="
+    M 256 85
+    C 250 88, 95 180, 85 187
+    Q 65 200, 65 225
+    L 65 345
+    Q 65 370, 85 383
+    C 95 390, 250 482, 256 485
+    L 256 315
+    L 256 85
+  " fill="#757575"/>
   
-  <!-- 右面 - S (绿色) -->
-  <path d="M100 30 L170 70 Q180 76 180 88 L180 150 Q180 162 170 168 L100 208 L100 110 L100 30" 
-        fill="#7CB342"/>
+  <!-- 右面 - S (绿色，带圆角) -->
+  <path d="
+    M 256 85
+    C 262 88, 417 180, 427 187
+    Q 447 200, 447 225
+    L 447 345
+    Q 447 370, 427 383
+    C 417 390, 262 482, 256 485
+    L 256 315
+    L 256 85
+  " fill="#7CB342"/>
   
-  <!-- 底面 - I (深灰色) -->
-  <path d="M20 150 Q20 162 30 168 L94 204 Q100 208 106 204 L170 168 Q180 162 180 150 L100 110 L20 150" 
-        fill="#616161"/>
-        
-  <!-- P 字母 -->
-  <text x="48" y="135" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white">P</text>
+  <!-- 底面 - I (深灰色，带圆角) -->
+  <path d="
+    M 65 345
+    Q 65 370, 85 383
+    L 240 480
+    Q 256 490, 272 480
+    L 427 383
+    Q 447 370, 447 345
+    L 256 250
+    L 65 345
+  " fill="#616161"/>
   
-  <!-- S 字母 -->
-  <text x="118" y="135" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white">S</text>
+  <!-- P 字母 - 左面 -->
+  <g transform="translate(-15, -10)">
+    <path d="
+      M 130 200
+      L 130 380
+      M 130 200
+      L 175 175
+      Q 220 155, 220 200
+      Q 220 245, 175 265
+      L 130 290
+    " fill="none" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
   
-  <!-- I 底部斜线 -->
-  <line x1="70" y1="175" x2="130" y2="145" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  <!-- S 字母 - 右面 -->
+  <g transform="translate(15, -10)">
+    <path d="
+      M 370 195
+      Q 320 175, 305 215
+      Q 290 250, 340 275
+      Q 390 300, 375 345
+      Q 360 380, 310 370
+    " fill="none" stroke="white" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- I 字母 - 底面斜线 -->
+  <line x1="175" y1="410" x2="337" y2="330" stroke="white" stroke-width="24" stroke-linecap="round"/>
+  
 </svg>

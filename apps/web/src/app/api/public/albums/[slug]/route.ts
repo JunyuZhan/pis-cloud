@@ -7,7 +7,7 @@ interface RouteParams {
 
 /**
  * 访客相册 API
- * TODO: BE (gpt5.2) - 添加分页、排序参数
+ * 获取相册的公开信息（不包含照片列表，照片列表由 photos 子路由处理）
  */
 
 // GET /api/public/albums/[slug] - 获取相册信息

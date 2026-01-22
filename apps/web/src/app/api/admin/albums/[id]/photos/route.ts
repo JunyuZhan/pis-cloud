@@ -238,7 +238,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // TODO: 触发 Worker 清理 MinIO 中的文件
+    // 注意：MinIO 文件清理策略
+    // 我们目前不在这里同步删除 MinIO 文件，而是依赖数据库的软删除/定期清理机制
+    // 或者后续添加一个专门的清理 Worker。对于 MVP，保留文件是更安全的策略。
 
     return NextResponse.json({
       success: true,

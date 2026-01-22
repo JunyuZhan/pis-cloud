@@ -15,6 +15,7 @@ const path = require('path');
 const sharp = require(path.join(__dirname, '../apps/web/node_modules/sharp'));
 
 const ICONS_DIR = path.join(__dirname, '../apps/web/public/icons');
+const SOURCE_PNG = path.join(ICONS_DIR, '截屏2026-01-23 00.45.08.png');
 const SVG_PATH = path.join(ICONS_DIR, 'icon.svg');
 
 // 需要生成的尺寸
@@ -28,15 +29,22 @@ async function generateIcons() {
     fs.mkdirSync(ICONS_DIR, { recursive: true });
   }
 
-  // 读取 SVG
-  const svgBuffer = fs.readFileSync(SVG_PATH);
+  // 优先使用 PNG 源文件，否则使用 SVG
+  let sourceBuffer;
+  if (fs.existsSync(SOURCE_PNG)) {
+    console.log('使用 PNG 源文件...');
+    sourceBuffer = fs.readFileSync(SOURCE_PNG);
+  } else {
+    console.log('使用 SVG 源文件...');
+    sourceBuffer = fs.readFileSync(SVG_PATH);
+  }
 
   // 生成各尺寸的 PNG
   for (const size of SIZES) {
     const outputPath = path.join(ICONS_DIR, `icon-${size}x${size}.png`);
     
-    await sharp(svgBuffer)
-      .resize(size, size)
+    await sharp(sourceBuffer)
+      .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
       .png()
       .toFile(outputPath);
     
@@ -44,8 +52,8 @@ async function generateIcons() {
   }
 
   // 生成 favicon
-  await sharp(svgBuffer)
-    .resize(32, 32)
+  await sharp(sourceBuffer)
+    .resize(32, 32, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toFile(path.join(__dirname, '../apps/web/public/favicon.ico'));
   console.log('✓ 生成 favicon.ico');
