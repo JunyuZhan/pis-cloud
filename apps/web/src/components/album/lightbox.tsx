@@ -87,18 +87,30 @@ export function PhotoLightbox({
       ? photo.original_key 
       : (photo.preview_key || photo.thumb_key || photo.original_key)
 
+    // 格式化日期时间（避免 hydration 错误，使用固定格式）
+    let formattedDateTime: string | undefined
+    if (dateTime && mounted) {
+      try {
+        const date = new Date(dateTime)
+        // 使用固定格式，避免服务端和客户端不一致
+        formattedDateTime = date.toISOString().replace('T', ' ').slice(0, 19)
+      } catch {
+        formattedDateTime = undefined
+      }
+    }
+
     return {
       src: `${mediaUrl}/${imageKey}`,
       width: photo.width || 0,
       height: photo.height || 0,
       title: photo.filename,
-      description: exifString || (dateTime ? new Date(dateTime).toLocaleString() : undefined),
+      description: exifString || formattedDateTime,
       // 保存photo id和original_key用于后续加载原图
       photoId: photo.id,
       originalKey: photo.original_key,
       previewKey: photo.preview_key,
     }
-  }), [photos, loadedOriginals, mediaUrl])
+  }), [photos, loadedOriginals, mediaUrl, mounted])
 
   // 加载当前照片的原图
   const handleLoadOriginal = useCallback(() => {
@@ -166,9 +178,10 @@ export function PhotoLightbox({
     }
   }, [currentPhoto, selectedMap, onSelectChange])
 
-  // 防止 hydration 错误：只在客户端挂载后渲染
+  // 防止 hydration 错误：只在客户端挂载后渲染 Lightbox
+  // 但先渲染一个占位符，避免布局闪烁
   if (!mounted) {
-    return null
+    return open ? <div style={{ display: 'none' }} /> : null
   }
 
   return (
