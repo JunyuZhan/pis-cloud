@@ -2,18 +2,26 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Eye, Heart, Calendar, MapPin, Clock, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { Eye, Heart, Calendar, MapPin, Clock, ChevronDown, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { Album, Photo } from '@/types/database'
 
 interface AlbumHeroProps {
   album: Album
   coverPhoto?: Photo | null
+  from?: string
 }
 
-export function AlbumHero({ album, coverPhoto }: AlbumHeroProps) {
+export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   const [isLoaded, setIsLoaded] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+
+  // 确保只在客户端挂载后显示返回按钮，避免 hydration 错误
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 获取封面图 URL
   const coverUrl = coverPhoto?.preview_key 
@@ -72,6 +80,23 @@ export function AlbumHero({ album, coverPhoto }: AlbumHeroProps) {
       {/* 渐变遮罩 */}
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
+
+      {/* 返回首页按钮 */}
+      {from === 'home' && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute top-4 left-4 z-20"
+        >
+          <Link
+            href="/"
+            className="flex items-center gap-2 px-4 py-2 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full text-white/90 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">返回首页</span>
+          </Link>
+        </motion.div>
+      )}
 
       {/* 内容区域 */}
       <div className="absolute inset-0 flex flex-col justify-end">

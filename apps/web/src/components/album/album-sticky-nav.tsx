@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Grid, LayoutGrid, ArrowUpDown, Filter, Heart } from 'lucide-react'
+import Link from 'next/link'
+import { Grid, LayoutGrid, ArrowUpDown, Filter, Heart, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'
@@ -12,18 +13,26 @@ interface AlbumStickyNavProps {
   currentSort: SortRule
   currentLayout: LayoutMode
   threshold?: number // 触发显示的滚动阈值
+  from?: string
 }
 
 export function AlbumStickyNav({ 
   album, 
   currentSort, 
   currentLayout,
-  threshold = 400 
+  threshold = 400,
+  from
 }: AlbumStickyNavProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [mounted, setMounted] = useState(false)
   
   const selectedCount = (album as any).selected_count || 0
+
+  // 确保只在客户端挂载后显示返回按钮，避免 hydration 错误
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,6 +57,11 @@ export function AlbumStickyNav({
             <div className="flex items-center justify-between h-14 md:h-16">
               {/* 左侧：标题和统计 */}
               <div className="flex items-center gap-3 min-w-0">
+                {mounted && from === 'home' && (
+                  <Link href="/" className="shrink-0 p-2 -ml-2 hover:bg-accent/10 rounded-full transition-colors">
+                    <ArrowLeft className="w-5 h-5 text-text-primary" />
+                  </Link>
+                )}
                 <h2 className="font-serif font-bold text-lg truncate">
                   {album.title}
                 </h2>

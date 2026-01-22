@@ -17,7 +17,7 @@ type Photo = Database['public']['Tables']['photos']['Row']
 
 interface AlbumPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ sort?: string; layout?: string; group?: string }>
+  searchParams: Promise<{ sort?: string; layout?: string; group?: string; from?: string }>
 }
 
 /**
@@ -113,7 +113,7 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
  */
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { slug } = await params
-  const { sort, layout, group } = await searchParams
+  const { sort, layout, group, from } = await searchParams
   const supabase = await createClient()
 
   // 获取相册信息（包含密码和过期时间检查）
@@ -204,7 +204,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   return (
     <main className="min-h-screen bg-background">
       {/* 沉浸式封面 Banner */}
-      <AlbumHero album={album} coverPhoto={coverPhoto} />
+      <AlbumHero album={album} coverPhoto={coverPhoto} from={from} />
 
       {/* 品牌信息栏 */}
       <AlbumInfoBar album={album} />
@@ -215,6 +215,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
         currentSort={currentSort} 
         currentLayout={currentLayout}
         threshold={400}
+        from={from}
       />
 
       {/* 照片网格 - 移动端优化 */}
