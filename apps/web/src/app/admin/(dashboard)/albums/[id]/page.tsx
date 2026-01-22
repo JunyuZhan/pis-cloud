@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Settings, Share2 } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { AlbumDetailClient } from '@/components/admin/album-detail-client'
+import { ShareLinkButton } from '@/components/admin/share-link-button'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -65,7 +66,7 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
         </div>
         <div className="flex items-center gap-3">
           {/* 分享链接 */}
-          <ShareLink url={shareUrl} />
+          <ShareLinkButton url={shareUrl} />
           <Link
             href={`/admin/albums/${id}/settings`}
             className="btn-secondary"
@@ -78,17 +79,6 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
 
       {/* 客户端组件：上传和照片网格 */}
       <AlbumDetailClient album={album} initialPhotos={photos || []} />
-    </div>
-  )
-}
-
-function ShareLink({ url }: { url: string }) {
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-surface rounded-lg">
-      <Share2 className="w-4 h-4 text-text-muted" />
-      <span className="text-sm text-text-secondary truncate max-w-[200px]">
-        {url}
-      </span>
     </div>
   )
 }
