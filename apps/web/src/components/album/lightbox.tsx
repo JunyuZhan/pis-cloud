@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
@@ -38,6 +38,13 @@ export function PhotoLightbox({
     })
     return map
   })
+
+  // 同步外部传入的 index 到内部 state
+  useEffect(() => {
+    if (open && index >= 0 && index < photos.length) {
+      setCurrentIndex(index)
+    }
+  }, [index, open, photos.length])
 
   const currentPhoto = photos[currentIndex]
 
@@ -131,7 +138,7 @@ export function PhotoLightbox({
     <Lightbox
       open={open}
       close={onClose}
-      index={index}
+      index={currentIndex}
       slides={slides}
       plugins={[Thumbnails, Zoom, Captions]}
       on={{
