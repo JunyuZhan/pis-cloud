@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AlbumClient } from '@/components/album/album-client'
-import { SortToggle, type SortRule } from '@/components/album/sort-toggle'
-import { LayoutToggle, type LayoutMode } from '@/components/album/layout-toggle'
+import { AlbumHeader } from '@/components/album/album-header'
+import { type SortRule } from '@/components/album/sort-toggle'
+import { type LayoutMode } from '@/components/album/layout-toggle'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -61,28 +62,12 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
 
   return (
     <main className="min-h-screen bg-background">
-      {/* 头部 */}
-      <header className="sticky top-0 z-50 glass">
-        <div className="max-w-7xl mx-auto px-4 py-3 md:px-6 md:py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg md:text-xl font-serif font-bold">{album.title}</h1>
-              {album.description && (
-                <p className="text-text-secondary text-xs md:text-sm mt-1">
-                  {album.description}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 md:gap-4">
-              <span className="text-text-secondary text-xs md:text-sm whitespace-nowrap">
-                {album.photo_count} 张
-              </span>
-              <LayoutToggle currentLayout={currentLayout} />
-              <SortToggle currentSort={currentSort} />
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* 头部 (响应式组件) */}
+      <AlbumHeader 
+        album={album} 
+        currentSort={currentSort} 
+        currentLayout={currentLayout} 
+      />
 
       {/* 照片网格 (客户端组件接管无限滚动) */}
       <div className="max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-8">

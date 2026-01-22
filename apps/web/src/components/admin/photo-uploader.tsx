@@ -157,7 +157,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={cn(
-          'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
+          'border-2 border-dashed rounded-xl p-6 md:p-8 text-center transition-colors',
           isDragging
             ? 'border-accent bg-accent/5'
             : 'border-border hover:border-border-light'
@@ -172,11 +172,11 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           className="hidden"
         />
         <label htmlFor="file-input" className="cursor-pointer">
-          <Upload className="w-12 h-12 text-text-muted mx-auto mb-4" />
-          <p className="text-lg font-medium mb-2">
-            拖拽照片到此处，或点击选择文件
+          <Upload className="w-10 h-10 md:w-12 md:h-12 text-text-muted mx-auto mb-3 md:mb-4" />
+          <p className="text-base md:text-lg font-medium mb-1 md:mb-2">
+            点击选择文件<span className="hidden md:inline">，或拖拽照片到此处</span>
           </p>
-          <p className="text-text-secondary text-sm">
+          <p className="text-text-secondary text-xs md:text-sm">
             支持 JPG、PNG、HEIC、WebP 格式，单文件最大 100MB
           </p>
         </label>

@@ -101,11 +101,11 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         
         {/* 公开状态 */}
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1 pr-4">
             <p className="font-medium">公开相册</p>
             <p className="text-sm text-text-secondary">在首页广场展示此相册</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={formData.is_public}
@@ -118,11 +118,11 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
 
         {/* 允许下载 */}
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1 pr-4">
             <p className="font-medium">允许下载原图</p>
             <p className="text-sm text-text-secondary">访客可下载原始高清图片</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={formData.allow_download}
@@ -135,11 +135,11 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
 
         {/* 显示 EXIF */}
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1 pr-4">
             <p className="font-medium">显示 EXIF 信息</p>
             <p className="text-sm text-text-secondary">展示相机参数（光圈、快门等）</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={formData.show_exif}

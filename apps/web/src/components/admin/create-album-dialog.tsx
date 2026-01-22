@@ -135,16 +135,20 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
                 />
               </div>
 
-              <DialogFooter className="mt-6">
+              <DialogFooter className="mt-6 flex-col gap-3 sm:flex-row sm:gap-2">
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="btn-secondary"
+                  className="btn-secondary w-full sm:w-auto order-2 sm:order-1"
                   disabled={loading}
                 >
                   取消
                 </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button 
+                  type="submit" 
+                  className="btn-primary w-full sm:w-auto order-1 sm:order-2" 
+                  disabled={loading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />

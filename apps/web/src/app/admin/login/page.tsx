@@ -67,7 +67,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -79,7 +79,7 @@ export default function LoginPage() {
         </div>
 
         {/* 登录表单 */}
-        <form onSubmit={handleLogin} className="card space-y-6">
+        <form onSubmit={handleLogin} className="card space-y-6 p-6 sm:p-8">
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error}
