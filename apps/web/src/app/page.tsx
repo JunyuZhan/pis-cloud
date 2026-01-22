@@ -1,6 +1,6 @@
-import Link from 'next/link'
-import { Camera, Settings } from 'lucide-react'
+import { Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { HomeHeader } from '@/components/home/header'
 import { HomeHero } from '@/components/home/home-hero'
 import { AlbumGrid } from '@/components/home/album-grid'
 import type { Database } from '@/types/database'
@@ -60,23 +60,8 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
-      {/* 头部导航 - 固定在顶部，简洁设计 */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 cursor-pointer group">
-            <Camera className="w-5 h-5 text-accent transition-transform group-hover:scale-110" />
-            <span className="text-lg font-serif font-bold">PIS</span>
-          </Link>
-          <Link 
-            href="/admin" 
-            className="flex items-center justify-center w-8 h-8 text-text-muted hover:text-text-secondary transition-colors cursor-pointer group rounded-md hover:bg-surface"
-            prefetch={false}
-            title="管理后台"
-          >
-            <Settings className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
-          </Link>
-        </div>
-      </header>
+      {/* 头部导航 */}
+      <HomeHeader />
 
       {/* Hero区域 - 全屏视觉冲击 */}
       <HomeHero featuredAlbum={featuredAlbum || undefined} coverPhoto={coverPhoto || undefined} />
@@ -122,7 +107,7 @@ export default async function HomePage() {
       <footer className="py-12 px-6 border-t border-border">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-text-muted text-sm">
-            © {new Date().getFullYear()} PIS Photography. 专业级摄影分享系统
+            © 2024 PIS Photography. 专业级摄影分享系统
           </p>
         </div>
       </footer>
