@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, FolderOpen, Trash2, Check, Loader2, Copy } from 'lucide-react'
+import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import type { Album } from '@/types/database'
@@ -320,8 +320,19 @@ function AlbumCard({
       {/* 操作按钮（悬停显示） */}
       {!selectionMode && (
         <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+          <Link
+            href={`/admin/albums/${album.id}/settings`}
+            onClick={(e) => e.stopPropagation()}
+            className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors backdrop-blur-sm"
+            title="编辑相册设置"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
           <button
-            onClick={(e) => onDuplicate?.(album.id, e)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDuplicate?.(album.id, e)
+            }}
             disabled={isDuplicating}
             className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
             title="复制相册配置"
@@ -333,7 +344,10 @@ function AlbumCard({
             )}
           </button>
           <button
-            onClick={(e) => onDelete?.(album.id, e)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete?.(album.id, e)
+            }}
             disabled={isDeleting}
             className="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
             title="删除相册"
