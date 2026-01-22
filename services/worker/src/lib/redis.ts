@@ -3,6 +3,7 @@ import { Queue, Worker, QueueEvents, type ConnectionOptions } from 'bullmq';
 const connection: ConnectionOptions = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD || undefined,
 };
 
 export const QUEUE_NAME = 'photo-processing';
