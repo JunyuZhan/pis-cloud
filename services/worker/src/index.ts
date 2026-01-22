@@ -1,8 +1,9 @@
 import 'dotenv/config';
+import http from 'http';
 import { Worker, Job } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
-import { connection, QUEUE_NAME } from './lib/redis.js';
-import { downloadFile, uploadFile } from './lib/minio.js';
+import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
+import { downloadFile, uploadFile, getMinioClient, uploadBuffer } from './lib/minio.js';
 import { PhotoProcessor } from './processor.js';
 
 // 检查必要的环境变量
@@ -123,7 +124,97 @@ worker.on('failed', (job, err) => {
 
 console.log(`✅ Worker listening on queue: ${QUEUE_NAME}`);
 
+// ============================================
+// HTTP API 服务器 (用于接收上传请求)
+// ============================================
+import { getPresignedPutUrl, bucketName } from './lib/minio.js';
+
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3001');
+
+const server = http.createServer(async (req, res) => {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  const url = new URL(req.url || '/', `http://localhost:${HTTP_PORT}`);
+
+  // 健康检查
+  if (url.pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
+    return;
+  }
+
+  // 获取预签名上传 URL
+  if (url.pathname === '/api/presign' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key } = JSON.parse(body);
+        if (!key) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing key' }));
+          return;
+        }
+
+        const presignedUrl = await getPresignedPutUrl(key);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ url: presignedUrl }));
+      } catch (err: any) {
+        console.error('Presign error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 触发照片处理
+  if (url.pathname === '/api/process' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { photoId, albumId, originalKey } = JSON.parse(body);
+        if (!photoId || !albumId || !originalKey) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing required fields' }));
+          return;
+        }
+
+        // 添加到处理队列
+        await photoQueue.add('process-photo', { photoId, albumId, originalKey });
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Job queued' }));
+      } catch (err: any) {
+        console.error('Process queue error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 404
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not found' }));
+});
+
+server.listen(HTTP_PORT, () => {
+  console.log(`🌐 HTTP API listening on port ${HTTP_PORT}`);
+});
+
 // 优雅退出
 process.on('SIGTERM', async () => {
+  server.close();
   await worker.close();
 });

@@ -10,6 +10,10 @@ const minioClient = new Minio.Client({
 
 export const bucketName = process.env.MINIO_BUCKET || 'pis-photos';
 
+export function getMinioClient(): Minio.Client {
+  return minioClient;
+}
+
 export async function downloadFile(key: string): Promise<Buffer> {
   const stream = await minioClient.getObject(bucketName, key);
   const chunks: Buffer[] = [];
@@ -27,6 +31,19 @@ export async function uploadFile(
   metaData: Record<string, string> = {}
 ): Promise<{ etag: string; versionId: string | null }> {
   return minioClient.putObject(bucketName, key, buffer, buffer.length, metaData);
+}
+
+// Alias for uploadFile
+export const uploadBuffer = uploadFile;
+
+// 生成预签名上传 URL
+export async function getPresignedPutUrl(key: string, expirySeconds = 3600): Promise<string> {
+  return minioClient.presignedPutObject(bucketName, key, expirySeconds);
+}
+
+// 生成预签名下载 URL
+export async function getPresignedGetUrl(key: string, expirySeconds = 3600): Promise<string> {
+  return minioClient.presignedGetObject(bucketName, key, expirySeconds);
 }
 
 export default minioClient;
