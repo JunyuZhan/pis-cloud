@@ -43,7 +43,7 @@ export function SortToggle({ currentSort }: SortToggleProps) {
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors">
           <ArrowDownUp className="w-4 h-4" />
-          <span>{getLabel(currentSort)}</span>
+          <span className="hidden md:inline">{getLabel(currentSort)}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

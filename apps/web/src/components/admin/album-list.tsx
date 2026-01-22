@@ -19,16 +19,16 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   return (
     <div>
       {/* 页面标题 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-serif font-bold">我的相册</h1>
-          <p className="text-text-secondary mt-1">
+          <h1 className="text-xl md:text-2xl font-serif font-bold">我的相册</h1>
+          <p className="text-text-secondary text-sm md:text-base mt-1">
             管理您的所有摄影作品集
           </p>
         </div>
         <button
           onClick={() => setCreateDialogOpen(true)}
-          className="btn-primary"
+          className="btn-primary w-full md:w-auto"
         >
           <Plus className="w-4 h-4" />
           新建相册

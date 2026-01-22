@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AdminSidebar } from '@/components/admin/sidebar'
+import { MobileSidebar } from '@/components/admin/mobile-sidebar'
 
 /**
  * 管理后台布局
@@ -21,13 +22,16 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* 侧边栏 */}
+    <div className="min-h-screen bg-background">
+      {/* 桌面端侧边栏 */}
       <AdminSidebar user={user} />
+      
+      {/* 移动端侧边栏 */}
+      <MobileSidebar user={user} />
 
       {/* 主内容区 */}
-      <main className="flex-1 ml-64">
-        <div className="p-8">{children}</div>
+      <main className="md:ml-64 min-h-screen">
+        <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
       </main>
     </div>
   )

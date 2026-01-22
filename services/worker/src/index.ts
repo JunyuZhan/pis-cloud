@@ -152,7 +152,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 获取预签名上传 URL
+  // 获取预签名上传 URL (保留兼容)
   if (url.pathname === '/api/presign' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
@@ -170,6 +170,34 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ url: presignedUrl }));
       } catch (err: any) {
         console.error('Presign error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 直接上传文件到 MinIO (代理模式)
+  if (url.pathname === '/api/upload' && req.method === 'PUT') {
+    const key = url.searchParams.get('key');
+    const contentType = req.headers['content-type'] || 'application/octet-stream';
+    
+    if (!key) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing key parameter' }));
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        await uploadFile(key, buffer, { 'Content-Type': contentType });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, key }));
+      } catch (err: any) {
+        console.error('Upload error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }

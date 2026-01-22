@@ -36,14 +36,28 @@ export async function uploadFile(
 // Alias for uploadFile
 export const uploadBuffer = uploadFile;
 
+// 公网 MinIO URL (用于生成可从外部访问的 Presigned URL)
+const publicMinioUrl = process.env.MINIO_PUBLIC_URL || '';
+
+// 替换内网地址为公网地址
+function toPublicUrl(url: string): string {
+  if (!publicMinioUrl) return url;
+  
+  // 替换 http://law-firm-minio:9000 或 http://localhost:9000 为公网地址
+  const internalHost = `${process.env.MINIO_ENDPOINT_HOST || 'localhost'}:${process.env.MINIO_ENDPOINT_PORT || '9000'}`;
+  return url.replace(`http://${internalHost}`, publicMinioUrl);
+}
+
 // 生成预签名上传 URL
 export async function getPresignedPutUrl(key: string, expirySeconds = 3600): Promise<string> {
-  return minioClient.presignedPutObject(bucketName, key, expirySeconds);
+  const url = await minioClient.presignedPutObject(bucketName, key, expirySeconds);
+  return toPublicUrl(url);
 }
 
 // 生成预签名下载 URL
 export async function getPresignedGetUrl(key: string, expirySeconds = 3600): Promise<string> {
-  return minioClient.presignedGetObject(bucketName, key, expirySeconds);
+  const url = await minioClient.presignedGetObject(bucketName, key, expirySeconds);
+  return toPublicUrl(url);
 }
 
 export default minioClient;

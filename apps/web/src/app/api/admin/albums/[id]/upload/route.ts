@@ -97,35 +97,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 获取 Presigned URL (从内网 Worker API)
+    // Worker 代理上传 URL
     const workerApiUrl = process.env.WORKER_API_URL || 'http://localhost:3001'
-    
-    let presignedUrl: string
-    try {
-      const presignRes = await fetch(`${workerApiUrl}/api/presign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: originalKey }),
-      })
-      
-      if (!presignRes.ok) {
-        throw new Error('Failed to get presigned URL')
-      }
-      
-      const presignData = await presignRes.json()
-      presignedUrl = presignData.url
-    } catch (err) {
-      console.error('Worker API error:', err)
-      return NextResponse.json(
-        { error: { code: 'WORKER_ERROR', message: '无法连接存储服务' } },
-        { status: 503 }
-      )
-    }
+    const uploadUrl = `${workerApiUrl}/api/upload?key=${encodeURIComponent(originalKey)}`
 
     // 返回上传信息
     return NextResponse.json({
       photoId,
-      uploadUrl: presignedUrl,  // MinIO Presigned URL
+      uploadUrl,  // Worker 代理上传 URL
       originalKey,
       albumId,
     })

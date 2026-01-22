@@ -16,7 +16,7 @@ const navItems = [
   { href: '/admin/settings', label: '系统设置', icon: Settings },
 ]
 
-export function AdminSidebar({ user }: AdminSidebarProps) {
+export function SidebarContent({ user }: { user: User }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -28,7 +28,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   }
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-surface border-r border-border flex flex-col">
+    <div className="flex flex-col h-full bg-surface border-r border-border">
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <Link href="/admin" className="flex items-center gap-3">
@@ -88,6 +88,14 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+export function AdminSidebar({ user }: AdminSidebarProps) {
+  return (
+    <aside className="fixed left-0 top-0 bottom-0 w-64 hidden md:block">
+      <SidebarContent user={user} />
     </aside>
   )
 }

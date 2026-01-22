@@ -63,19 +63,19 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     <main className="min-h-screen bg-background">
       {/* 头部 */}
       <header className="sticky top-0 z-50 glass">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 md:px-6 md:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-serif font-bold">{album.title}</h1>
+              <h1 className="text-lg md:text-xl font-serif font-bold">{album.title}</h1>
               {album.description && (
-                <p className="text-text-secondary text-sm mt-1">
+                <p className="text-text-secondary text-xs md:text-sm mt-1">
                   {album.description}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-text-secondary text-sm">
-                {album.photo_count} 张照片
+            <div className="flex items-center gap-2 md:gap-4">
+              <span className="text-text-secondary text-xs md:text-sm whitespace-nowrap">
+                {album.photo_count} 张
               </span>
               <LayoutToggle currentLayout={currentLayout} />
               <SortToggle currentSort={currentSort} />
@@ -85,7 +85,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
       </header>
 
       {/* 照片网格 (客户端组件接管无限滚动) */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-8">
         <AlbumClient album={album} initialPhotos={photos || []} layout={currentLayout} />
       </div>
     </main>
