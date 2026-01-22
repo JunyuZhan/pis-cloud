@@ -20,20 +20,27 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * 格式化日期
+ * 格式化日期 - 使用固定格式避免 hydration 不匹配
  */
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(date))
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+  return `${year}年${monthNames[month - 1]}${day}日`
 }
 
 /**
- * 格式化相对时间
+ * 格式化相对时间 - 使用固定格式避免 hydration 不匹配
+ * 注意：此函数在服务器端和客户端可能返回不同结果，建议在客户端组件中使用
  */
 export function formatRelativeTime(date: string | Date): string {
+  // 在服务器端渲染时，返回固定格式的日期以避免 hydration 不匹配
+  if (typeof window === 'undefined') {
+    return formatDate(date)
+  }
+
   const now = new Date()
   const target = new Date(date)
   const diff = now.getTime() - target.getTime()

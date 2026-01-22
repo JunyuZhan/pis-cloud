@@ -30,33 +30,33 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
       ? `${mediaUrl}/${coverPhoto.thumb_key}`
       : null
 
-  // 格式化日期
+  // 格式化日期 - 使用固定格式避免 hydration 不匹配
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('zh-CN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+    return `${year}年${monthNames[month - 1]}${day}日`
   }
 
-  // 格式化日期时间（用于活动时间）
+  // 格式化日期时间（用于活动时间）- 使用固定格式避免 hydration 不匹配
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleString('zh-CN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+    return `${year}年${monthNames[month - 1]}${day}日 ${hours}:${minutes}`
   }
 
   const eventDate = (album as any).event_date
   const location = (album as any).location
 
-  // 模拟浏览量（后续可替换为真实数据）
-  const viewCount = (album as any).view_count || Math.floor(Math.random() * 500) + 100
+  // 使用固定值避免 hydration 不匹配，后续可替换为真实数据
+  const viewCount = (album as any).view_count || 0
   const selectedCount = (album as any).selected_count || 0
 
   return (

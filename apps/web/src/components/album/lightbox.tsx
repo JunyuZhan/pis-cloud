@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useState, useEffect, useMemo } from 'react'
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
+import type React from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
@@ -29,7 +30,7 @@ export function PhotoLightbox({
   allowDownload = true,
   onSelectChange,
 }: PhotoLightboxProps) {
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   const [currentIndex, setCurrentIndex] = useState(index)
   const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
@@ -40,10 +41,12 @@ export function PhotoLightbox({
   })
   // 跟踪哪些照片已加载原图（用户点击"查看原图"后）
   const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
+  const prevIndexRef = useRef(index)
 
   // 同步外部传入的 index 到内部 state
   useEffect(() => {
-    if (open && index >= 0 && index < photos.length) {
+    if (open && index >= 0 && index < photos.length && index !== prevIndexRef.current) {
+      prevIndexRef.current = index
       setCurrentIndex(index)
     }
   }, [index, open, photos.length])
@@ -100,11 +103,11 @@ export function PhotoLightbox({
         : (photo.preview_key || photo.thumb_key || photo.original_key)
 
       return {
-        src: `${mediaUrl}/${imageKey}`,
+        src: imageKey ? `${mediaUrl}/${imageKey}` : '',
         width: photo.width || 0,
         height: photo.height || 0,
-        title: photo.filename,
-        description: exifString || formattedDateTime,
+        title: photo.filename || '',
+        description: exifString || formattedDateTime || '',
         photoId: photo.id,
         originalKey: photo.original_key,
         previewKey: photo.preview_key,
@@ -181,6 +184,14 @@ export function PhotoLightbox({
     }
   }, [currentPhoto, selectedMap, onSelectChange])
 
+  // 处理视图变化，使用 useCallback 避免在渲染期间更新状态
+  const handleView = useCallback(({ index: newIndex }: { index: number }) => {
+    if (newIndex >= 0 && newIndex < photos.length && newIndex !== prevIndexRef.current) {
+      prevIndexRef.current = newIndex
+      setCurrentIndex(newIndex)
+    }
+  }, [photos.length])
+
   // 如果未打开或没有照片，不渲染
   if (!open || photos.length === 0) {
     return null
@@ -188,6 +199,67 @@ export function PhotoLightbox({
 
   // 确保 currentIndex 有效
   const validIndex = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0
+
+  // 构建工具栏按钮数组，确保稳定的引用以避免 hydration 问题
+  const toolbarButtons = useMemo(() => {
+    const buttons: Array<React.ReactNode> = [
+      // 选片按钮
+      <button
+        key="select"
+        type="button"
+        onClick={handleSelect}
+        className={cn(
+          'yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors',
+          selectedMap[currentPhoto?.id]
+            ? 'bg-red-500 text-white'
+            : 'bg-white/10 text-white hover:bg-white/20'
+        )}
+        aria-label={selectedMap[currentPhoto?.id] ? '取消选择' : '选择'}
+      >
+        <Heart
+          className={cn(
+            'w-5 h-5',
+            selectedMap[currentPhoto?.id] && 'fill-current'
+          )}
+        />
+      </button>,
+    ]
+
+    // 查看原图按钮（仅在需要时显示）
+    if (showLoadOriginalButton) {
+      buttons.push(
+        <button
+          key="load-original"
+          type="button"
+          onClick={handleLoadOriginal}
+          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
+          aria-label="查看原图"
+          title="查看原图"
+        >
+          <ImageIcon className="w-5 h-5" />
+          <span className="text-sm font-medium">查看原图</span>
+        </button>
+      )
+    }
+
+    // 下载按钮
+    if (allowDownload) {
+      buttons.push(
+        <button
+          key="download"
+          type="button"
+          onClick={handleDownload}
+          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+          aria-label="下载原图"
+        >
+          <Download className="w-5 h-5" />
+        </button>
+      )
+    }
+
+    buttons.push('close')
+    return buttons
+  }, [currentPhoto, selectedMap, showLoadOriginalButton, allowDownload, handleSelect, handleLoadOriginal, handleDownload])
 
   return (
     <Lightbox
@@ -197,11 +269,7 @@ export function PhotoLightbox({
       slides={slides}
       plugins={[Thumbnails, Zoom, Captions]}
       on={{
-        view: ({ index }) => {
-          if (index >= 0 && index < photos.length) {
-            setCurrentIndex(index)
-          }
-        },
+        view: handleView,
       }}
       captions={{ descriptionTextAlign: 'center', showToggle: true }}
       carousel={{
@@ -213,58 +281,7 @@ export function PhotoLightbox({
         buttonNext: photos.length <= 1 ? () => null : undefined,
       }}
       toolbar={{
-        buttons: [
-          // 选片按钮
-          <button
-            key="select"
-            type="button"
-            onClick={handleSelect}
-            className={cn(
-              'yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors',
-              selectedMap[currentPhoto?.id]
-                ? 'bg-red-500 text-white'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            )}
-            aria-label={selectedMap[currentPhoto?.id] ? '取消选择' : '选择'}
-          >
-            <Heart
-              className={cn(
-                'w-5 h-5',
-                selectedMap[currentPhoto?.id] && 'fill-current'
-              )}
-            />
-          </button>,
-
-          // 查看原图按钮（仅在需要时显示：有预览图、预览图与原图不同、且未加载过原图）
-          showLoadOriginalButton && (
-            <button
-              key="load-original"
-              type="button"
-              onClick={handleLoadOriginal}
-              className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
-              aria-label="查看原图"
-              title="查看原图"
-            >
-              <ImageIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">查看原图</span>
-            </button>
-          ),
-
-          // 下载按钮
-          allowDownload && (
-            <button
-              key="download"
-              type="button"
-              onClick={handleDownload}
-              className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-              aria-label="下载原图"
-            >
-              <Download className="w-5 h-5" />
-            </button>
-          ),
-
-          'close',
-        ].filter(Boolean),
+        buttons: toolbarButtons,
       }}
       styles={{
         container: { backgroundColor: 'rgba(0, 0, 0, .95)' },

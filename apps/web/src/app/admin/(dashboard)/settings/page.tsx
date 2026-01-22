@@ -75,11 +75,14 @@ export default async function SettingsPage() {
               <div>
                 <p className="text-sm text-text-muted">注册时间</p>
                 <p className="font-medium">
-                  {new Date(user.created_at).toLocaleDateString('zh-CN', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  {(() => {
+                    const date = new Date(user.created_at)
+                    const year = date.getFullYear()
+                    const month = date.getMonth() + 1
+                    const day = date.getDate()
+                    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+                    return `${year}年${monthNames[month - 1]}${day}日`
+                  })()}
                 </p>
               </div>
             </div>
@@ -152,7 +155,14 @@ export default async function SettingsPage() {
             <div className="flex justify-between items-center py-2">
               <span className="text-text-muted">最后活动</span>
               <span className="font-medium">
-                {new Date(recentAlbums[0].created_at).toLocaleDateString('zh-CN')}
+                {(() => {
+                  const date = new Date(recentAlbums[0].created_at)
+                  const year = date.getFullYear()
+                  const month = date.getMonth() + 1
+                  const day = date.getDate()
+                  const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+                  return `${year}年${monthNames[month - 1]}${day}日`
+                })()}
               </span>
             </div>
           )}

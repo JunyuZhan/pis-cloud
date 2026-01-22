@@ -373,13 +373,16 @@ function AlbumCard({
             </p>
             {(album as any).event_date && (
               <p className="text-text-muted text-xs">
-                活动时间：{new Date((album as any).event_date).toLocaleString('zh-CN', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                活动时间：{(() => {
+                  const date = new Date((album as any).event_date)
+                  const year = date.getFullYear()
+                  const month = date.getMonth() + 1
+                  const day = date.getDate()
+                  const hours = String(date.getHours()).padStart(2, '0')
+                  const minutes = String(date.getMinutes()).padStart(2, '0')
+                  const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+                  return `${year}年${monthNames[month - 1]}${day}日 ${hours}:${minutes}`
+                })()}
               </p>
             )}
             {(album as any).location && (
