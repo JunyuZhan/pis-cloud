@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#D4AF37"/>
-      <stop offset="100%" stop-color="#F5D76E"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="102" fill="#0A0A0A"/>
-  <circle cx="256" cy="256" r="160" fill="none" stroke="url(#gold)" stroke-width="8"/>
-  <circle cx="256" cy="256" r="100" fill="none" stroke="url(#gold)" stroke-width="4"/>
-  <circle cx="256" cy="256" r="40" fill="url(#gold)"/>
-  <path d="M256 156 L276 196 L256 196 Z" fill="url(#gold)" opacity="0.6"/>
-  <path d="M356 256 L316 276 L316 256 Z" fill="url(#gold)" opacity="0.6"/>
-  <path d="M256 356 L236 316 L256 316 Z" fill="url(#gold)" opacity="0.6"/>
-  <path d="M156 256 L196 236 L196 256 Z" fill="url(#gold)" opacity="0.6"/>
-  <text x="256" y="440" text-anchor="middle" fill="url(#gold)" font-family="Arial, sans-serif" font-size="48" font-weight="bold">PIS</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+  <!-- PIS Logo - 3D Isometric Cube -->
+  
+  <!-- 左面 - P (灰色) -->
+  <path d="M100 30 L30 70 Q20 76 20 88 L20 150 Q20 162 30 168 L100 208 L100 110 L100 30" 
+        fill="#757575"/>
+  
+  <!-- 右面 - S (绿色) -->
+  <path d="M100 30 L170 70 Q180 76 180 88 L180 150 Q180 162 170 168 L100 208 L100 110 L100 30" 
+        fill="#7CB342"/>
+  
+  <!-- 底面 - I (深灰色) -->
+  <path d="M20 150 Q20 162 30 168 L94 204 Q100 208 106 204 L170 168 Q180 162 180 150 L100 110 L20 150" 
+        fill="#616161"/>
+        
+  <!-- P 字母 -->
+  <text x="48" y="135" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white">P</text>
+  
+  <!-- S 字母 -->
+  <text x="118" y="135" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white">S</text>
+  
+  <!-- I 底部斜线 -->
+  <line x1="70" y1="175" x2="130" y2="145" stroke="white" stroke-width="8" stroke-linecap="round"/>
 </svg>
