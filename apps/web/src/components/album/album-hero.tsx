@@ -81,8 +81,8 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
 
-      {/* 返回首页按钮 */}
-      {from === 'home' && (
+      {/* 返回首页按钮 - 只在客户端挂载后显示，避免 hydration 错误 */}
+      {mounted && from === 'home' && (
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
