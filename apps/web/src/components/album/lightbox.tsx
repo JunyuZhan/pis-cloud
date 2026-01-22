@@ -51,7 +51,13 @@ export function PhotoLightbox({
     }
   }, [index, open, photos.length])
 
-  const currentPhoto = photos[currentIndex] || photos[0]
+  // 使用 useMemo 稳定 currentPhoto 的引用，避免无限循环
+  const currentPhoto = useMemo(() => {
+    return photos[currentIndex] || photos[0]
+  }, [photos, currentIndex])
+  
+  // 使用 useMemo 稳定 currentPhotoId，避免依赖整个对象
+  const currentPhotoId = useMemo(() => currentPhoto?.id, [currentPhoto])
 
   // 构建 slides，默认使用预览图，点击"查看原图"后才使用原图
   const slides = useMemo(() => {
@@ -117,11 +123,11 @@ export function PhotoLightbox({
 
   // 加载当前照片的原图
   const handleLoadOriginal = useCallback(() => {
-    if (!currentPhoto || !currentPhoto.original_key) return
+    if (!currentPhotoId || !currentPhoto?.original_key) return
     
     // 将照片ID添加到已加载原图集合，触发 slides 重新计算使用原图
-    setLoadedOriginals((prev) => new Set(prev).add(currentPhoto.id))
-  }, [currentPhoto])
+    setLoadedOriginals((prev) => new Set(prev).add(currentPhotoId))
+  }, [currentPhotoId, currentPhoto])
 
   // 检查是否需要显示"查看原图"按钮
   // 条件：有原图、且未加载过原图（无论是否有预览图，只要有原图就可以查看）
@@ -135,10 +141,10 @@ export function PhotoLightbox({
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
-    if (!currentPhoto) return
+    if (!currentPhotoId) return
 
     try {
-      const res = await fetch(`/api/public/download/${currentPhoto.id}`)
+      const res = await fetch(`/api/public/download/${currentPhotoId}`)
       if (!res.ok) {
         const error = await res.json()
         alert(error.error?.message || '下载失败')
@@ -157,7 +163,7 @@ export function PhotoLightbox({
     } catch {
       alert('下载失败，请重试')
     }
-  }, [currentPhoto])
+  }, [currentPhotoId])
 
   // 选片功能
   const handleSelect = useCallback(async () => {
