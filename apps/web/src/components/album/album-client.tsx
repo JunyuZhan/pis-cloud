@@ -42,7 +42,8 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
   } = useInfiniteQuery({
     queryKey: ['album-photos', album.slug, sort, groupId],
     queryFn: async ({ pageParam = 1 }) => {
-      const url = new URL(`/api/public/albums/${album.slug}/photos`, window.location.origin)
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const url = new URL(`/api/public/albums/${album.slug}/photos`, origin)
       url.searchParams.set('page', pageParam.toString())
       url.searchParams.set('limit', '20')
       url.searchParams.set('sort', sort)

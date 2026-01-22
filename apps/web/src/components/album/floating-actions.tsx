@@ -26,16 +26,27 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // 确保只在客户端渲染
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 监听滚动，显示/隐藏回到顶部按钮
   useEffect(() => {
+    if (!mounted) return
+
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 500)
     }
 
+    // 初始化检查
+    handleScroll()
+
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [mounted])
 
   // 回到顶部
   const handleBackToTop = () => {
@@ -65,6 +76,8 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
 
   // 下载整个相册（访客使用批量下载已选照片的API）
   const handleDownloadAlbum = async () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+
     if (!album.allow_download) {
       alert('此相册不允许下载')
       return
@@ -142,8 +155,9 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
 
   return (
     <>
-      {/* 浮动操作按钮组 */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {/* 浮动操作按钮组 - 只在客户端挂载后显示 */}
+      {mounted && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
         {/* 展开的按钮列表 */}
         <AnimatePresence>
           {isExpanded && (
@@ -201,37 +215,43 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
               )}
 
               {/* 分享按钮 */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  const shareUrl = `${window.location.origin}/album/${album.slug}`
-                  if (navigator.share) {
-                    navigator.share({
-                      title: album.title,
-                      text: album.description || `查看 ${album.title} 的精彩照片`,
-                      url: shareUrl,
-                    }).catch(() => {
-                      // 用户取消分享，不做处理
-                    })
-                  } else {
-                    // 复制链接到剪贴板
-                    navigator.clipboard.writeText(shareUrl)
-                    alert('链接已复制到剪贴板')
-                  }
-                  setIsExpanded(false)
-                }}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
-                  'bg-surface border border-border hover:bg-surface-elevated',
-                  'text-text-primary transition-all min-w-[140px] justify-center',
-                  'backdrop-blur-sm'
-                )}
-                title="分享相册"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="text-sm font-medium">分享</span>
-              </motion.button>
+              {mounted && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    if (typeof window === 'undefined') return
+                    const shareUrl = `${window.location.origin}/album/${album.slug}`
+                    if (navigator.share) {
+                      navigator.share({
+                        title: album.title,
+                        text: album.description || `查看 ${album.title} 的精彩照片`,
+                        url: shareUrl,
+                      }).catch(() => {
+                        // 用户取消分享，不做处理
+                      })
+                    } else {
+                      // 复制链接到剪贴板
+                      navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('链接已复制到剪贴板')
+                      }).catch(() => {
+                        alert('复制失败，请手动复制链接')
+                      })
+                    }
+                    setIsExpanded(false)
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+                    'bg-surface border border-border hover:bg-surface-elevated',
+                    'text-text-primary transition-all min-w-[140px] justify-center',
+                    'backdrop-blur-sm'
+                  )}
+                  title="分享相册"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">分享</span>
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -284,10 +304,11 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
             </motion.button>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* 移动端底部安全区域占位 */}
-      <div className="h-20 md:h-0" />
+          {/* 移动端底部安全区域占位 */}
+          <div className="h-20 md:h-0" />
+        </div>
+      )}
     </>
   )
 }
