@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, GripVertical } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
 import { PhotoGroupManager } from './photo-group-manager'
@@ -29,8 +29,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [photoGroupMap, setPhotoGroupMap] = useState<Map<string, string[]>>(new Map())
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
   const [isReordering, setIsReordering] = useState(false)
-  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null)
-  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null)
+  const [isSavingOrder, setIsSavingOrder] = useState(false)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
@@ -213,6 +212,106 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     }
   }
 
+  // 保存照片排序
+  const savePhotoOrder = async (newOrder: Photo[]) => {
+    setIsSavingOrder(true)
+    try {
+      const orders = newOrder.map((p, i) => ({
+        photoId: p.id,
+        sortOrder: i + 1,
+      }))
+      
+      const response = await fetch('/api/admin/photos/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumId: album.id,
+          orders,
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('保存排序失败')
+      }
+      
+      setPhotos(newOrder)
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to save photo order:', error)
+      alert('保存排序失败，请重试')
+    } finally {
+      setIsSavingOrder(false)
+    }
+  }
+
+  // 上移照片
+  const handleMoveUp = (photoId: string) => {
+    const currentIndex = filteredPhotos.findIndex(p => p.id === photoId)
+    if (currentIndex <= 0) return
+    
+    const newPhotos = [...filteredPhotos]
+    const [photo] = newPhotos.splice(currentIndex, 1)
+    newPhotos.splice(currentIndex - 1, 0, photo)
+    
+    // 更新所有照片的顺序（保持未过滤的照片）
+    const allPhotoIds = new Set(newPhotos.map(p => p.id))
+    const otherPhotos = photos.filter(p => !allPhotoIds.has(p.id))
+    const updatedPhotos = [...otherPhotos, ...newPhotos]
+    
+    savePhotoOrder(updatedPhotos)
+  }
+
+  // 下移照片
+  const handleMoveDown = (photoId: string) => {
+    const currentIndex = filteredPhotos.findIndex(p => p.id === photoId)
+    if (currentIndex < 0 || currentIndex >= filteredPhotos.length - 1) return
+    
+    const newPhotos = [...filteredPhotos]
+    const [photo] = newPhotos.splice(currentIndex, 1)
+    newPhotos.splice(currentIndex + 1, 0, photo)
+    
+    // 更新所有照片的顺序（保持未过滤的照片）
+    const allPhotoIds = new Set(newPhotos.map(p => p.id))
+    const otherPhotos = photos.filter(p => !allPhotoIds.has(p.id))
+    const updatedPhotos = [...otherPhotos, ...newPhotos]
+    
+    savePhotoOrder(updatedPhotos)
+  }
+
+  // 置顶照片
+  const handleMoveToTop = (photoId: string) => {
+    const currentIndex = filteredPhotos.findIndex(p => p.id === photoId)
+    if (currentIndex <= 0) return
+    
+    const newPhotos = [...filteredPhotos]
+    const [photo] = newPhotos.splice(currentIndex, 1)
+    newPhotos.unshift(photo)
+    
+    // 更新所有照片的顺序（保持未过滤的照片）
+    const allPhotoIds = new Set(newPhotos.map(p => p.id))
+    const otherPhotos = photos.filter(p => !allPhotoIds.has(p.id))
+    const updatedPhotos = [...otherPhotos, ...newPhotos]
+    
+    savePhotoOrder(updatedPhotos)
+  }
+
+  // 置底照片
+  const handleMoveToBottom = (photoId: string) => {
+    const currentIndex = filteredPhotos.findIndex(p => p.id === photoId)
+    if (currentIndex < 0 || currentIndex >= filteredPhotos.length - 1) return
+    
+    const newPhotos = [...filteredPhotos]
+    const [photo] = newPhotos.splice(currentIndex, 1)
+    newPhotos.push(photo)
+    
+    // 更新所有照片的顺序（保持未过滤的照片）
+    const allPhotoIds = new Set(newPhotos.map(p => p.id))
+    const otherPhotos = photos.filter(p => !allPhotoIds.has(p.id))
+    const updatedPhotos = [...otherPhotos, ...newPhotos]
+    
+    savePhotoOrder(updatedPhotos)
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 分组管理器 - 移动端优化 */}
@@ -328,10 +427,21 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   "btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95",
                   isReordering && "bg-accent/10 text-accent"
                 )}
+                disabled={isSavingOrder}
               >
-                <GripVertical className="w-4 h-4" />
-                <span className="hidden sm:inline">{isReordering ? '完成排序' : '排序'}</span>
-                <span className="sm:hidden">{isReordering ? '完成' : '排序'}</span>
+                {isSavingOrder ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden sm:inline">保存中...</span>
+                    <span className="sm:hidden">保存中</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    <span className="hidden sm:inline">{isReordering ? '完成排序' : '排序'}</span>
+                    <span className="sm:hidden">{isReordering ? '完成' : '排序'}</span>
+                  </>
+                )}
               </button>
             </>
           )}
@@ -371,87 +481,15 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           {filteredPhotos.map((photo, index) => (
             <div
               key={photo.id}
-              draggable={isReordering && !selectionMode}
-              onDragStart={(e) => {
-                if (isReordering) {
-                  setDraggedPhotoId(photo.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                }
-              }}
-              onDragOver={(e) => {
-                if (isReordering && draggedPhotoId && draggedPhotoId !== photo.id) {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  setDragOverPhotoId(photo.id)
-                }
-              }}
-              onDragLeave={() => {
-                if (isReordering) {
-                  setDragOverPhotoId(null)
-                }
-              }}
-              onDrop={async (e) => {
-                e.preventDefault()
-                if (isReordering && draggedPhotoId && draggedPhotoId !== photo.id) {
-                  const draggedIndex = filteredPhotos.findIndex(p => p.id === draggedPhotoId)
-                  const dropIndex = filteredPhotos.findIndex(p => p.id === photo.id)
-                  
-                  if (draggedIndex !== -1 && dropIndex !== -1) {
-                    // 重新排序照片数组
-                    const newPhotos = [...filteredPhotos]
-                    const [draggedPhoto] = newPhotos.splice(draggedIndex, 1)
-                    newPhotos.splice(dropIndex, 0, draggedPhoto)
-                    
-                    // 更新本地状态
-                    setPhotos(newPhotos)
-                    
-                    // 调用API保存排序
-                    try {
-                      const orders = newPhotos.map((p, i) => ({
-                        photoId: p.id,
-                        sortOrder: i + 1,
-                      }))
-                      
-                      const response = await fetch('/api/admin/photos/reorder', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          albumId: album.id,
-                          orders,
-                        }),
-                      })
-                      
-                      if (!response.ok) {
-                        throw new Error('保存排序失败')
-                      }
-                      
-                      router.refresh()
-                    } catch (error) {
-                      console.error('Failed to save photo order:', error)
-                      alert('保存排序失败，请重试')
-                      // 恢复原顺序
-                      setPhotos(filteredPhotos)
-                    }
-                  }
-                }
-                setDraggedPhotoId(null)
-                setDragOverPhotoId(null)
-              }}
               onClick={() => {
-                if (isReordering) return
-                if (selectionMode) {
-                  toggleSelection(photo.id)
-                } else {
-                  const idx = filteredPhotos.findIndex(p => p.id === photo.id)
-                  setLightboxIndex(idx)
-                }
+                if (isReordering || selectionMode) return
+                const idx = filteredPhotos.findIndex(p => p.id === photo.id)
+                setLightboxIndex(idx)
               }}
               className={cn(
-                'aspect-square bg-surface rounded-lg overflow-hidden relative group cursor-pointer transition-all',
+                'aspect-square bg-surface rounded-lg overflow-hidden relative group transition-all',
                 selectedPhotos.has(photo.id) && 'ring-2 ring-accent',
-                isReordering && 'cursor-move',
-                draggedPhotoId === photo.id && 'opacity-50 scale-95',
-                dragOverPhotoId === photo.id && 'ring-2 ring-accent scale-105'
+                isReordering && 'cursor-default'
               )}
             >
               {photo.thumb_key ? (
@@ -487,10 +525,67 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
-              {/* 排序拖拽指示器 */}
+              {/* 排序按钮组 */}
               {isReordering && (
-                <div className="absolute top-2 right-2 z-10 bg-accent/90 p-1.5 rounded-full shadow-sm backdrop-blur-sm">
-                  <GripVertical className="w-4 h-4 text-background" />
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMoveToTop(photo.id)
+                      }}
+                      disabled={index === 0 || isSavingOrder}
+                      className={cn(
+                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      )}
+                      title="置顶"
+                    >
+                      <ChevronUp className="w-4 h-4 text-gray-800" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMoveUp(photo.id)
+                      }}
+                      disabled={index === 0 || isSavingOrder}
+                      className={cn(
+                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      )}
+                      title="上移"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5 text-gray-800" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMoveDown(photo.id)
+                      }}
+                      disabled={index === filteredPhotos.length - 1 || isSavingOrder}
+                      className={cn(
+                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      )}
+                      title="下移"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5 text-gray-800" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMoveToBottom(photo.id)
+                      }}
+                      disabled={index === filteredPhotos.length - 1 || isSavingOrder}
+                      className={cn(
+                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      )}
+                      title="置底"
+                    >
+                      <ChevronDown className="w-4 h-4 text-gray-800" />
+                    </button>
+                  </div>
                 </div>
               )}
 
