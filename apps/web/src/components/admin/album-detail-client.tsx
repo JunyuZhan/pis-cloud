@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Upload, Trash2, Check, Loader2 } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
+import { PhotoLightbox } from '@/components/album/lightbox'
 import type { Album, Photo } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +21,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
   useEffect(() => {
@@ -141,10 +143,16 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           {photos.map((photo) => (
             <div
               key={photo.id}
-              onClick={() => selectionMode && toggleSelection(photo.id)}
+              onClick={() => {
+                if (selectionMode) {
+                  toggleSelection(photo.id)
+                } else {
+                  const index = photos.findIndex(p => p.id === photo.id)
+                  setLightboxIndex(index)
+                }
+              }}
               className={cn(
                 'aspect-square bg-surface rounded-lg overflow-hidden relative group cursor-pointer',
-                selectionMode && 'cursor-pointer',
                 selectedPhotos.has(photo.id) && 'ring-2 ring-accent'
               )}
             >
@@ -201,6 +209,15 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           </button>
         </div>
       ) : null}
+
+      {/* Lightbox 预览 */}
+      <PhotoLightbox
+        photos={photos}
+        index={lightboxIndex !== null ? lightboxIndex : -1}
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        allowDownload={true}
+      />
     </div>
   )
 }

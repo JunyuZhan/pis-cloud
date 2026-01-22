@@ -93,14 +93,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       photos: photos?.map((photo) => ({
         id: photo.id,
-        thumbUrl: photo.thumb_key ? `${mediaUrl}/${photo.thumb_key}` : null,
-        previewUrl: photo.preview_key ? `${mediaUrl}/${photo.preview_key}` : null,
+        thumb_key: photo.thumb_key,
+        preview_key: photo.preview_key,
         width: photo.width,
         height: photo.height,
         exif: photo.exif,
-        blurData: photo.blur_data,
-        capturedAt: photo.captured_at,
-        isSelected: photo.is_selected,
+        blur_data: photo.blur_data,
+        captured_at: photo.captured_at,
+        is_selected: photo.is_selected,
+        filename: '', // 补充缺失字段以匹配 Photo 类型
+        album_id: album.id,
+        created_at: '',
+        updated_at: '',
+        original_key: '',
+        status: 'completed',
+        sort_order: 0,
+        file_size: 0,
+        mime_type: null
       })),
       pagination: {
         page,

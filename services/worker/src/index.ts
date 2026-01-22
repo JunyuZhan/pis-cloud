@@ -95,6 +95,18 @@ const worker = new Worker<PhotoJobData>(
 
       if (error) throw error;
 
+      // 6. 更新相册照片数量
+      const { count } = await supabase
+        .from('photos')
+        .select('*', { count: 'exact', head: true })
+        .eq('album_id', albumId)
+        .eq('status', 'completed');
+      
+      await supabase
+        .from('albums')
+        .update({ photo_count: count || 0 })
+        .eq('id', albumId);
+
       console.log(`[${job.id}] Completed successfully`);
     } catch (err: any) {
       console.error(`[${job.id}] Failed:`, err);
@@ -134,7 +146,7 @@ const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3001');
 const server = http.createServer(async (req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
