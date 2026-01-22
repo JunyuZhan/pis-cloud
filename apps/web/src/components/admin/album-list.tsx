@@ -112,6 +112,38 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
     }
   }
 
+  const handleDeleteAlbum = async (albumId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!confirm('确定要删除这个相册吗？此操作不可恢复。')) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/albums/${albumId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('删除失败')
+      }
+
+      const result = await response.json()
+      alert(result.message || '删除成功')
+      
+      // 更新本地状态
+      setAlbums((prev) => prev.filter((a) => a.id !== albumId))
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      alert('删除失败，请重试')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div>
       {/* 页面标题 */}
