@@ -34,10 +34,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const supabase = await createClient()
 
-    // 先获取相册 ID
+    // 先获取相册 ID（检查密码和过期时间）
     const { data: albumData, error: albumError } = await supabase
       .from('albums')
-      .select('id, sort_rule')
+      .select('id, sort_rule, password, expires_at, is_public')
       .eq('slug', slug)
       .is('deleted_at', null)
       .single()
@@ -48,6 +48,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { status: 404 }
       )
     }
+
+    // 检查相册是否过期
+    if (albumData.expires_at && new Date(albumData.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: { code: 'EXPIRED', message: '相册已过期' } },
+        { status: 403 }
+      )
+    }
+
+    // 检查是否需要密码（如果设置了密码且未验证，返回需要密码）
+    // 注意：这里不验证密码，密码验证应该在页面层或单独的 API 中处理
+    // 如果相册是私有的且设置了密码，需要先验证密码才能访问照片
 
     const album = albumData as { id: string; sort_rule: string | null }
 

@@ -89,13 +89,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'watermark_enabled',
       'watermark_type',
       'watermark_config',
+      'password',
+      'expires_at',
+      'share_title',
+      'share_description',
+      'share_image_url',
     ]
 
     // 过滤只保留允许的字段
     const updateData: AlbumUpdate = {}
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
-        ;(updateData as Record<string, unknown>)[field] = body[field]
+        // 密码字段：如果为空字符串，设置为 null；否则保持原值
+        if (field === 'password') {
+          ;(updateData as Record<string, unknown>)[field] = body[field] === '' ? null : body[field]
+        } else {
+          ;(updateData as Record<string, unknown>)[field] = body[field]
+        }
       }
     }
 

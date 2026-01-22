@@ -16,10 +16,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { slug } = await params
     const supabase = await createClient()
 
-    // 获取相册信息
+    // 获取相册信息（包含密码字段，但不直接返回）
     const { data: album, error } = await supabase
       .from('albums')
-      .select('id, title, description, layout, allow_download, show_exif, photo_count')
+      .select('id, title, description, layout, allow_download, show_exif, photo_count, password, expires_at, is_public')
       .eq('slug', slug)
       .is('deleted_at', null)
       .single()
@@ -31,7 +31,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    return NextResponse.json(album)
+    // 检查相册是否过期
+    if (album.expires_at && new Date(album.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: { code: 'EXPIRED', message: '相册已过期' } },
+        { status: 403 }
+      )
+    }
+
+    // 检查是否需要密码（不返回密码本身，只返回是否需要密码）
+    const requiresPassword = !!album.password
+
+    // 返回相册信息（不包含密码）
+    return NextResponse.json({
+      id: album.id,
+      title: album.title,
+      description: album.description,
+      layout: album.layout,
+      allow_download: album.allow_download,
+      show_exif: album.show_exif,
+      photo_count: album.photo_count,
+      requires_password: requiresPassword,
+      is_public: album.is_public,
+    })
   } catch (err) {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },

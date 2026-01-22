@@ -115,7 +115,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   const { sort, layout, group } = await searchParams
   const supabase = await createClient()
 
-  // 获取相册信息
+  // 获取相册信息（包含密码和过期时间检查）
   const { data: albumData, error: albumError } = await supabase
     .from('albums')
     .select('*')
@@ -128,6 +128,14 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   }
 
   const album = albumData as Album
+
+  // 检查相册是否过期
+  if (album.expires_at && new Date(album.expires_at) < new Date()) {
+    notFound() // 过期相册返回 404，不暴露过期信息
+  }
+
+  // 注意：密码验证应该在客户端组件中处理
+  // 如果相册设置了密码，需要在客户端验证后才能显示照片
   
   // 确定排序和布局规则
   const currentSort = (sort as SortRule) || album.sort_rule || 'capture_desc'

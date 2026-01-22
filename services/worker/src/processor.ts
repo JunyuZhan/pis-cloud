@@ -43,11 +43,13 @@ export class PhotoProcessor {
   async process(watermarkConfig?: WatermarkConfig): Promise<ProcessedResult> {
     const metadata = await this.image.metadata();
     
-    // 1. 提取 EXIF
+    // 1. 提取 EXIF（剥离敏感信息）
     let exif = {};
     if (metadata.exif) {
       try {
-        exif = exifReader(metadata.exif);
+        const rawExif = exifReader(metadata.exif);
+        // 剥离 GPS 地理位置信息，防止隐私泄露
+        exif = this.sanitizeExif(rawExif);
       } catch (e) {
         console.warn('Failed to parse EXIF:', e);
       }
@@ -284,6 +286,54 @@ export class PhotoProcessor {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * 清理 EXIF 数据，移除敏感信息（GPS 地理位置）
+   */
+  private sanitizeExif(rawExif: any): any {
+    if (!rawExif || typeof rawExif !== 'object') {
+      return rawExif;
+    }
+
+    const sanitized: any = {};
+
+    // 保留基本 EXIF 信息
+    if (rawExif.exif) {
+      sanitized.exif = { ...rawExif.exif };
+      // 移除可能包含位置信息的字段
+      delete sanitized.exif.GPSInfo;
+      delete sanitized.exif.GPSVersionID;
+    }
+
+    // 保留图像信息
+    if (rawExif.image) {
+      sanitized.image = rawExif.image;
+    }
+
+    // 保留相机信息
+    if (rawExif.makernote) {
+      sanitized.makernote = rawExif.makernote;
+    }
+
+    // 明确移除 GPS 信息
+    if (rawExif.gps) {
+      // 不保留 GPS 信息
+      console.log('[Security] Removed GPS location data from EXIF');
+    }
+
+    // 移除所有包含 GPS 的字段
+    Object.keys(rawExif).forEach((key) => {
+      if (key.toLowerCase().includes('gps') || key.toLowerCase().includes('location')) {
+        // 跳过 GPS 相关字段
+        return;
+      }
+      if (!sanitized[key]) {
+        sanitized[key] = rawExif[key];
+      }
+    });
+
+    return sanitized;
   }
 
   private async generateBlurHash(): Promise<string> {

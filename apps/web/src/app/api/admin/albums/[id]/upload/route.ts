@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
+import { checkRateLimit } from '@/middleware-rate-limit'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -24,6 +25,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: '请先登录' } },
         { status: 401 }
+      )
+    }
+
+    // 速率限制：每个用户每分钟最多 20 次上传请求
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    const identifier = `upload:${user.id}:${ip}`
+    const rateLimit = checkRateLimit(identifier, 20, 60 * 1000) // 20 次/分钟
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: `上传请求过于频繁，请稍后再试。将在 ${Math.ceil((rateLimit.resetAt - Date.now()) / 1000)} 秒后重置`,
+          },
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': new Date(rateLimit.resetAt).toISOString(),
+            'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString(),
+          },
+        }
       )
     }
 
