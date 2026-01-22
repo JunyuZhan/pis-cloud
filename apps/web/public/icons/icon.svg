@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="102" fill="#0A0A0A"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="url(#gold)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="100" fill="none" stroke="url(#gold)" stroke-width="4"/>
+  <circle cx="256" cy="256" r="40" fill="url(#gold)"/>
+  <path d="M256 156 L276 196 L256 196 Z" fill="url(#gold)" opacity="0.6"/>
+  <path d="M356 256 L316 276 L316 256 Z" fill="url(#gold)" opacity="0.6"/>
+  <path d="M256 356 L236 316 L256 316 Z" fill="url(#gold)" opacity="0.6"/>
+  <path d="M156 256 L196 236 L196 256 Z" fill="url(#gold)" opacity="0.6"/>
+  <text x="256" y="440" text-anchor="middle" fill="url(#gold)" font-family="Arial, sans-serif" font-size="48" font-weight="bold">PIS</text>
+</svg>

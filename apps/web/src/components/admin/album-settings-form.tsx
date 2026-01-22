@@ -301,8 +301,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
                   />
                   <span>文字水印</span>
                 </label>
-                {/* 
-                // 暂不支持图片水印上传，后续版本迭代
+                {/* Logo 水印配置 */}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -313,8 +312,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
                     className="radio"
                   />
                   <span>Logo 图片</span>
-                </label> 
-                */}
+                </label>
               </div>
             </div>
 
@@ -330,6 +328,24 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
                   className="input"
                   placeholder="© Your Name"
                 />
+              </div>
+            )}
+
+            {formData.watermark_type === 'logo' && (
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Logo URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.watermark_config.logoUrl || ''}
+                  onChange={(e) => handleWatermarkConfigChange('logoUrl', e.target.value)}
+                  className="input"
+                  placeholder="https://example.com/logo.png"
+                />
+                <p className="text-xs text-text-muted mt-1">
+                  请输入可公开访问的图片链接（建议使用 PNG 透明底图）
+                </p>
               </div>
             )}
 

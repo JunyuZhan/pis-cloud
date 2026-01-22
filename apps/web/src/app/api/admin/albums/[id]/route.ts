@@ -46,7 +46,51 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    return NextResponse.json(album)
+    // 4. 如果水印配置发生变化，触发旧照片重处理
+    const watermarkChanged = 
+      updateData.watermark_enabled !== undefined && updateData.watermark_enabled !== album.watermark_enabled ||
+      updateData.watermark_type !== undefined && updateData.watermark_type !== album.watermark_type ||
+      JSON.stringify(updateData.watermark_config) !== JSON.stringify(album.watermark_config);
+
+    if (watermarkChanged) {
+      // 查找该相册下所有已完成的照片
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('id, original_key')
+        .eq('album_id', id)
+        .eq('status', 'completed');
+
+      if (photos && photos.length > 0) {
+        // 重置状态为 processing
+        await supabase
+          .from('photos')
+          .update({ status: 'processing' })
+          .eq('album_id', id)
+          .eq('status', 'completed');
+
+        // 发送重处理请求给 Worker
+        const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001';
+        
+        // 异步批量触发，不阻塞响应
+        Promise.all(photos.map(photo => 
+          fetch(`${workerUrl}/api/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              photoId: photo.id,
+              albumId: id,
+              originalKey: photo.original_key
+            })
+          }).catch(console.error)
+        )).catch(console.error);
+      }
+    }
+
+    return NextResponse.json({
+      id: album.id,
+      title: album.title,
+      message: watermarkChanged ? '设置已更新，正在后台重新生成水印...' : '设置已更新'
+    })
   } catch (err) {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
@@ -123,6 +167,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // 4. 如果水印配置发生变化，触发旧照片重处理
+    // 注意：需要比较旧的 album 数据和新的 updateData
+    // 我们需要在执行 update 之前获取旧数据，或者在这里重新获取一次旧数据（不太高效但安全）
+    // 或者，我们可以假设前端传递了完整的配置，我们直接比较返回的 newAlbum 和我们预期的变化
+    
+    // 更好的方式：在 UPDATE 之前先查询旧配置 (已在上方查询了 oldAlbum)
+    // 但上方的查询是在 GET 方法里，PATCH 方法里目前没有查询旧数据
+    
+    // 让我们在 UPDATE 之前先查询当前相册的配置
+    const { data: currentAlbum } = await supabase
+      .from('albums')
+      .select('watermark_enabled, watermark_type, watermark_config')
+      .eq('id', id)
+      .single();
+      
     // 执行更新
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: album, error } = await (supabase as any)
@@ -147,7 +206,57 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    return NextResponse.json(album)
+    // 检查水印是否变更
+    let watermarkChanged = false;
+    if (currentAlbum) {
+      const oldConfig = JSON.stringify(currentAlbum.watermark_config);
+      const newConfig = JSON.stringify(album.watermark_config);
+      
+      watermarkChanged = 
+        currentAlbum.watermark_enabled !== album.watermark_enabled ||
+        currentAlbum.watermark_type !== album.watermark_type ||
+        oldConfig !== newConfig;
+    }
+
+    if (watermarkChanged) {
+      // 查找该相册下所有已完成的照片
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('id, original_key')
+        .eq('album_id', id)
+        .eq('status', 'completed');
+
+      if (photos && photos.length > 0) {
+        // 重置状态为 processing
+        await supabase
+          .from('photos')
+          .update({ status: 'processing' })
+          .eq('album_id', id)
+          .eq('status', 'completed');
+
+        // 发送重处理请求给 Worker
+        const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001';
+        
+        // 异步批量触发，不阻塞响应
+        // 使用 Promise.allSettled 防止个别失败影响整体逻辑（虽然这里是 fire-and-forget）
+        Promise.allSettled(photos.map(photo => 
+          fetch(`${workerUrl}/api/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              photoId: photo.id,
+              albumId: id,
+              originalKey: photo.original_key
+            })
+          })
+        )).catch(console.error);
+      }
+    }
+
+    return NextResponse.json({
+      ...album,
+      message: watermarkChanged ? '设置已更新，正在后台重新生成水印...' : '设置已更新'
+    })
   } catch (err) {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
