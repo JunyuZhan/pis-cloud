@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, GripVertical } from 'lucide-react'
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
 import { PhotoGroupManager } from './photo-group-manager'
@@ -28,6 +28,9 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [photoGroupMap, setPhotoGroupMap] = useState<Map<string, string[]>>(new Map())
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
+  const [isReordering, setIsReordering] = useState(false)
+  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null)
+  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
@@ -312,12 +315,25 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
               )}
             </>
           ) : (
-            <button
-              onClick={() => setSelectionMode(true)}
-              className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
-            >
-              选择
-            </button>
+            <>
+              <button
+                onClick={() => setSelectionMode(true)}
+                className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
+              >
+                选择
+              </button>
+              <button
+                onClick={() => setIsReordering(!isReordering)}
+                className={cn(
+                  "btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95",
+                  isReordering && "bg-accent/10 text-accent"
+                )}
+              >
+                <GripVertical className="w-4 h-4" />
+                <span className="hidden sm:inline">{isReordering ? '完成排序' : '排序'}</span>
+                <span className="sm:hidden">{isReordering ? '完成' : '排序'}</span>
+              </button>
+            </>
           )}
         </div>
         <button
@@ -352,20 +368,90 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       {/* 照片网格 - 移动端优化 */}
       {filteredPhotos.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-          {filteredPhotos.map((photo) => (
+          {filteredPhotos.map((photo, index) => (
             <div
               key={photo.id}
+              draggable={isReordering && !selectionMode}
+              onDragStart={(e) => {
+                if (isReordering) {
+                  setDraggedPhotoId(photo.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                }
+              }}
+              onDragOver={(e) => {
+                if (isReordering && draggedPhotoId && draggedPhotoId !== photo.id) {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  setDragOverPhotoId(photo.id)
+                }
+              }}
+              onDragLeave={() => {
+                if (isReordering) {
+                  setDragOverPhotoId(null)
+                }
+              }}
+              onDrop={async (e) => {
+                e.preventDefault()
+                if (isReordering && draggedPhotoId && draggedPhotoId !== photo.id) {
+                  const draggedIndex = filteredPhotos.findIndex(p => p.id === draggedPhotoId)
+                  const dropIndex = filteredPhotos.findIndex(p => p.id === photo.id)
+                  
+                  if (draggedIndex !== -1 && dropIndex !== -1) {
+                    // 重新排序照片数组
+                    const newPhotos = [...filteredPhotos]
+                    const [draggedPhoto] = newPhotos.splice(draggedIndex, 1)
+                    newPhotos.splice(dropIndex, 0, draggedPhoto)
+                    
+                    // 更新本地状态
+                    setPhotos(newPhotos)
+                    
+                    // 调用API保存排序
+                    try {
+                      const orders = newPhotos.map((p, i) => ({
+                        photoId: p.id,
+                        sortOrder: i + 1,
+                      }))
+                      
+                      const response = await fetch('/api/admin/photos/reorder', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          albumId: album.id,
+                          orders,
+                        }),
+                      })
+                      
+                      if (!response.ok) {
+                        throw new Error('保存排序失败')
+                      }
+                      
+                      router.refresh()
+                    } catch (error) {
+                      console.error('Failed to save photo order:', error)
+                      alert('保存排序失败，请重试')
+                      // 恢复原顺序
+                      setPhotos(filteredPhotos)
+                    }
+                  }
+                }
+                setDraggedPhotoId(null)
+                setDragOverPhotoId(null)
+              }}
               onClick={() => {
+                if (isReordering) return
                 if (selectionMode) {
                   toggleSelection(photo.id)
                 } else {
-                  const index = filteredPhotos.findIndex(p => p.id === photo.id)
-                  setLightboxIndex(index)
+                  const idx = filteredPhotos.findIndex(p => p.id === photo.id)
+                  setLightboxIndex(idx)
                 }
               }}
               className={cn(
-                'aspect-square bg-surface rounded-lg overflow-hidden relative group cursor-pointer',
-                selectedPhotos.has(photo.id) && 'ring-2 ring-accent'
+                'aspect-square bg-surface rounded-lg overflow-hidden relative group cursor-pointer transition-all',
+                selectedPhotos.has(photo.id) && 'ring-2 ring-accent',
+                isReordering && 'cursor-move',
+                draggedPhotoId === photo.id && 'opacity-50 scale-95',
+                dragOverPhotoId === photo.id && 'ring-2 ring-accent scale-105'
               )}
             >
               {photo.thumb_key ? (
@@ -401,8 +487,15 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
+              {/* 排序拖拽指示器 */}
+              {isReordering && (
+                <div className="absolute top-2 right-2 z-10 bg-accent/90 p-1.5 rounded-full shadow-sm backdrop-blur-sm">
+                  <GripVertical className="w-4 h-4 text-background" />
+                </div>
+              )}
+
               {/* 操作按钮 (悬停显示) */}
-              {!selectionMode && photo.thumb_key && (
+              {!selectionMode && !isReordering && photo.thumb_key && (
                 <div className="absolute bottom-2 left-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                   {coverPhotoId !== photo.id && (
                     <button
