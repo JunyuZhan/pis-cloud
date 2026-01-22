@@ -4,8 +4,13 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: 'http',
+        hostname: 'media.albertzhan.top',
+        pathname: '/**',
+      },
+      {
         protocol: 'https',
-        hostname: 'media.yourdomain.com',
+        hostname: 'media.albertzhan.top',
         pathname: '/**',
       },
       {
