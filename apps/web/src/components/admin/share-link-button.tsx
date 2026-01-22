@@ -55,10 +55,10 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
     <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="btn-secondary"
+        className="btn-primary text-sm"
       >
         <Share2 className="w-4 h-4" />
-        分享
+        <span className="hidden sm:inline">分享相册</span>
       </button>
 
       {showDropdown && (

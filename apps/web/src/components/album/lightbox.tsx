@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useMemo } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
@@ -8,7 +8,7 @@ import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/thumbnails.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
-import { Download, Heart } from 'lucide-react'
+import { Download, Heart, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Photo } from '@/types/database'
 
@@ -38,6 +38,8 @@ export function PhotoLightbox({
     })
     return map
   })
+  // 跟踪哪些照片已加载原图
+  const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
 
   // 同步外部传入的 index 到内部 state
   useEffect(() => {
@@ -48,8 +50,8 @@ export function PhotoLightbox({
 
   const currentPhoto = photos[currentIndex]
 
-  // 构建 slides，包含 EXIF 信息
-  const slides = photos.map((photo) => {
+  // 构建 slides，默认使用预览图，已加载原图的则使用原图
+  const slides = useMemo(() => photos.map((photo) => {
     const exif = photo.exif as Record<string, unknown> | null
     const make = (exif?.image as Record<string, unknown>)?.Make || (exif?.Make as string)
     const model = (exif?.image as Record<string, unknown>)?.Model || (exif?.Model as string)
@@ -74,14 +76,38 @@ export function PhotoLightbox({
       .filter(Boolean)
       .join(' · ')
 
+    // 如果已加载原图，使用原图；否则使用预览图
+    const imageKey = loadedOriginals.has(photo.id) 
+      ? photo.original_key 
+      : (photo.preview_key || photo.thumb_key || photo.original_key)
+
     return {
-      src: `${mediaUrl}/${photo.preview_key || photo.original_key}`,
+      src: `${mediaUrl}/${imageKey}`,
       width: photo.width || 0,
       height: photo.height || 0,
       title: photo.filename,
       description: exifString || (dateTime ? new Date(dateTime).toLocaleString() : undefined),
+      // 保存photo id和original_key用于后续加载原图
+      photoId: photo.id,
+      originalKey: photo.original_key,
+      previewKey: photo.preview_key,
     }
-  })
+  }), [photos, loadedOriginals, mediaUrl])
+
+  // 加载当前照片的原图
+  const handleLoadOriginal = useCallback(() => {
+    if (!currentPhoto) return
+    
+    // 如果已经有预览图，才需要加载原图
+    if (currentPhoto.preview_key && currentPhoto.preview_key !== currentPhoto.original_key) {
+      setLoadedOriginals((prev) => new Set(prev).add(currentPhoto.id))
+    }
+  }, [currentPhoto])
+
+  // 检查当前照片是否已加载原图
+  const isOriginalLoaded = currentPhoto 
+    ? loadedOriginals.has(currentPhoto.id) || !currentPhoto.preview_key || currentPhoto.preview_key === currentPhoto.original_key
+    : false
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
@@ -175,6 +201,20 @@ export function PhotoLightbox({
               )}
             />
           </button>,
+
+          // 查看原图按钮（仅在未加载原图时显示）
+          !isOriginalLoaded && (
+            <button
+              key="load-original"
+              type="button"
+              onClick={handleLoadOriginal}
+              className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
+              aria-label="查看原图"
+            >
+              <ImageIcon className="w-5 h-5" />
+              <span className="text-sm font-medium">查看原图</span>
+            </button>
+          ),
 
           // 下载按钮
           allowDownload && (

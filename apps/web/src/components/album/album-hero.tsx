@@ -99,9 +99,14 @@ export function AlbumHero({ album, coverPhoto }: AlbumHeroProps) {
             transition={{ delay: 0.3 }}
             className="mb-4"
           >
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white drop-shadow-lg">
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-2 leading-tight drop-shadow-lg">
               {album.title}
             </h1>
+            {album.description && (
+              <p className="text-sm md:text-lg text-white/80 max-w-2xl line-clamp-2 drop-shadow-md">
+                {album.description}
+              </p>
+            )}
           </motion.div>
 
           {/* 活动信息 */}

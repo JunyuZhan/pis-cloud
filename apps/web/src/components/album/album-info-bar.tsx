@@ -2,16 +2,16 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { ChevronDown, ChevronUp, Camera, Share2, Download } from 'lucide-react'
+import { ChevronDown, ChevronUp, Camera, Download } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { AlbumShareButton } from './album-share-button'
 import type { Album } from '@/types/database'
 
 interface AlbumInfoBarProps {
   album: Album
-  onShare?: () => void
 }
 
-export function AlbumInfoBar({ album, onShare }: AlbumInfoBarProps) {
+export function AlbumInfoBar({ album }: AlbumInfoBarProps) {
   const [isDescExpanded, setIsDescExpanded] = useState(false)
   
   // 判断描述是否需要折叠
@@ -46,13 +46,7 @@ export function AlbumInfoBar({ album, onShare }: AlbumInfoBarProps) {
                 <span className="hidden sm:inline">下载全部</span>
               </button>
             )}
-            <button 
-              onClick={onShare}
-              className="btn-primary text-sm"
-            >
-              <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">分享相册</span>
-            </button>
+            <AlbumShareButton albumSlug={album.slug} albumTitle={album.title} />
           </div>
         </div>
 

@@ -69,12 +69,11 @@ export default async function HomePage() {
           </Link>
           <Link 
             href="/admin" 
-            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer group"
+            className="flex items-center justify-center w-8 h-8 text-text-muted hover:text-text-secondary transition-colors cursor-pointer group rounded-md hover:bg-surface"
             prefetch={false}
             title="管理后台"
           >
-            <Settings className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
-            <span className="hidden sm:inline">管理</span>
+            <Settings className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
           </Link>
         </div>
       </header>

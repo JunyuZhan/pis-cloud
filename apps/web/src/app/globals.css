@@ -29,8 +29,23 @@
     }
   }
 
+  /* 移动端安全区适配 */
+  :root {
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+    --safe-area-left: env(safe-area-inset-left);
+    --safe-area-right: env(safe-area-inset-right);
+  }
+
   body {
     @apply bg-background text-text-primary antialiased;
+    padding-bottom: var(--safe-area-bottom);
+    overscroll-behavior-y: none; /* 防止橡皮筋效果 */
+  }
+
+  /* 移动端点击高亮优化 */
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* 自定义滚动条 */

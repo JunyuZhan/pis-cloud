@@ -287,12 +287,19 @@ function PhotoCard({
             #{index + 1}
           </div>
 
-          {/* 已选中标记 */}
-          {isSelected && (
-            <div className="absolute top-2 right-2 p-1.5 bg-accent rounded-full shadow-lg">
-              <Heart className="w-4 h-4 text-white fill-current" />
-            </div>
-          )}
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button
+              onClick={onSelect}
+              className="p-3 hover:scale-110 transition-transform active:scale-90" // 增加点击热区
+            >
+              <Heart
+                className={cn(
+                  'w-6 h-6 drop-shadow-lg filter', // 略微放大图标
+                  isSelected ? 'fill-red-500 text-red-500' : 'text-white'
+                )}
+              />
+            </button>
+          </div>
         </div>
 
         {/* 底部操作栏 */}
