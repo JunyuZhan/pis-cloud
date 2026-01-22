@@ -131,13 +131,15 @@ export function PhotoLightbox({
 
   // 检查是否需要显示"查看原图"按钮
   // 条件：有原图、且未加载过原图（无论是否有预览图，只要有原图就可以查看）
-  const showLoadOriginalButton = currentPhoto && 
-    currentPhoto.original_key &&
-    !loadedOriginals.has(currentPhoto.id) &&
-    // 如果当前显示的是预览图，且预览图与原图不同，才显示按钮
-    (currentPhoto.preview_key 
-      ? currentPhoto.preview_key !== currentPhoto.original_key
-      : true) // 如果没有预览图但原图存在，也显示按钮
+  const showLoadOriginalButton = useMemo(() => {
+    return currentPhoto && 
+      currentPhoto.original_key &&
+      !loadedOriginals.has(currentPhoto.id) &&
+      // 如果当前显示的是预览图，且预览图与原图不同，才显示按钮
+      (currentPhoto.preview_key 
+        ? currentPhoto.preview_key !== currentPhoto.original_key
+        : true) // 如果没有预览图但原图存在，也显示按钮
+  }, [currentPhoto, loadedOriginals])
 
   // 通过 API 下载原图
   const handleDownload = useCallback(async () => {
