@@ -231,22 +231,22 @@ export function PhotoLightbox({
       </button>,
     ]
 
-    // 查看原图按钮（仅在需要时显示）
-    if (showLoadOriginalButton) {
-      buttons.push(
-        <button
-          key="load-original"
-          type="button"
-          onClick={handleLoadOriginal}
-          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
-          aria-label="查看原图"
-          title="查看原图"
-        >
-          <ImageIcon className="w-5 h-5" />
-          <span className="text-sm font-medium">查看原图</span>
-        </button>
-      )
-    }
+    // 查看原图按钮（已移除）
+    // if (showLoadOriginalButton) {
+    //   buttons.push(
+    //     <button
+    //       key="load-original"
+    //       type="button"
+    //       onClick={handleLoadOriginal}
+    //       className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
+    //       aria-label="查看原图"
+    //       title="查看原图"
+    //     >
+    //       <ImageIcon className="w-5 h-5" />
+    //       <span className="text-sm font-medium">查看原图</span>
+    //     </button>
+    //   )
+    // }
 
     // 下载按钮
     if (allowDownload) {
@@ -265,7 +265,7 @@ export function PhotoLightbox({
 
     buttons.push('close')
     return buttons
-  }, [currentPhoto, selectedMap, showLoadOriginalButton, allowDownload, handleSelect, handleLoadOriginal, handleDownload])
+  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload])
 
   return (
     <Lightbox
