@@ -3,7 +3,16 @@ import http from 'http';
 import { Worker, Job } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
 import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
-import { downloadFile, uploadFile, getMinioClient, uploadBuffer } from './lib/minio.js';
+import { 
+  downloadFile, 
+  uploadFile, 
+  getMinioClient, 
+  uploadBuffer,
+  initMultipartUpload,
+  uploadPart,
+  completeMultipartUpload,
+  abortMultipartUpload
+} from './lib/minio.js';
 import { PhotoProcessor } from './processor.js';
 
 // 检查必要的环境变量
@@ -241,6 +250,124 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: true, message: 'Job queued' }));
       } catch (err: any) {
         console.error('Process queue error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // ============================================
+  // 分片上传 API
+  // ============================================
+
+  // 初始化分片上传
+  if (url.pathname === '/api/multipart/init' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key } = JSON.parse(body);
+        if (!key) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing key' }));
+          return;
+        }
+
+        const uploadId = await initMultipartUpload(key);
+        console.log(`[Multipart] Initialized upload for ${key}, uploadId: ${uploadId}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ uploadId, key }));
+      } catch (err: any) {
+        console.error('Multipart init error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 上传单个分片
+  if (url.pathname === '/api/multipart/upload' && req.method === 'PUT') {
+    const key = url.searchParams.get('key');
+    const uploadId = url.searchParams.get('uploadId');
+    const partNumber = parseInt(url.searchParams.get('partNumber') || '0');
+
+    if (!key || !uploadId || !partNumber) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing key, uploadId, or partNumber' }));
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        console.log(`[Multipart] Uploading part ${partNumber} for ${key}, size: ${buffer.length}`);
+        
+        const { etag } = await uploadPart(key, uploadId, partNumber, buffer);
+        console.log(`[Multipart] Part ${partNumber} uploaded, etag: ${etag}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ etag, partNumber }));
+      } catch (err: any) {
+        console.error('Multipart upload error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 完成分片上传
+  if (url.pathname === '/api/multipart/complete' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key, uploadId, parts } = JSON.parse(body);
+        if (!key || !uploadId || !parts || !Array.isArray(parts)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing key, uploadId, or parts' }));
+          return;
+        }
+
+        await completeMultipartUpload(key, uploadId, parts);
+        console.log(`[Multipart] Completed upload for ${key}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, key }));
+      } catch (err: any) {
+        console.error('Multipart complete error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 取消分片上传
+  if (url.pathname === '/api/multipart/abort' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key, uploadId } = JSON.parse(body);
+        if (!key || !uploadId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing key or uploadId' }));
+          return;
+        }
+
+        await abortMultipartUpload(key, uploadId);
+        console.log(`[Multipart] Aborted upload for ${key}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err: any) {
+        console.error('Multipart abort error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }

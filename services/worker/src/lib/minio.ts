@@ -60,4 +60,64 @@ export async function getPresignedGetUrl(key: string, expirySeconds = 3600): Pro
   return toPublicUrl(url);
 }
 
+// ============ 分片上传 API ============
+
+// 初始化分片上传
+export async function initMultipartUpload(key: string): Promise<string> {
+  // MinIO SDK 不直接暴露 initiateMultipartUpload，使用底层 API
+  const client = minioClient as any;
+  return new Promise((resolve, reject) => {
+    client.initiateNewMultipartUpload(bucketName, key, {}, (err: Error, uploadId: string) => {
+      if (err) reject(err);
+      else resolve(uploadId);
+    });
+  });
+}
+
+// 上传单个分片
+export async function uploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  buffer: Buffer
+): Promise<{ etag: string }> {
+  const client = minioClient as any;
+  return new Promise((resolve, reject) => {
+    client.uploadPart(
+      { bucketName, objectName: key, uploadId, partNumber, headers: {} },
+      buffer,
+      (err: Error, etag: string) => {
+        if (err) reject(err);
+        else resolve({ etag });
+      }
+    );
+  });
+}
+
+// 完成分片上传
+export async function completeMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: Array<{ partNumber: number; etag: string }>
+): Promise<void> {
+  const client = minioClient as any;
+  return new Promise((resolve, reject) => {
+    client.completeMultipartUpload(bucketName, key, uploadId, parts, (err: Error) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+// 取消分片上传
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  const client = minioClient as any;
+  return new Promise((resolve, reject) => {
+    client.abortMultipartUpload(bucketName, key, uploadId, (err: Error) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 export default minioClient;
