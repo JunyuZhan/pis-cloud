@@ -13,18 +13,12 @@ export function SiteFooter() {
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
             <span>© {currentYear} PIS Photography. All rights reserved.</span>
             <span className="hidden md:inline">|</span>
-            <Link 
-              href="/privacy" 
-              className="hover:text-accent transition-colors"
-            >
+            <span className="hover:text-accent transition-colors cursor-pointer">
               隐私政策
-            </Link>
-            <Link 
-              href="/terms" 
-              className="hover:text-accent transition-colors"
-            >
+            </span>
+            <span className="hover:text-accent transition-colors cursor-pointer">
               使用条款
-            </Link>
+            </span>
           </div>
 
           {/* 右侧：Powered by */}

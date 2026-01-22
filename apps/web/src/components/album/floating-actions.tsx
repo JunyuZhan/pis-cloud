@@ -174,15 +174,14 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSortToggle}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+                  'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
                   'bg-surface border border-border hover:bg-surface-elevated',
-                  'text-text-primary transition-all min-w-[140px] justify-center',
-                  'backdrop-blur-sm'
+                  'text-text-primary transition-all backdrop-blur-sm',
+                  'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
                 )}
-                title="切换排序"
+                title={getSortLabel()}
               >
-                <ArrowUpDown className="w-4 h-4" />
-                <span className="text-sm font-medium">{getSortLabel()}</span>
+                <ArrowUpDown className="w-5 h-5" />
               </motion.button>
 
               {/* 下载相册按钮 */}
@@ -193,23 +192,18 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                   onClick={handleDownloadAlbum}
                   disabled={downloading}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+                    'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
                     'bg-accent hover:bg-accent/90 text-background',
-                    'transition-all min-w-[140px] justify-center',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                    'transition-all backdrop-blur-sm',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
                   )}
-                  title="下载整个相册"
+                  title={downloading ? '打包中...' : '下载整个相册'}
                 >
                   {downloading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm font-medium">打包中...</span>
-                    </>
+                    <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      <span className="text-sm font-medium">下载相册</span>
-                    </>
+                    <Download className="w-5 h-5" />
                   )}
                 </motion.button>
               )}
@@ -241,15 +235,14 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                     setIsExpanded(false)
                   }}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+                    'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
                     'bg-surface border border-border hover:bg-surface-elevated',
-                    'text-text-primary transition-all min-w-[140px] justify-center',
-                    'backdrop-blur-sm'
+                    'text-text-primary transition-all backdrop-blur-sm',
+                    'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
                   )}
                   title="分享相册"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">分享</span>
+                  <Share2 className="w-5 h-5" />
                 </motion.button>
               )}
             </motion.div>
