@@ -8,12 +8,16 @@ import { formatRelativeTime } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import type { Album } from '@/types/database'
 
+export type AlbumWithCover = Album & {
+  cover_thumb_key?: string | null
+}
+
 interface AlbumListProps {
-  initialAlbums: Album[]
+  initialAlbums: AlbumWithCover[]
 }
 
 export function AlbumList({ initialAlbums }: AlbumListProps) {
-  const [albums] = useState(initialAlbums)
+  const [albums] = useState<AlbumWithCover[]>(initialAlbums)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   return (
@@ -69,8 +73,13 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   )
 }
 
-function AlbumCard({ album }: { album: Album }) {
+function AlbumCard({ album }: { album: AlbumWithCover }) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const coverUrl = album.cover_thumb_key
+    ? `${mediaUrl}/${album.cover_thumb_key}`
+    : album.cover_photo_id
+    ? `${mediaUrl}/thumbs/${album.id}/${album.cover_photo_id}.jpg`
+    : null
 
   return (
     <Link
@@ -79,9 +88,9 @@ function AlbumCard({ album }: { album: Album }) {
     >
       {/* 封面图 */}
       <div className="aspect-[4/3] bg-surface rounded-lg mb-4 overflow-hidden relative">
-        {album.cover_photo_id ? (
+        {coverUrl ? (
           <Image
-            src={`${mediaUrl}/thumbs/${album.id}/${album.cover_photo_id}.jpg`}
+            src={coverUrl}
             alt={album.title}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"

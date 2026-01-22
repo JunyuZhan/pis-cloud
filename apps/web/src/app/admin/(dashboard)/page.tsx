@@ -9,11 +9,36 @@ export default async function AdminPage() {
   const supabase = await createClient()
 
   // 获取相册列表
-  const { data: albums } = await supabase
+  const { data: albumsData } = await supabase
     .from('albums')
     .select('*')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  // 获取封面图的 key
+  const coverPhotoIds = albumsData?.map((a) => a.cover_photo_id).filter(Boolean) || []
+  let coverPhotosMap: Record<string, string> = {}
+
+  if (coverPhotoIds.length > 0) {
+    const { data: photos } = await supabase
+      .from('photos')
+      .select('id, thumb_key')
+      .in('id', coverPhotoIds)
+
+    if (photos) {
+      coverPhotosMap = photos.reduce((acc, photo) => {
+        if (photo.thumb_key) {
+          acc[photo.id] = photo.thumb_key
+        }
+        return acc
+      }, {} as Record<string, string>)
+    }
+  }
+
+  const albums = albumsData?.map((album) => ({
+    ...album,
+    cover_thumb_key: album.cover_photo_id ? coverPhotosMap[album.cover_photo_id] : null,
+  })) || []
 
   return (
     <Suspense fallback={<AlbumListSkeleton />}>
