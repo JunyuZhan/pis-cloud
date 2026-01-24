@@ -1,5 +1,6 @@
 import * as Minio from 'minio';
 
+// 内网 MinIO 客户端（用于实际上传/下载操作）
 const minioClient = new Minio.Client({
   endPoint: process.env.MINIO_ENDPOINT_HOST || 'localhost',
   port: parseInt(process.env.MINIO_ENDPOINT_PORT || '9000'),
@@ -7,6 +8,28 @@ const minioClient = new Minio.Client({
   accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
   secretKey: process.env.MINIO_SECRET_KEY || 'password123',
 });
+
+// 公网 MinIO 客户端（用于生成 presigned URL，签名需要匹配公网地址）
+function createPublicMinioClient(): Minio.Client | null {
+  const publicUrl = process.env.MINIO_PUBLIC_URL;
+  if (!publicUrl) return null;
+  
+  try {
+    const url = new URL(publicUrl);
+    return new Minio.Client({
+      endPoint: url.hostname,
+      port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80),
+      useSSL: url.protocol === 'https:',
+      accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
+      secretKey: process.env.MINIO_SECRET_KEY || 'password123',
+    });
+  } catch (e) {
+    console.warn('Failed to create public MinIO client:', e);
+    return null;
+  }
+}
+
+const publicMinioClient = createPublicMinioClient();
 
 export const bucketName = process.env.MINIO_BUCKET || 'pis-photos';
 
@@ -36,28 +59,17 @@ export async function uploadFile(
 // Alias for uploadFile
 export const uploadBuffer = uploadFile;
 
-// 公网 MinIO URL (用于生成可从外部访问的 Presigned URL)
-const publicMinioUrl = process.env.MINIO_PUBLIC_URL || '';
-
-// 替换内网地址为公网地址
-function toPublicUrl(url: string): string {
-  if (!publicMinioUrl) return url;
-  
-  // 替换 http://law-firm-minio:9000 或 http://localhost:9000 为公网地址
-  const internalHost = `${process.env.MINIO_ENDPOINT_HOST || 'localhost'}:${process.env.MINIO_ENDPOINT_PORT || '9000'}`;
-  return url.replace(`http://${internalHost}`, publicMinioUrl);
-}
-
-// 生成预签名上传 URL
+// 生成预签名上传 URL（使用公网客户端，确保签名匹配）
 export async function getPresignedPutUrl(key: string, expirySeconds = 3600): Promise<string> {
-  const url = await minioClient.presignedPutObject(bucketName, key, expirySeconds);
-  return toPublicUrl(url);
+  // 优先使用公网客户端（签名会基于公网地址生成）
+  const client = publicMinioClient || minioClient;
+  return client.presignedPutObject(bucketName, key, expirySeconds);
 }
 
 // 生成预签名下载 URL
 export async function getPresignedGetUrl(key: string, expirySeconds = 3600): Promise<string> {
-  const url = await minioClient.presignedGetObject(bucketName, key, expirySeconds);
-  return toPublicUrl(url);
+  const client = publicMinioClient || minioClient;
+  return client.presignedGetObject(bucketName, key, expirySeconds);
 }
 
 // ============ 分片上传 API ============
