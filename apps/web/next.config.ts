@@ -16,6 +16,31 @@ const nextConfig: NextConfig = {
   // 优化图片加载
   images: {
     remotePatterns: [
+      // 本地开发环境
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9000',
+        pathname: '/**',
+      },
+      // 生产环境媒体服务器（从环境变量动态获取）
+      ...(process.env.NEXT_PUBLIC_MEDIA_URL
+        ? (() => {
+            try {
+              const mediaUrl = new URL(process.env.NEXT_PUBLIC_MEDIA_URL)
+              return [
+                {
+                  protocol: mediaUrl.protocol.replace(':', '') as 'http' | 'https',
+                  hostname: mediaUrl.hostname,
+                  pathname: '/**',
+                },
+              ]
+            } catch {
+              return []
+            }
+          })()
+        : []),
+      // 示例域名（向后兼容）
       {
         protocol: 'http',
         hostname: 'media.example.com',
@@ -26,10 +51,15 @@ const nextConfig: NextConfig = {
         hostname: 'media.example.com',
         pathname: '/**',
       },
+      // 常见媒体服务器域名（生产环境）
+      {
+        protocol: 'https',
+        hostname: 'media.albertzhan.top',
+        pathname: '/**',
+      },
       {
         protocol: 'http',
-        hostname: 'localhost',
-        port: '9000',
+        hostname: 'media.albertzhan.top',
         pathname: '/**',
       },
     ],
