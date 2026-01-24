@@ -32,8 +32,13 @@ export function PhotoLightbox({
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   
+  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
+  const safeMediaUrl = mediaUrl.startsWith('http://') 
+    ? mediaUrl.replace('http://', 'https://')
+    : mediaUrl
+  
   // 开发环境警告
-  if (typeof window !== 'undefined' && !mediaUrl) {
+  if (typeof window !== 'undefined' && !safeMediaUrl) {
     console.error('⚠️ NEXT_PUBLIC_MEDIA_URL is not configured. Images may not load.')
   }
   // 初始化 currentIndex，确保有效
@@ -135,9 +140,9 @@ export function PhotoLightbox({
         console.warn('Missing imageKey for photo:', photo.id)
       }
 
-      // 构建图片 URL，确保格式正确
-      const imageSrc = imageKey && mediaUrl 
-        ? `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}` 
+      // 构建图片 URL，确保格式正确并使用 HTTPS
+      const imageSrc = imageKey && safeMediaUrl 
+        ? `${safeMediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}` 
         : ''
 
       return {
@@ -150,8 +155,8 @@ export function PhotoLightbox({
         originalKey: photo.original_key || null,
         previewKey: photo.preview_key || null,
       }
-    })
-  }, [photos, mediaUrl])
+      })
+    }, [photos, safeMediaUrl])
 
   // 加载当前照片的原图 - 已移除
   // const handleLoadOriginal = useCallback(() => {
@@ -238,7 +243,7 @@ export function PhotoLightbox({
   }
 
   // 确保 mediaUrl 配置存在
-  if (!mediaUrl) {
+  if (!safeMediaUrl) {
     console.error('NEXT_PUBLIC_MEDIA_URL is not configured. Cannot display images.')
     return null
   }

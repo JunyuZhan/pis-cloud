@@ -199,7 +199,12 @@ function PhotoCard({
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
 
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  
+  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
+  const safeMediaUrl = mediaUrl.startsWith('http://') 
+    ? mediaUrl.replace('http://', 'https://')
+    : mediaUrl
 
   // 下载照片
   const handleDownload = async (e: React.MouseEvent) => {
@@ -273,7 +278,7 @@ function PhotoCard({
         >
           {photo.thumb_key ? (
             <Image
-              src={`${mediaUrl}/${photo.thumb_key}`}
+              src={`${safeMediaUrl}/${photo.thumb_key}`}
               alt={photo.filename}
               width={400}
               height={Math.round(400 * aspectRatio)}

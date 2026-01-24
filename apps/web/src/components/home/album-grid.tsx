@@ -10,17 +10,28 @@ interface AlbumGridProps {
   albums: Album[]
 }
 
+interface AlbumWithCover extends Album {
+  cover_thumb_key?: string | null
+  cover_preview_key?: string | null
+}
+
 export function AlbumGrid({ albums }: AlbumGridProps) {
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+
+  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
+  const safeMediaUrl = mediaUrl.startsWith('http://') 
+    ? mediaUrl.replace('http://', 'https://')
+    : mediaUrl
 
   return (
     <div className="w-full">
       {/* Instagram/Pinterest风格的无缝网格 */}
       <div className="columns-2 sm:columns-3 md:columns-4 gap-2 md:gap-3">
         {albums.map((album, index) => {
-          const coverUrl = album.cover_photo_id
-            ? `${mediaUrl}/processed/thumbs/${album.id}/${album.cover_photo_id}.jpg`
-            : null
+          const albumWithCover = album as AlbumWithCover
+          // 使用封面照片的 key（优先 preview_key，其次 thumb_key）
+          const coverKey = albumWithCover.cover_preview_key || albumWithCover.cover_thumb_key
+          const coverUrl = coverKey ? `${safeMediaUrl}/${coverKey}` : null
 
           return (
             <motion.div

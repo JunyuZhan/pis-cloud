@@ -58,6 +58,50 @@ export default async function HomePage() {
   // 其他相册（排除第一个，因为已经在Hero中展示）
   const otherAlbums = albums && albums.length > 1 ? albums.slice(1) : albums
 
+  // 为每个相册获取封面照片的 key（用于首页网格显示）
+  const albumsWithCoverKeys = await Promise.all(
+    (otherAlbums || []).map(async (album) => {
+      let coverThumbKey: string | null = null
+      let coverPreviewKey: string | null = null
+
+      if (album.cover_photo_id) {
+        const { data: cover } = await supabase
+          .from('photos')
+          .select('thumb_key, preview_key')
+          .eq('id', album.cover_photo_id)
+          .single()
+        
+        if (cover) {
+          coverThumbKey = cover.thumb_key
+          coverPreviewKey = cover.preview_key
+        }
+      }
+
+      // 如果没有封面，获取第一张照片
+      if (!coverThumbKey && !coverPreviewKey && album.id) {
+        const { data: firstPhoto } = await supabase
+          .from('photos')
+          .select('thumb_key, preview_key')
+          .eq('album_id', album.id)
+          .eq('status', 'completed')
+          .order('captured_at', { ascending: false })
+          .limit(1)
+          .single()
+        
+        if (firstPhoto) {
+          coverThumbKey = firstPhoto.thumb_key
+          coverPreviewKey = firstPhoto.preview_key
+        }
+      }
+
+      return {
+        ...album,
+        cover_thumb_key: coverThumbKey,
+        cover_preview_key: coverPreviewKey,
+      }
+    })
+  )
+
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
       {/* 头部导航 */}
@@ -78,7 +122,7 @@ export default async function HomePage() {
             </div>
 
             {/* 相册网格 - 全宽无缝布局 */}
-            <AlbumGrid albums={otherAlbums} />
+            <AlbumGrid albums={albumsWithCoverKeys} />
           </div>
         </section>
       ) : featuredAlbum ? (
