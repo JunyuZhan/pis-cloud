@@ -1,6 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": [".env.local", ".env"],
+  "globalEnv": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "NEXT_PUBLIC_MEDIA_URL",
+    "WORKER_URL",
+    "WORKER_API_URL",
+    "NEXT_PUBLIC_WORKER_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_PHOTOGRAPHER_NAME",
+    "NEXT_PUBLIC_PHOTOGRAPHER_TAGLINE"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
