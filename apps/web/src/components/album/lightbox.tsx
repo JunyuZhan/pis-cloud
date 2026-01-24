@@ -132,8 +132,8 @@ export function PhotoLightbox({
       // 修改：只使用预览图（如果有），下载时才使用原图
       const imageKey = photo.preview_key || photo.thumb_key || photo.original_key
 
-      // 确保 mediaUrl 存在且 imageKey 存在
-      if (!mediaUrl) {
+      // 确保 safeMediaUrl 存在且 imageKey 存在
+      if (!safeMediaUrl) {
         console.error('NEXT_PUBLIC_MEDIA_URL is not configured')
       }
       if (!imageKey) {
