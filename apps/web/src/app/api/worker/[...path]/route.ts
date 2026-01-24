@@ -16,7 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Worker 服务 URL (服务端环境变量，不暴露给客户端)
-const WORKER_URL = process.env.WORKER_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+// 支持多个变量名，确保兼容性
+const WORKER_URL = process.env.WORKER_URL || process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
 
 export async function GET(
   request: NextRequest,
