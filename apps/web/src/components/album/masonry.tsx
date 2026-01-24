@@ -122,10 +122,9 @@ export function MasonryGrid({
     <>
       <div
         className={cn(
-          'gap-4 space-y-4',
           layout === 'masonry'
-            ? 'columns-2 md:columns-3 lg:columns-4'
-            : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 space-y-0'
+            ? 'columns-2 md:columns-3 lg:columns-4 gap-0 space-y-0' // 移除 gap 和 space-y
+            : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0' // 移除 gap
         )}
       >
         {photos.map((photo, index) => (
@@ -156,14 +155,19 @@ export function MasonryGrid({
       {/* Infinite Scroll Trigger */}
       <div ref={loadMoreRef} className="h-4" />
 
-      <PhotoLightbox
-        photos={photos}
-        index={lightboxIndex !== null ? lightboxIndex : -1}
-        open={lightboxIndex !== null}
-        onClose={() => setLightboxIndex(null)}
-        allowDownload={album.allow_download}
-        onSelectChange={handleLightboxSelectChange}
-      />
+      {/* Lightbox - 只在有照片且索引有效时渲染 */}
+      {lightboxIndex !== null && 
+       lightboxIndex >= 0 && 
+       lightboxIndex < photos.length && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          open={true}
+          onClose={() => setLightboxIndex(null)}
+          allowDownload={album.allow_download}
+          onSelectChange={handleLightboxSelectChange}
+        />
+      )}
     </>
   )
 }
@@ -204,12 +208,24 @@ function PhotoCard({
     
     try {
       const response = await fetch(`/api/public/download/${photo.id}`)
-      if (response.ok) {
-        const data = await response.json()
-        window.open(data.url, '_blank')
+      if (!response.ok) {
+        const error = await response.json()
+        alert(error.error?.message || '下载失败')
+        return
       }
+
+      const { downloadUrl, filename } = await response.json()
+
+      // 触发下载
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } catch (error) {
       console.error('下载失败:', error)
+      alert('下载失败，请重试')
     }
   }
 
@@ -241,12 +257,12 @@ function PhotoCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: (index % 10) * 0.05 }}
       className={cn(
-        'group',
-        layout === 'masonry' ? 'break-inside-avoid mb-4' : ''
+        'group relative', // 添加 relative
+        layout === 'masonry' ? 'break-inside-avoid mb-0' : '' // 移除 margin-bottom
       )}
     >
-      {/* 照片卡片 */}
-      <div className="bg-surface-elevated rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
+      {/* 照片卡片 - 移除圆角和阴影，实现无缝效果 */}
+      <div className="bg-surface-elevated overflow-hidden">
         {/* 图片区域 */}
         <div 
           className={cn(
@@ -278,79 +294,72 @@ function PhotoCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           
           {/* 放大图标 */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
             <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
               <Expand className="w-6 h-6 text-white" />
             </div>
           </div>
 
-          {/* 照片序号 */}
-          <div className="absolute top-2 left-2 px-2 py-1 bg-black/40 backdrop-blur-sm rounded-md text-xs text-white font-medium">
-            #{index + 1}
-          </div>
-
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            <button
-              onClick={onSelect}
-              className="p-3 hover:scale-110 transition-transform active:scale-90" // 增加点击热区
-            >
-              <Heart
-                className={cn(
-                  'w-6 h-6 drop-shadow-lg filter', // 略微放大图标
-                  isSelected ? 'fill-red-500 text-red-500' : 'text-white'
-                )}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* 底部操作栏 */}
-        <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50">
-          {/* 左侧：选片按钮 */}
-          {showSelect && (
-            <button
-              onClick={onSelect}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200',
-                isSelected
-                  ? 'bg-accent text-white'
-                  : 'bg-surface hover:bg-accent/10 text-text-secondary hover:text-accent'
-              )}
-            >
-              <Heart className={cn('w-4 h-4', isSelected && 'fill-current')} />
-              <span>{isSelected ? '已选' : '选片'}</span>
-            </button>
-          )}
-
-          {/* 右侧：操作按钮 */}
-          <div className="flex items-center gap-1">
-            {/* 下载按钮 */}
-            {allowDownload && (
+          {/* 底部操作栏 - 悬浮在图片上 */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+            {/* 左侧：选片按钮 */}
+            {showSelect && (
               <button
-                onClick={handleDownload}
-                className="p-2 rounded-full hover:bg-surface text-text-muted hover:text-accent transition-colors"
-                title="下载原图"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelect && onSelect(e)
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-md',
+                  isSelected
+                    ? 'bg-red-500/90 text-white hover:bg-red-600/90'
+                    : 'bg-black/40 text-white hover:bg-black/60'
+                )}
               >
-                <Download className="w-4 h-4" />
+                <Heart className={cn('w-4 h-4', isSelected && 'fill-current')} />
+                <span>{isSelected ? '已选' : '选片'}</span>
               </button>
             )}
-            
-            {/* 分享按钮 */}
-            <div className="relative">
-              <button
-                onClick={handleShare}
-                className="p-2 rounded-full hover:bg-surface text-text-muted hover:text-accent transition-colors"
-                title="分享"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              {showCopied && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-surface-elevated text-xs rounded shadow-lg whitespace-nowrap">
-                  已复制链接
-                </div>
+
+            {/* 右侧：操作按钮 */}
+            <div className="flex items-center gap-2">
+              {/* 下载按钮 */}
+              {allowDownload && (
+                <button
+                  onClick={handleDownload}
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
+                  title="下载原图"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
               )}
+              
+              {/* 分享按钮 */}
+              <div className="relative">
+                <button
+                  onClick={handleShare}
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
+                  title="分享"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+                {showCopied && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded shadow-lg whitespace-nowrap backdrop-blur-md">
+                    已复制链接
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* 始终显示的选中状态（右上角红心） */}
+          {isSelected && (
+            <div className="absolute top-2 right-2 z-10">
+              <div className="p-2 bg-red-500/90 rounded-full shadow-lg backdrop-blur-sm">
+                <Heart className="w-4 h-4 text-white fill-current" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

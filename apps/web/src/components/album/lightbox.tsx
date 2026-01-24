@@ -31,7 +31,18 @@ export function PhotoLightbox({
   onSelectChange,
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
-  const [currentIndex, setCurrentIndex] = useState(index)
+  
+  // 开发环境警告
+  if (typeof window !== 'undefined' && !mediaUrl) {
+    console.error('⚠️ NEXT_PUBLIC_MEDIA_URL is not configured. Images may not load.')
+  }
+  // 初始化 currentIndex，确保有效
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    if (index >= 0 && index < photos.length) {
+      return index
+    }
+    return 0
+  })
   const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
     photos.forEach((p) => {
@@ -46,19 +57,28 @@ export function PhotoLightbox({
 
   // 同步外部传入的 index 到内部 state
   useEffect(() => {
-    if (open && index >= 0 && index < photos.length && index !== prevIndexRef.current) {
-      prevIndexRef.current = index
-      setCurrentIndex(index)
+    if (!open) return
+    
+    // 如果 index 无效，重置为 0
+    const validIndex = index >= 0 && index < photos.length ? index : 0
+    
+    if (validIndex !== prevIndexRef.current) {
+      prevIndexRef.current = validIndex
+      setCurrentIndex(validIndex)
     }
   }, [index, open, photos.length])
 
   // 使用 useMemo 稳定 currentPhoto 的引用，避免无限循环
   const currentPhoto = useMemo(() => {
-    return photos[currentIndex] || photos[0]
+    if (photos.length === 0) return null
+    if (currentIndex >= 0 && currentIndex < photos.length) {
+      return photos[currentIndex]
+    }
+    return photos[0] || null
   }, [photos, currentIndex])
   
   // 使用 useMemo 稳定 currentPhotoId，避免依赖整个对象
-  const currentPhotoId = useMemo(() => currentPhoto?.id, [currentPhoto])
+  const currentPhotoId = useMemo(() => currentPhoto?.id || '', [currentPhoto])
 
   // 构建 slides，默认使用预览图，点击"查看原图"后才使用原图
   const slides = useMemo(() => {
@@ -107,15 +127,28 @@ export function PhotoLightbox({
       // 修改：只使用预览图（如果有），下载时才使用原图
       const imageKey = photo.preview_key || photo.thumb_key || photo.original_key
 
+      // 确保 mediaUrl 存在且 imageKey 存在
+      if (!mediaUrl) {
+        console.error('NEXT_PUBLIC_MEDIA_URL is not configured')
+      }
+      if (!imageKey) {
+        console.warn('Missing imageKey for photo:', photo.id)
+      }
+
+      // 构建图片 URL，确保格式正确
+      const imageSrc = imageKey && mediaUrl 
+        ? `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}` 
+        : ''
+
       return {
-        src: imageKey ? `${mediaUrl}/${imageKey}` : '',
+        src: imageSrc,
         width: photo.width || 0,
         height: photo.height || 0,
         title: photo.filename || '',
         description: exifString || formattedDateTime || '',
         photoId: photo.id,
-        originalKey: photo.original_key,
-        previewKey: photo.preview_key,
+        originalKey: photo.original_key || null,
+        previewKey: photo.preview_key || null,
       }
     })
   }, [photos, mediaUrl])
@@ -167,13 +200,14 @@ export function PhotoLightbox({
 
   // 选片功能
   const handleSelect = useCallback(async () => {
-    if (!currentPhoto) return
+    if (!currentPhoto || !currentPhoto.id) return
 
-    const newSelected = !selectedMap[currentPhoto.id]
-    setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: newSelected }))
+    const photoId = currentPhoto.id
+    const newSelected = !selectedMap[photoId]
+    setSelectedMap((prev) => ({ ...prev, [photoId]: newSelected }))
 
     try {
-      const res = await fetch(`/api/public/photos/${currentPhoto.id}/select`, {
+      const res = await fetch(`/api/public/photos/${photoId}/select`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isSelected: newSelected }),
@@ -181,12 +215,12 @@ export function PhotoLightbox({
 
       if (!res.ok) {
         // 回滚
-        setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: !newSelected }))
+        setSelectedMap((prev) => ({ ...prev, [photoId]: !newSelected }))
       } else {
-        onSelectChange?.(currentPhoto.id, newSelected)
+        onSelectChange?.(photoId, newSelected)
       }
     } catch {
-      setSelectedMap((prev) => ({ ...prev, [currentPhoto.id]: !newSelected }))
+      setSelectedMap((prev) => ({ ...prev, [photoId]: !newSelected }))
     }
   }, [currentPhoto, selectedMap, onSelectChange])
 
@@ -203,11 +237,41 @@ export function PhotoLightbox({
     return null
   }
 
+  // 确保 mediaUrl 配置存在
+  if (!mediaUrl) {
+    console.error('NEXT_PUBLIC_MEDIA_URL is not configured. Cannot display images.')
+    return null
+  }
+
   // 确保 currentIndex 有效
   const validIndex = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0
+  
+  // 确保 slides 不为空
+  if (slides.length === 0) {
+    return null
+  }
+
+  // 确保 currentPhoto 存在
+  if (!currentPhoto || !currentPhoto.id) {
+    return null
+  }
+
+  // 确保当前 slide 存在
+  const currentSlide = slides[validIndex]
+  if (!currentSlide || !currentSlide.src) {
+    console.warn('Current slide is missing or has no src:', validIndex, currentSlide)
+    return null
+  }
 
   // 构建工具栏按钮数组，确保稳定的引用以避免 hydration 问题
   const toolbarButtons = useMemo(() => {
+    if (!currentPhoto) {
+      return ['close']
+    }
+
+    const currentPhotoId = currentPhoto.id
+    const isSelected = selectedMap[currentPhotoId] || false
+
     const buttons: Array<React.ReactNode> = [
       // 选片按钮
       <button
@@ -216,16 +280,16 @@ export function PhotoLightbox({
         onClick={handleSelect}
         className={cn(
           'yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors',
-          selectedMap[currentPhoto?.id]
+          isSelected
             ? 'bg-red-500 text-white'
             : 'bg-white/10 text-white hover:bg-white/20'
         )}
-        aria-label={selectedMap[currentPhoto?.id] ? '取消选择' : '选择'}
+        aria-label={isSelected ? '取消选择' : '选择'}
       >
         <Heart
           className={cn(
             'w-5 h-5',
-            selectedMap[currentPhoto?.id] && 'fill-current'
+            isSelected && 'fill-current'
           )}
         />
       </button>,
