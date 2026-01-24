@@ -74,7 +74,7 @@ export function PhotoGroupFilter({
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-4 sm:mb-6">
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
       {/* 全部照片 */}
       <button
         onClick={() => handleGroupSelect(null)}
