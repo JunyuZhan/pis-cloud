@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Camera, Images, Settings, LogOut } from 'lucide-react'
+import { Camera, Images, Settings, LogOut, Home } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { User } from '@supabase/supabase-js'
@@ -39,6 +39,23 @@ export function SidebarContent({ user }: { user: User }) {
             <h1 className="font-serif font-bold">PIS</h1>
             <p className="text-xs text-text-muted">管理后台</p>
           </div>
+        </Link>
+      </div>
+
+      {/* 返回前端按钮 */}
+      <div className="px-4 pt-4 pb-2">
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+            'text-text-secondary hover:text-text-primary hover:bg-surface-elevated',
+            'border border-border hover:border-accent/20'
+          )}
+        >
+          <Home className="w-5 h-5" />
+          <span className="font-medium">返回前端</span>
         </Link>
       </div>
 
