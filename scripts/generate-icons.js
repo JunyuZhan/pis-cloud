@@ -70,14 +70,15 @@ async function generateIcons() {
     .toFile(faviconPath);
   console.log('✓ 生成 favicon.ico');
 
-  // 如果源文件是 PNG，生成一个 SVG 版本用于某些场景（可选）
-  if (sourceType === 'png' && !fs.existsSync(SVG_PATH)) {
+  // 如果源文件是 PNG，生成一个 SVG 版本用于某些场景
+  // 始终更新 SVG 文件以确保使用最新的图标
+  if (sourceType === 'png') {
     // 创建一个简单的 SVG，引用 PNG（或者可以转换为 SVG，但这里保持简单）
     const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <image href="/icons/Gemini_Generated_Image_e28rwze28rwze28r.png" width="1024" height="1024"/>
 </svg>`;
     fs.writeFileSync(SVG_PATH, svgContent);
-    console.log('✓ 生成 icon.svg (引用 PNG)');
+    console.log('✓ 更新 icon.svg (引用 PNG)');
   }
 
   // 生成占位图（如果不存在）
