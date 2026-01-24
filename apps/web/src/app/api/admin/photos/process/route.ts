@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 调用内网 Worker API 触发处理
-    const workerApiUrl = process.env.WORKER_API_URL || 'http://localhost:3001'
+    // 调用远程 Worker API 触发处理
+    const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     
     try {
       const processRes = await fetch(`${workerApiUrl}/api/process`, {

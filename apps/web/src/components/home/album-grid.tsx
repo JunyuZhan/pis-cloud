@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FolderOpen, ImageIcon } from 'lucide-react'
+import { ImageIcon, Camera } from 'lucide-react'
 import { useState } from 'react'
 import type { Album } from '@/types/database'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -16,47 +16,69 @@ interface AlbumWithCover extends Album {
   cover_preview_key?: string | null
 }
 
-function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl: string | null; index: number }) {
+function AlbumCard({ album, coverUrl, index }: { 
+  album: AlbumWithCover
+  coverUrl: string | null
+  index: number
+}) {
   const [imageError, setImageError] = useState(false)
-  // 前 4 个相册使用 priority 加载（首屏可见区域）
-  const isPriority = index < 4
+  const isPriority = index < 6
 
   return (
     <motion.div
-      key={album.id}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ 
-        duration: 0.3, 
-        delay: Math.min(index * 0.03, 0.2),
-        ease: 'easeOut'
+        duration: 0.5, 
+        delay: index * 0.08,
+        ease: [0.25, 0.46, 0.45, 0.94]
       }}
-      className="break-inside-avoid mb-1 group cursor-pointer touch-manipulation"
+      className="group cursor-pointer"
     >
-      <Link href={`/album/${album.slug}?from=home`} className="block relative w-full overflow-hidden rounded-md bg-surface active:opacity-90 transition-opacity">
-        {coverUrl ? (
-          <div className="relative w-full aspect-square overflow-hidden">
+      <Link 
+        href={`/album/${album.slug}?from=home`} 
+        className="block relative w-full rounded-lg shadow-[0_0_15px_rgba(212,175,55,0.35)] hover:shadow-[0_0_25px_rgba(212,175,55,0.55)] transition-all duration-500"
+      >
+        {coverUrl && !imageError ? (
+          <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg">
+            {/* 照片 */}
             <OptimizedImage
               src={coverUrl}
               alt={album.title}
               fill
-              className="object-cover transition-opacity duration-300 group-hover:opacity-90"
+              className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              quality={isPriority ? 85 : 75} // 优先图片质量高，其他降低
+              quality={isPriority ? 85 : 75}
               priority={isPriority}
               onError={() => setImageError(true)}
             />
-            {/* 极简hover效果 - 只显示标题 */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
-              <span className="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-4 text-center line-clamp-2">
+            
+            {/* 优雅的渐变遮罩 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            
+            {/* 相册信息 - 底部展示 */}
+            <div className="absolute inset-x-0 bottom-0 p-4">
+              {/* 相册标题 */}
+              <h3 className="font-medium text-white text-base sm:text-lg drop-shadow-lg line-clamp-1">
                 {album.title}
-              </span>
+              </h3>
+              
+              {/* 照片数量 */}
+              {album.photo_count > 0 && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-white/70">
+                  <Camera className="w-3 h-3" />
+                  <span className="text-xs font-light">
+                    {album.photo_count} 张作品
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          <div className="w-full aspect-square flex items-center justify-center bg-surface-elevated">
-            <ImageIcon className="w-10 h-10 text-text-muted" />
+          <div className="w-full aspect-[4/5] flex flex-col items-center justify-center bg-surface-elevated rounded-lg">
+            <ImageIcon className="w-10 h-10 text-text-muted mb-2" />
+            <span className="text-text-muted text-sm">{album.title}</span>
           </div>
         )}
       </Link>
@@ -67,22 +89,15 @@ function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl
 export function AlbumGrid({ albums }: AlbumGridProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
 
-  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
-  const safeMediaUrl = mediaUrl.startsWith('http://') 
-    ? mediaUrl.replace('http://', 'https://')
-    : mediaUrl
-
   return (
     <div className="w-full">
-      {/* Instagram/Pinterest风格的无缝网格 */}
-      <div className="columns-2 sm:columns-3 md:columns-4" style={{ columnGap: '0.25rem' }}> {/* 列间距 4px，与垂直间距一致 */}
+      {/* 整齐的网格布局 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
         {albums.map((album, index) => {
           const albumWithCover = album as AlbumWithCover
-          // 使用封面照片的 key（优先 preview_key，其次 thumb_key）
           const coverKey = albumWithCover.cover_preview_key || albumWithCover.cover_thumb_key
-          // 确保 coverKey 存在且不为空字符串
           const coverUrl = coverKey && coverKey.trim() 
-            ? `${safeMediaUrl.replace(/\/$/, '')}/${coverKey.replace(/^\//, '')}` 
+            ? `${mediaUrl.replace(/\/$/, '')}/${coverKey.replace(/^\//, '')}` 
             : null
 
           return (

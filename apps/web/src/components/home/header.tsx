@@ -34,7 +34,7 @@ export function HomeHeader() {
           {/* 品牌名称和说明 */}
           <div className="flex flex-col">
             <span className="text-base sm:text-lg md:text-xl font-serif font-bold leading-tight">PIS</span>
-            <span className="text-[10px] sm:text-xs text-text-muted leading-tight hidden sm:block">
+            <span className="text-[9px] sm:text-xs text-text-muted leading-tight">
               {tHome('description')}
             </span>
           </div>

@@ -41,7 +41,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from('albums')
       .select('id, sort_rule, password, expires_at, is_public')
       .eq('slug', slug)
-      .is('deleted_at', null)
       .single()
 
     if (albumError || !albumData) {
@@ -99,7 +98,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select('id, thumb_key, preview_key, original_key, filename, width, height, exif, blur_data, captured_at, is_selected', { count: 'exact' })
       .eq('album_id', album.id)
       .eq('status', 'completed')
-      .is('deleted_at', null)
 
     // 如果指定了分组，只查询分组中的照片
     if (photoIds) {

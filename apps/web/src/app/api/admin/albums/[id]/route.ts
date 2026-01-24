@@ -91,6 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'description',
       'cover_photo_id',
       'is_public',
+      'is_live',
       'layout',
       'sort_rule',
       'allow_download',
@@ -176,6 +177,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { error: { code: 'VALIDATION_ERROR', message: '无效的排序规则' } },
         { status: 400 }
       )
+    }
+
+    // 同步照片计数（确保计数准确）
+    const { count: actualPhotoCount } = await supabase
+      .from('photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('album_id', id)
+      .eq('status', 'completed')
+    
+    if (actualPhotoCount !== null) {
+      updateData.photo_count = actualPhotoCount
     }
 
     // 执行更新

@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Image from 'next/image'
 import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings, ImageIcon } from 'lucide-react'
 import { useSwipeable } from 'react-swipeable'
-import { formatRelativeTime } from '@/lib/utils'
+import { formatRelativeTime, formatDate } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { PullToRefresh } from '@/components/ui/pull-to-refresh'
@@ -232,10 +231,11 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
       {/* 相册网格 */}
       {albums.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {albums.map((album) => (
+          {albums.map((album, index) => (
             <AlbumCard
               key={album.id}
               album={album}
+              index={index}
               selectionMode={selectionMode}
               isSelected={selectedAlbums.has(album.id)}
               onToggleSelection={() => toggleSelection(album.id)}
@@ -278,6 +278,7 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
 
 function AlbumCard({
   album,
+  index = 0,
   selectionMode,
   isSelected,
   onToggleSelection,
@@ -287,6 +288,7 @@ function AlbumCard({
   isDeleting,
 }: {
   album: AlbumWithCover
+  index?: number
   selectionMode?: boolean
   isSelected?: boolean
   onToggleSelection?: () => void
@@ -295,14 +297,20 @@ function AlbumCard({
   isDuplicating?: boolean
   isDeleting?: boolean
 }) {
+  const router = useRouter()
   const [imageError, setImageError] = useState(false)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // 确保客户端 hydration 后显示相对时间
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+  
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
-  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
-  const safeMediaUrl = mediaUrl.startsWith('http://') 
-    ? mediaUrl.replace('http://', 'https://')
-    : mediaUrl
+  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
+  const safeMediaUrl = mediaUrl
   
   // 构建封面图URL
   // 优先使用 cover_thumb_key（完整路径，如 processed/thumbs/albumId/photoId.jpg）
@@ -317,6 +325,12 @@ function AlbumCard({
     if (selectionMode && onToggleSelection) {
       e.preventDefault()
       onToggleSelection()
+      return
+    }
+    // 如果点击的不是按钮，则导航到相册详情页
+    const target = e.target as HTMLElement
+    if (!target.closest('button') && !target.closest('a')) {
+      router.push(`/admin/albums/${album.id}`)
     }
   }
 
@@ -353,7 +367,8 @@ function AlbumCard({
     <div
       className={cn(
         'card group transition-all relative overflow-hidden',
-        selectionMode ? 'cursor-pointer' : 'hover:border-border-light',
+        !selectionMode && 'cursor-pointer hover:border-border-light',
+        selectionMode && 'cursor-pointer',
         isSelected && 'ring-2 ring-accent',
         isSwiping && 'transition-none' // 滑动时禁用过渡
       )}
@@ -398,7 +413,7 @@ function AlbumCard({
             )}
             quality={85}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            loading="lazy"
+            priority={index < 4}
             onError={() => setImageError(true)}
           />
         ) : (
@@ -412,9 +427,13 @@ function AlbumCard({
       {!selectionMode && (
         <div className="absolute top-2 right-2 z-10 flex gap-2">
           {/* 移动端：始终显示，桌面端：悬停时更明显 */}
-          <Link
-            href={`/admin/albums/${album.id}/settings`}
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              router.push(`/admin/albums/${album.id}/settings`)
+            }}
             className={cn(
               'p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-sm',
               'min-h-[44px] min-w-[44px] flex items-center justify-center', // 移动端触摸目标
@@ -424,7 +443,7 @@ function AlbumCard({
             aria-label="编辑相册设置"
           >
             <Settings className="w-4 h-4" />
-          </Link>
+          </button>
           <button
             type="button"
             onClick={(e) => {
@@ -517,7 +536,7 @@ function AlbumCard({
             {album.is_public ? '公开' : '私有'}
           </span>
           <p className="text-text-muted text-xs mt-2">
-            {formatRelativeTime(album.created_at)}
+            {isMounted ? formatRelativeTime(album.created_at) : formatDate(album.created_at)}
           </p>
         </div>
       </div>
@@ -557,10 +576,8 @@ function AlbumCard({
   // 包装在 div 中以便手势处理正常工作
   return (
     <LongPressMenu menuItems={longPressMenuItems}>
-      <div {...swipeHandlers}>
-        <Link href={`/admin/albums/${album.id}`} className="block">
-          {CardContent}
-        </Link>
+      <div {...swipeHandlers} className="block">
+        {CardContent}
       </div>
     </LongPressMenu>
   )

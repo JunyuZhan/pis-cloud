@@ -149,11 +149,11 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="btn-primary text-sm !min-h-[32px] md:!min-h-[44px] !px-2 md:!px-4 !py-1 md:!py-2"
+        className="btn-primary text-sm !min-h-[32px] md:!min-h-[44px] !px-2 md:!px-3 !py-1 md:!py-2"
+        aria-label="分享相册"
+        title="分享相册"
       >
         <Share2 className="w-4 h-4" />
-        <span className="hidden sm:inline">分享相册</span>
-        <span className="sm:hidden">分享</span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

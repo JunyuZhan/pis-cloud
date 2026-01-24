@@ -218,7 +218,10 @@ test_ssl() {
             print_test_result "SSL证书" "FAIL" "无法验证 SSL 证书"
         fi
     else
-        print_test_result "SSL证书" "SKIP" "使用 HTTP，跳过 SSL 测试"
+        # HTTP is expected for local development, mark as SKIP not FAIL
+        echo -e "${YELLOW}⊘${NC} SSL证书: 使用 HTTP，跳过 SSL 测试 (本地开发预期行为)"
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
+        # Don't count as failure for local development
     fi
 }
 

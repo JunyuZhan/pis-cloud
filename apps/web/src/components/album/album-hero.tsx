@@ -97,7 +97,7 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   const selectedCount = (album as any).selected_count || 0
 
   return (
-    <div className="relative w-full h-[50vh] md:h-[60vh] lg:h-[70vh] min-h-[400px] overflow-hidden">
+    <div className="relative w-full h-[40vh] md:h-[55vh] lg:h-[65vh] min-h-[280px] md:min-h-[400px] overflow-hidden">
       {/* 背景图片 */}
       {coverUrl ? (
         <Image
@@ -137,34 +137,43 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
 
       {/* 内容区域 */}
       <div className="absolute inset-0 flex flex-col justify-end">
-        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-8 md:pb-12">
+        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-4 md:pb-10">
           {/* 实时状态标签 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex items-center gap-3 mb-4"
+            className="flex flex-wrap items-center gap-2 mb-2 md:mb-4"
           >
-            {/* 热度指示器 */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/90 backdrop-blur-sm rounded-full">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-              </span>
-              <span className="text-xs font-medium text-background">直播中</span>
-            </div>
+            {/* 直播状态指示器 */}
+            {(album as any).is_live ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 bg-accent/90 backdrop-blur-sm rounded-full">
+                <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-white"></span>
+                </span>
+                <span className="text-[10px] md:text-xs font-medium text-background">直播中</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 bg-white/20 backdrop-blur-sm rounded-full">
+                <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-white/60"></span>
+                </span>
+                <span className="text-[10px] md:text-xs font-medium text-white/90">已结束</span>
+              </div>
+            )}
 
             {/* 浏览量 */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full">
-              <Eye className="w-3.5 h-3.5 text-white/80" />
-              <span className="text-xs font-medium text-white/90">{viewCount} 次浏览</span>
+            <div className="flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 bg-white/10 backdrop-blur-sm rounded-full">
+              <Eye className="w-3 h-3 md:w-3.5 md:h-3.5 text-white/80" />
+              <span className="text-[10px] md:text-xs font-medium text-white/90">{viewCount} 浏览</span>
             </div>
 
             {/* 选片数 */}
             {selectedCount > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/80 backdrop-blur-sm rounded-full">
-                <Heart className="w-3.5 h-3.5 text-white fill-current" />
-                <span className="text-xs font-medium text-white">{selectedCount} 张已选</span>
+              <div className="flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 bg-red-500/80 backdrop-blur-sm rounded-full">
+                <Heart className="w-3 h-3 md:w-3.5 md:h-3.5 text-white fill-current" />
+                <span className="text-[10px] md:text-xs font-medium text-white">{selectedCount} 已选</span>
               </div>
             )}
           </motion.div>
@@ -174,13 +183,13 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mb-4"
+            className="mb-2 md:mb-4"
           >
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-2 leading-tight drop-shadow-lg">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-serif font-bold text-white mb-1 md:mb-2 leading-tight drop-shadow-lg">
               {album.title}
             </h1>
             {album.description && (
-              <p className="text-sm md:text-lg text-white/80 max-w-2xl line-clamp-2 drop-shadow-md">
+              <p className="text-xs md:text-base text-white/80 max-w-2xl line-clamp-2 drop-shadow-md">
                 {album.description}
               </p>
             )}
@@ -191,13 +200,13 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="flex flex-wrap items-center gap-4 md:gap-6 text-white/80"
+            className="flex flex-wrap items-center gap-3 md:gap-5 text-white/80"
           >
             {/* 活动时间（优先显示，如果没有则显示创建时间） */}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
               {/* 使用 suppressHydrationWarning 忽略服务端和客户端的时间格式差异 */}
-              <span className="text-sm" suppressHydrationWarning>
+              <span className="text-xs md:text-sm" suppressHydrationWarning>
                 {mounted 
                   ? (eventDate ? formatDateTime(eventDate) : formatDate(album.created_at))
                   : (eventDate ? formatDateTime(eventDate) : formatDate(album.created_at)) // 保持初始渲染内容一致
@@ -207,16 +216,16 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
 
             {/* 活动地点 */}
             {location && (
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span className="text-sm">{location}</span>
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="text-xs md:text-sm">{location}</span>
               </div>
             )}
 
             {/* 照片数量 */}
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              <span className="text-sm">{album.photo_count} 张照片</span>
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="text-xs md:text-sm">{album.photo_count} 张照片</span>
             </div>
           </motion.div>
         </div>

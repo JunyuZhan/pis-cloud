@@ -16,7 +16,8 @@ function getDatabaseConfigFromEnv(): DatabaseConfig {
   if (type === 'supabase') {
     return {
       type: 'supabase',
-      supabaseUrl: process.env.SUPABASE_URL || process.env.DATABASE_URL,
+      // 支持两种变量名 (兼容 monorepo 统一配置)
+      supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.DATABASE_URL,
       supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_KEY,
     };
   }

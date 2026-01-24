@@ -65,7 +65,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // 4. 生成下载链接
-    const workerApiUrl = process.env.WORKER_API_URL || 'http://localhost:3001'
+    const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
 
     const downloadLinks = photos.map(photo => ({

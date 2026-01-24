@@ -212,10 +212,8 @@ function PhotoCard({
 
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   
-  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
-  const safeMediaUrl = mediaUrl.startsWith('http://') 
-    ? mediaUrl.replace('http://', 'https://')
-    : mediaUrl
+  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
+  const safeMediaUrl = mediaUrl
 
   // 前 6 张图片优先加载（首屏可见区域）
   // 其他图片通过 Intersection Observer 在进入视口时加载

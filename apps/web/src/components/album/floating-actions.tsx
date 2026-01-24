@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   ArrowUp, 
-  Download, 
   ArrowUpDown, 
   ChevronUp,
   Share2,
@@ -12,7 +11,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SortToggle, type SortRule } from './sort-toggle'
-import { showInfo, showError, handleApiError } from '@/lib/toast'
+import { showInfo, showError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +25,6 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
   const searchParams = useSearchParams()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
-  const [downloading, setDownloading] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   // 确保只在客户端渲染
@@ -75,71 +73,6 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
     setIsExpanded(false)
   }
 
-  // 下载整个相册（访客使用批量下载已选照片的API）
-  const handleDownloadAlbum = async () => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return
-
-    if (!album.allow_download) {
-      showInfo('此相册不允许下载')
-      return
-    }
-
-    if (!album.allow_batch_download) {
-      showInfo('此相册不允许批量下载')
-      return
-    }
-
-    // 对于访客，使用批量下载已选照片的API
-    // 如果没有已选照片，提示用户先选片
-    const selectedCount = (album as any).selected_count || 0
-    
-    if (selectedCount === 0) {
-      showInfo('请先选择您喜欢的照片（点击照片上的❤️图标），然后下载已选照片。')
-      setIsExpanded(false)
-      return
-    }
-
-    setDownloading(true)
-    try {
-      // 使用公开API下载已选照片
-      const response = await fetch(`/api/public/albums/${album.slug}/download-selected`)
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error?.message || '下载失败')
-      }
-
-      const data = await response.json()
-      
-      // 如果有下载链接，逐个下载
-      if (data.photos && data.photos.length > 0) {
-        // 逐个下载照片，避免浏览器阻止多个下载
-        for (let i = 0; i < data.photos.length; i++) {
-          const photo = data.photos[i]
-          setTimeout(() => {
-            const a = document.createElement('a')
-            a.href = photo.url
-            a.download = photo.filename
-            a.target = '_blank'
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-          }, i * 300) // 每300ms下载一张，避免浏览器阻止
-        }
-        
-        setDownloading(false)
-        setIsExpanded(false)
-        showInfo(`正在下载 ${data.count} 张照片，请稍候...`)
-      } else {
-        throw new Error('未获取到下载链接')
-      }
-    } catch (error: any) {
-      console.error('Download error:', error)
-      handleApiError(error, '下载失败，请重试')
-      setDownloading(false)
-    }
-  }
-
   // 获取当前排序显示文本
   const getSortLabel = () => {
     switch (currentSort) {
@@ -175,39 +108,14 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleSortToggle}
                 className={cn(
-                  'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
+                  'w-10 h-10 rounded-full shadow-lg flex items-center justify-center',
                   'bg-surface border border-border hover:bg-surface-elevated',
-                  'text-text-primary transition-all backdrop-blur-sm',
-                  'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
+                  'text-text-primary transition-all backdrop-blur-sm'
                 )}
                 title={getSortLabel()}
               >
-                <ArrowUpDown className="w-5 h-5" />
+                <ArrowUpDown className="w-4 h-4" />
               </motion.button>
-
-              {/* 下载相册按钮 */}
-              {album.allow_download && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleDownloadAlbum}
-                  disabled={downloading}
-                  className={cn(
-                    'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
-                    'bg-accent hover:bg-accent/90 text-background',
-                    'transition-all backdrop-blur-sm',
-                    'disabled:opacity-50 disabled:cursor-not-allowed',
-                    'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
-                  )}
-                  title={downloading ? '打包中...' : '下载整个相册'}
-                >
-                  {downloading ? (
-                    <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Download className="w-5 h-5" />
-                  )}
-                </motion.button>
-              )}
 
               {/* 分享按钮 */}
               {mounted && (
@@ -236,17 +144,39 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                     setIsExpanded(false)
                   }}
                   className={cn(
-                    'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
+                    'w-10 h-10 rounded-full shadow-lg flex items-center justify-center',
                     'bg-surface border border-border hover:bg-surface-elevated',
-                    'text-text-primary transition-all backdrop-blur-sm',
-                    'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
+                    'text-text-primary transition-all backdrop-blur-sm'
                   )}
                   title="分享相册"
                 >
-                  <Share2 className="w-5 h-5" />
+                  <Share2 className="w-4 h-4" />
                 </motion.button>
               )}
             </motion.div>
+          )}
+        </AnimatePresence>
+
+          {/* 回到顶部按钮（显示在主按钮上方，仅当未展开且滚动足够时显示） */}
+        <AnimatePresence>
+          {showBackToTop && !isExpanded && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleBackToTop}
+              className={cn(
+                'w-10 h-10 rounded-full shadow-lg flex items-center justify-center mb-2',
+                'bg-surface border border-border hover:bg-surface-elevated',
+                'text-text-primary transition-all backdrop-blur-sm'
+              )}
+              aria-label="回到顶部"
+              title="回到顶部"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </motion.button>
           )}
         </AnimatePresence>
 
@@ -256,10 +186,9 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
+            'w-10 h-10 rounded-full shadow-lg flex items-center justify-center',
             'bg-accent hover:bg-accent/90 text-background',
-            'transition-all backdrop-blur-sm',
-            'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
+            'transition-all backdrop-blur-sm'
           )}
           aria-label={isExpanded ? '收起菜单' : '展开菜单'}
         >
@@ -268,37 +197,12 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
             transition={{ duration: 0.2 }}
           >
             {isExpanded ? (
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             ) : (
-              <ChevronUp className="w-5 h-5" />
+              <ChevronUp className="w-4 h-4" />
             )}
           </motion.div>
         </motion.button>
-
-        {/* 回到顶部按钮（独立显示在主按钮左侧） */}
-        <AnimatePresence>
-          {showBackToTop && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0, x: 20 }}
-              animate={{ opacity: 1, scale: 1, x: -60 }}
-              exit={{ opacity: 0, scale: 0, x: 20 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleBackToTop}
-              className={cn(
-                'absolute bottom-4 right-4 w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
-                'bg-surface border border-border hover:bg-surface-elevated',
-                'text-text-primary transition-all backdrop-blur-sm',
-                'min-h-[48px] min-w-[48px]', // 移动端最小触摸目标
-                'md:bottom-0 md:right-0' // 桌面端位置调整
-              )}
-              aria-label="回到顶部"
-              title="回到顶部"
-            >
-              <ArrowUp className="w-5 h-5" />
-            </motion.button>
-          )}
-        </AnimatePresence>
         </div>
       )}
     </>

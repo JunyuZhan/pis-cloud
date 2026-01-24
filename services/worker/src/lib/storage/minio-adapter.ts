@@ -1,25 +1,57 @@
 /**
  * MinIO 存储适配器
+ * 
+ * 使用 MinIO SDK 进行常规操作，使用 AWS SDK 进行分片上传（S3 兼容）
  */
 import * as Minio from 'minio';
+import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
 import type { StorageAdapter, StorageConfig, UploadResult } from './types.js';
 
 export class MinIOAdapter implements StorageAdapter {
   private client: Minio.Client;
+  private s3Client: S3Client;
   private bucket: string;
   private publicUrl?: string;
+  private endpoint: string;
+  private port: number;
+  private useSSL: boolean;
+  private accessKey: string;
+  private secretKey: string;
+  private region?: string;
 
   constructor(config: StorageConfig) {
     this.bucket = config.bucket;
     this.publicUrl = config.customConfig?.publicUrl;
+    this.endpoint = config.endpoint || 'localhost';
+    this.port = config.port || 9000;
+    this.useSSL = config.useSSL ?? false;
+    this.accessKey = config.accessKey;
+    this.secretKey = config.secretKey;
+    this.region = config.region;
 
+    // MinIO 客户端用于常规操作
     this.client = new Minio.Client({
-      endPoint: config.endpoint || 'localhost',
-      port: config.port || 9000,
-      useSSL: config.useSSL ?? false,
-      accessKey: config.accessKey,
-      secretKey: config.secretKey,
-      region: config.region,
+      endPoint: this.endpoint,
+      port: this.port,
+      useSSL: this.useSSL,
+      accessKey: this.accessKey,
+      secretKey: this.secretKey,
+      region: this.region,
+    });
+
+    // AWS S3 客户端用于分片上传（MinIO 兼容 S3）
+    const s3Endpoint = this.useSSL 
+      ? `https://${this.endpoint}:${this.port}`
+      : `http://${this.endpoint}:${this.port}`;
+    
+    this.s3Client = new S3Client({
+      endpoint: s3Endpoint,
+      region: this.region || 'us-east-1',
+      credentials: {
+        accessKeyId: this.accessKey,
+        secretAccessKey: this.secretKey,
+      },
+      forcePathStyle: true, // MinIO 需要路径样式
     });
   }
 
@@ -77,18 +109,25 @@ export class MinIOAdapter implements StorageAdapter {
   }
 
   async initMultipartUpload(key: string): Promise<string> {
-    const client = this.client as any;
-    return new Promise((resolve, reject) => {
-      client.initiateNewMultipartUpload(
-        this.bucket,
-        key,
-        {},
-        (err: Error, uploadId: string) => {
-          if (err) reject(err);
-          else resolve(uploadId);
-        }
-      );
-    });
+    try {
+      const command = new CreateMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      
+      const response = await this.s3Client.send(command);
+      
+      if (!response.UploadId) {
+        throw new Error('Failed to get upload ID from MinIO');
+      }
+      
+      console.log(`[MinIO] Initiated multipart upload for ${key}, uploadId: ${response.UploadId}`);
+      return response.UploadId;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error initiating multipart upload for ${key}:`, errorMessage);
+      throw new Error(`Failed to initiate multipart upload: ${errorMessage}`);
+    }
   }
 
   async uploadPart(
@@ -97,23 +136,31 @@ export class MinIOAdapter implements StorageAdapter {
     partNumber: number,
     buffer: Buffer
   ): Promise<{ etag: string }> {
-    const client = this.client as any;
-    return new Promise((resolve, reject) => {
-      client.uploadPart(
-        {
-          bucketName: this.bucket,
-          objectName: key,
-          uploadId,
-          partNumber,
-          headers: {},
-        },
-        buffer,
-        (err: Error, etag: string) => {
-          if (err) reject(err);
-          else resolve({ etag });
-        }
-      );
-    });
+    try {
+      const command = new UploadPartCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: buffer,
+      });
+      
+      const response = await this.s3Client.send(command);
+      
+      if (!response.ETag) {
+        throw new Error('Failed to get ETag from MinIO');
+      }
+      
+      // AWS SDK 返回的 ETag 包含引号（如 "abc123"），保留原样用于 completeMultipartUpload
+      // 但在返回时移除引号以保持接口一致性
+      const etag = response.ETag.replace(/"/g, '');
+      
+      return { etag };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error uploading part ${partNumber} for ${key}:`, errorMessage);
+      throw new Error(`Failed to upload part: ${errorMessage}`);
+    }
   }
 
   async completeMultipartUpload(
@@ -121,34 +168,47 @@ export class MinIOAdapter implements StorageAdapter {
     uploadId: string,
     parts: Array<{ partNumber: number; etag: string }>
   ): Promise<void> {
-    const client = this.client as any;
-    return new Promise((resolve, reject) => {
-      client.completeMultipartUpload(
-        this.bucket,
-        key,
-        uploadId,
-        parts,
-        (err: Error) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+    try {
+      // AWS SDK 需要 Parts 数组格式，ETag 需要包含引号
+      const partsArray = parts.map(part => ({
+        PartNumber: part.partNumber,
+        // 确保 ETag 包含引号（如果还没有的话）
+        ETag: part.etag.startsWith('"') ? part.etag : `"${part.etag}"`,
+      }));
+      
+      const command = new CompleteMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: partsArray,
+        },
+      });
+      
+      await this.s3Client.send(command);
+      console.log(`[MinIO] Completed multipart upload for ${key}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error completing multipart upload for ${key}:`, errorMessage);
+      throw new Error(`Failed to complete multipart upload: ${errorMessage}`);
+    }
   }
 
   async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
-    const client = this.client as any;
-    return new Promise((resolve, reject) => {
-      client.abortMultipartUpload(
-        this.bucket,
-        key,
-        uploadId,
-        (err: Error) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+    try {
+      const command = new AbortMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+      });
+      
+      await this.s3Client.send(command);
+      console.log(`[MinIO] Aborted multipart upload for ${key}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error aborting multipart upload for ${key}:`, errorMessage);
+      throw new Error(`Failed to abort multipart upload: ${errorMessage}`);
+    }
   }
 
   async delete(key: string): Promise<void> {

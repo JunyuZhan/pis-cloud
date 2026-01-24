@@ -60,8 +60,8 @@ export default async function HomePage() {
     }
   }
 
-  // 其他相册（排除第一个，因为已经在Hero中展示）
-  const otherAlbums = albums && albums.length > 1 ? albums.slice(1) : albums
+  // 所有相册都在作品集区域展示
+  const otherAlbums = albums
 
   // 优化：批量获取所有相册的封面照片，减少N+1查询
   const albumsWithCoverKeys = await (async () => {
@@ -121,6 +121,22 @@ export default async function HomePage() {
       }
     }
     
+    // 批量获取每个相册的实际照片数量
+    const albumIds = otherAlbums.map(a => a.id)
+    const photoCountMap = new Map<string, number>()
+    
+    // 分批查询每个相册的照片数量
+    await Promise.all(
+      albumIds.map(async (albumId) => {
+        const { count } = await supabase
+          .from('photos')
+          .select('*', { count: 'exact', head: true })
+          .eq('album_id', albumId)
+          .eq('status', 'completed')
+        photoCountMap.set(albumId, count || 0)
+      })
+    )
+    
     // 组合结果
     return otherAlbums.map(album => {
       let coverThumbKey: string | null = null
@@ -144,6 +160,7 @@ export default async function HomePage() {
       
       return {
         ...album,
+        photo_count: photoCountMap.get(album.id) ?? album.photo_count,
         cover_thumb_key: coverThumbKey,
         cover_preview_key: coverPreviewKey,
       }

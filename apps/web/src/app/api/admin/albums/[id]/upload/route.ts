@@ -2,9 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
 import { checkRateLimit } from '@/middleware-rate-limit'
+import { Client as MinioClient } from 'minio'
 
 interface RouteParams {
   params: Promise<{ id: string }>
+}
+
+// MinIO 客户端（懒初始化）
+let minioClient: MinioClient | null = null
+
+function getMinioClient(): MinioClient {
+  if (!minioClient) {
+    // 优先使用新的环境变量名，兼容旧的
+    const endpoint = process.env.STORAGE_ENDPOINT || process.env.MINIO_ENDPOINT_HOST || 'localhost'
+    const port = parseInt(process.env.STORAGE_PORT || process.env.MINIO_ENDPOINT_PORT || '9000')
+    const useSSL = process.env.STORAGE_USE_SSL === 'true' || process.env.MINIO_USE_SSL === 'true'
+    const accessKey = process.env.STORAGE_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || ''
+    const secretKey = process.env.STORAGE_SECRET_KEY || process.env.MINIO_SECRET_KEY || ''
+    
+    minioClient = new MinioClient({
+      endPoint: endpoint,
+      port,
+      useSSL,
+      accessKey,
+      secretKey,
+    })
+  }
+  return minioClient
 }
 
 /**
@@ -133,11 +157,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Worker 代理上传 URL
-    const workerApiUrl = process.env.WORKER_API_URL || 'http://localhost:3001'
-    const uploadUrl = `${workerApiUrl}/api/upload?key=${encodeURIComponent(originalKey)}`
+    // 使用 Next.js 代理上传（避免 CORS 问题）
+    // 浏览器 → Next.js API → 远程 Worker → MinIO
+    const uploadUrl = `/api/admin/upload-proxy?key=${encodeURIComponent(originalKey)}`
 
-    // 返回上传信息
     return NextResponse.json({
       photoId,
       uploadUrl,  // Worker 代理上传 URL

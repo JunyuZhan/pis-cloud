@@ -32,15 +32,27 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
     notFound()
   }
 
-  const album = albumData as Album
-
-  // 获取照片列表
-  const { data: photos } = await supabase
+  // 获取照片列表，同时统计数量
+  const { data: photos, count: actualPhotoCount } = await supabase
     .from('photos')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('album_id', id)
     .eq('status', 'completed')
     .order('sort_order', { ascending: true })
+
+  // 如果实际照片数量与存储的不一致，更新数据库
+  const photoCount = actualPhotoCount ?? 0
+  if (photoCount !== albumData.photo_count) {
+    await supabase
+      .from('albums')
+      .update({ photo_count: photoCount })
+      .eq('id', id)
+  }
+
+  const album = {
+    ...albumData,
+    photo_count: photoCount,
+  } as Album
 
   const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/album/${album.slug}`
 

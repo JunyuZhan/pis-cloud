@@ -3,13 +3,11 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react'
 import type React from 'react'
 import Lightbox from 'yet-another-react-lightbox'
-import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
-import 'yet-another-react-lightbox/plugins/thumbnails.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
-import { Download, Heart, Image as ImageIcon } from 'lucide-react'
+import { Download, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { handleApiError } from '@/lib/toast'
 import type { Photo } from '@/types/database'
@@ -33,10 +31,8 @@ export function PhotoLightbox({
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   
-  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
-  const safeMediaUrl = mediaUrl.startsWith('http://') 
-    ? mediaUrl.replace('http://', 'https://')
-    : mediaUrl
+  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
+  const safeMediaUrl = mediaUrl
   
   // 开发环境警告
   if (typeof window !== 'undefined' && !safeMediaUrl) {
@@ -379,9 +375,15 @@ export function PhotoLightbox({
       close={onClose}
       index={validIndex}
       slides={slides}
-      plugins={[Thumbnails, Zoom, Captions]}
+      plugins={[Zoom, Captions]}
       on={{
         view: handleView,
+      }}
+      controller={{
+        // 移动端下滑关闭
+        closeOnPullDown: true,
+        // 点击背景关闭
+        closeOnBackdropClick: true,
       }}
       captions={{ descriptionTextAlign: 'center', showToggle: true }}
       carousel={{

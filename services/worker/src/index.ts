@@ -5,7 +5,14 @@
  * @license MIT
  */
 
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+// 从根目录加载 .env.local（monorepo 统一配置）
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const rootDir = resolve(__dirname, '../../../');
+config({ path: resolve(rootDir, '.env.local') });
 import http from 'http';
 import { Worker, Job, Queue } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
@@ -25,17 +32,18 @@ import {
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
 
-// 检查必要的环境变量
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('❌ Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
-  console.error('   Please create services/worker/.env file with these values');
+// 检查必要的环境变量 (支持两种变量名)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (!supabaseUrl || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Missing required environment variables: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY');
+  console.error('   Please configure these values in the root .env.local file');
   process.exit(1);
 }
 
 // 初始化 Supabase 客户端 (Service Role 用于后端操作)
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  supabaseUrl,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 interface PhotoJobData {
@@ -455,15 +463,22 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        console.log(`[Multipart] Initializing upload for key: ${key}`);
         const uploadId = await initMultipartUpload(key);
         console.log(`[Multipart] Initialized upload for ${key}, uploadId: ${uploadId}`);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ uploadId, key }));
       } catch (err: any) {
-        console.error('Multipart init error:', err);
+        const errorMessage = err?.message || 'Unknown error';
+        const errorStack = err?.stack || '';
+        console.error('[Multipart] Init error:', errorMessage);
+        console.error('[Multipart] Error stack:', errorStack);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        res.end(JSON.stringify({ 
+          error: errorMessage,
+          details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+        }));
       }
     });
     return;

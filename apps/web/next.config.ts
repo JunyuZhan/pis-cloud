@@ -1,5 +1,10 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { config } from 'dotenv'
+import { resolve } from 'path'
+
+// 从 monorepo 根目录加载 .env.local（统一配置）
+config({ path: resolve(__dirname, '../../.env.local') })
 
 const withNextIntl = createNextIntlPlugin()
 
@@ -40,6 +45,19 @@ const nextConfig: NextConfig = {
             }
           })()
         : []),
+      // 内网 MinIO 服务器
+      {
+        protocol: 'http',
+        hostname: '192.168.50.10',
+        port: '9000',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '192.168.50.10',
+        port: '9000',
+        pathname: '/**',
+      },
       // 示例域名（向后兼容）
       {
         protocol: 'http',
@@ -51,17 +69,8 @@ const nextConfig: NextConfig = {
         hostname: 'media.example.com',
         pathname: '/**',
       },
-      // 常见媒体服务器域名（生产环境）
-      {
-        protocol: 'https',
-        hostname: 'media.albertzhan.top',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
-        hostname: 'media.albertzhan.top',
-        pathname: '/**',
-      },
+      // 生产环境媒体服务器（通过 NEXT_PUBLIC_MEDIA_URL 动态配置）
+      // 如果需要硬编码额外的域名，可以在这里添加
     ],
     // 图片优化配置
     formats: ['image/avif', 'image/webp'], // AVIF 优先（体积最小），WebP 作为后备

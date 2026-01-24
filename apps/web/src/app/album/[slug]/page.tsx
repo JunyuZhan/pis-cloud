@@ -131,7 +131,17 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     notFound()
   }
 
-  const album = albumData as Album
+  // 获取实际照片数量（确保计数准确）
+  const { count: actualPhotoCount } = await supabase
+    .from('photos')
+    .select('*', { count: 'exact', head: true })
+    .eq('album_id', albumData.id)
+    .eq('status', 'completed')
+
+  const album = {
+    ...albumData,
+    photo_count: actualPhotoCount ?? albumData.photo_count,
+  } as Album
 
   // 检查相册是否过期
   if (album.expires_at && new Date(album.expires_at) < new Date()) {

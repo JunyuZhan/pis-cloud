@@ -43,6 +43,8 @@ export interface Database {
           // 活动元数据
           event_date: string | null
           location: string | null
+          // 直播模式
+          is_live: boolean
           // 统计
           photo_count: number
           selected_count: number
@@ -74,6 +76,7 @@ export interface Database {
           share_image_url?: string | null
           event_date?: string | null
           location?: string | null
+          is_live?: boolean
           photo_count?: number
           selected_count?: number
           view_count?: number
@@ -103,6 +106,7 @@ export interface Database {
           share_image_url?: string | null
           event_date?: string | null
           location?: string | null
+          is_live?: boolean
           photo_count?: number
           selected_count?: number
           view_count?: number

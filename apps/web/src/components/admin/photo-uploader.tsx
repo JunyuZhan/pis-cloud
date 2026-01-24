@@ -102,9 +102,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     })
   }, [albumId])
 
-  // 获取 Worker API URL
+  // 获取 Worker API URL (使用代理路由，避免 CORS 问题)
   const getWorkerUrl = () => {
-    return process.env.NEXT_PUBLIC_WORKER_URL || ''
+    // 使用 Next.js API 代理，所有请求通过同源转发
+    return '/api/worker'
   }
 
   // 上传单个分片（带重试）
@@ -143,8 +144,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
             }
           }
 
-          xhr.onerror = () => reject(new Error('网络错误'))
-          xhr.ontimeout = () => reject(new Error('上传超时'))
+          xhr.onerror = () => {
+            reject(new Error('网络错误，请检查网络连接或 Worker 服务状态'))
+          }
+          xhr.ontimeout = () => reject(new Error('分片上传超时，请重试'))
 
           xhr.open('PUT', url)
           xhr.setRequestHeader('Content-Type', 'application/octet-stream')
@@ -175,14 +178,32 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     const workerUrl = getWorkerUrl()
     
     // 1. 初始化分片上传
-    const initRes = await fetch(`${workerUrl}/api/multipart/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: originalKey }),
-    })
+    let initRes: Response
+    try {
+      initRes = await fetch(`${workerUrl}/api/multipart/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: originalKey }),
+      })
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '网络错误'
+      throw new Error(`初始化分片上传失败: ${errorMessage}`)
+    }
     
     if (!initRes.ok) {
-      throw new Error('初始化分片上传失败')
+      let errorMessage = `HTTP ${initRes.status}`
+      try {
+        const errorData = await initRes.json()
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // 如果响应不是 JSON，尝试读取文本
+        try {
+          errorMessage = await initRes.text() || errorMessage
+        } catch {
+          // 忽略错误
+        }
+      }
+      throw new Error(`初始化分片上传失败: ${errorMessage}`)
     }
     
     const { uploadId } = await initRes.json()
@@ -288,7 +309,18 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     })
 
     if (!completeRes.ok) {
-      throw new Error('完成分片上传失败')
+      let errorMessage = `HTTP ${completeRes.status}`
+      try {
+        const errorData = await completeRes.json()
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        try {
+          errorMessage = await completeRes.text() || errorMessage
+        } catch {
+          // 忽略错误
+        }
+      }
+      throw new Error(`完成分片上传失败: ${errorMessage}`)
     }
 
     // 5. 触发处理
@@ -341,12 +373,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve()
         } else {
-          reject(new Error('上传失败'))
+          reject(new Error(`上传失败: HTTP ${xhr.status}`))
         }
       }
 
-      xhr.onerror = () => reject(new Error('网络错误'))
-      xhr.ontimeout = () => reject(new Error('上传超时'))
+      xhr.onerror = () => {
+        reject(new Error('网络错误，请检查网络连接或 Worker 服务状态'))
+      }
+      xhr.ontimeout = () => reject(new Error('上传超时，请重试'))
 
       xhr.open('PUT', uploadUrl)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)

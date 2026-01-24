@@ -10,6 +10,13 @@ import { updateSession } from '@/lib/supabase/middleware'
 import { locales, defaultLocale, type Locale } from './i18n/config'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Handle Supabase auth for admin API routes (refresh session for API calls)
+  if (pathname.startsWith('/api/admin')) {
+    return await updateSession(request)
+  }
+
   // Handle i18n: Set locale cookie if not present
   const localeCookie = request.cookies.get('NEXT_LOCALE')?.value
   let locale: Locale = defaultLocale
@@ -29,7 +36,23 @@ export async function middleware(request: NextRequest) {
     locale = localeCookie as Locale
   }
 
-  // Set locale cookie if not present or different
+  // Handle Supabase auth for admin routes first (takes priority over locale)
+  if (pathname.startsWith('/admin')) {
+    const authResponse = await updateSession(request)
+    
+    // Set locale cookie on the auth response
+    if (!localeCookie || localeCookie !== locale) {
+      authResponse.cookies.set('NEXT_LOCALE', locale, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        sameSite: 'lax',
+      })
+    }
+    
+    return authResponse
+  }
+
+  // Set locale cookie if not present or different (for non-admin routes)
   if (!localeCookie || localeCookie !== locale) {
     const response = NextResponse.next()
     response.cookies.set('NEXT_LOCALE', locale, {
@@ -38,30 +61,17 @@ export async function middleware(request: NextRequest) {
       sameSite: 'lax',
     })
     
-    // Handle Supabase auth for admin routes
-    if (request.nextUrl.pathname.startsWith('/admin')) {
-      const authResponse = await updateSession(request)
-      if (authResponse) {
-        authResponse.headers.forEach((value, key) => {
-          response.headers.set(key, value)
-        })
-      }
-    }
-    
     return response
-  }
-
-  // Handle Supabase auth for admin routes
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    return await updateSession(request)
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  // Match all routes except static files and API routes
+  // Match all routes except static files and public API routes
   matcher: [
+    // Match admin API routes (for session refresh)
+    '/api/admin/:path*',
     // Match all pathnames except for
     // - … if they start with `/api`, `/_next` or `/_vercel`
     // - … the ones containing a dot (e.g. `favicon.ico`)

@@ -37,8 +37,46 @@ export default async function AdminPage() {
     }
   }
 
+  // 统计每个相册的实际 completed 照片数量
+  const albumIds = albumsData?.map((a) => a.id) || []
+  const photoCountMap: Record<string, number> = {}
+  const albumsToUpdate: { id: string; count: number }[] = []
+
+  if (albumIds.length > 0) {
+    // 使用分组查询统计每个相册的照片数量
+    const { data: photoCounts } = await supabase
+      .from('photos')
+      .select('album_id')
+      .in('album_id', albumIds)
+      .eq('status', 'completed')
+
+    if (photoCounts) {
+      // 统计每个相册的照片数量
+      photoCounts.forEach((p) => {
+        photoCountMap[p.album_id] = (photoCountMap[p.album_id] || 0) + 1
+      })
+    }
+
+    // 检查哪些相册的计数不一致
+    albumsData?.forEach((album) => {
+      const actualCount = photoCountMap[album.id] || 0
+      if (actualCount !== album.photo_count) {
+        albumsToUpdate.push({ id: album.id, count: actualCount })
+      }
+    })
+
+    // 批量更新不一致的相册计数
+    for (const { id, count } of albumsToUpdate) {
+      await supabase
+        .from('albums')
+        .update({ photo_count: count })
+        .eq('id', id)
+    }
+  }
+
   const albums = albumsData?.map((album) => ({
     ...album,
+    photo_count: photoCountMap[album.id] ?? album.photo_count ?? 0,
     cover_thumb_key: album.cover_photo_id ? coverPhotosMap[album.cover_photo_id] : null,
   })) || []
 

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download } from 'lucide-react'
+import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download, Radio } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { MultiWatermarkManager, type WatermarkItem } from './multi-watermark-manager'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -71,6 +71,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     event_date: (album as any).event_date ? new Date((album as any).event_date).toISOString().slice(0, 16) : '',
     location: (album as any).location || '',
     is_public: album.is_public ?? false,
+    is_live: (album as any).is_live ?? false,
     // 访问控制
     password: (album as any).password || '',
     expires_at: (album as any).expires_at ? new Date((album as any).expires_at).toISOString().slice(0, 16) : '',
@@ -274,6 +275,28 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           >
             <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
               formData.is_public ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
+        {/* 直播模式 */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1 pr-4">
+            <p className="font-medium flex items-center gap-2">
+              <Radio className="w-4 h-4 text-red-500" />
+              直播模式
+            </p>
+            <p className="text-sm text-text-secondary">开启后相册页面显示「直播中」标签</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleChange('is_live', !formData.is_live)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              formData.is_live ? 'bg-red-500' : 'bg-surface-elevated'
+            }`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+              formData.is_live ? 'translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>

@@ -248,14 +248,27 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // 更新相册的照片计数（重新统计 completed 状态的照片）
+    const deletedCount = validPhotoIds.length
+    const { count: actualPhotoCount } = await supabase
+      .from('photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('album_id', id)
+      .eq('status', 'completed')
+    
+    await supabase
+      .from('albums')
+      .update({ photo_count: actualPhotoCount ?? 0 })
+      .eq('id', id)
+
     // 注意：MinIO 文件清理策略
     // 我们目前不在这里同步删除 MinIO 文件，而是依赖数据库的软删除/定期清理机制
     // 或者后续添加一个专门的清理 Worker。对于 MVP，保留文件是更安全的策略。
 
     return NextResponse.json({
       success: true,
-      deletedCount: validPhotoIds.length,
-      message: `已删除 ${validPhotoIds.length} 张照片`,
+      deletedCount: deletedCount,
+      message: `已删除 ${deletedCount} 张照片`,
     })
   } catch (err) {
     return NextResponse.json(
