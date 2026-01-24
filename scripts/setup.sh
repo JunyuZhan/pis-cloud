@@ -49,11 +49,12 @@ show_menu() {
     echo "  2) 🚀 生产环境部署 (服务器端)"
     echo "  3) 🔧 仅配置环境变量"
     echo "  4) 🐳 启动/停止 Docker 服务"
-    echo "  5) 🔍 检查系统状态"
-    echo "  6) 📖 查看部署文档"
+    echo "  5) 🗄️  数据库迁移"
+    echo "  6) 🔍 检查系统状态"
+    echo "  7) 📖 查看部署文档"
     echo "  0) 退出"
     echo ""
-    read -p "请输入选项 [0-6]: " choice
+    read -p "请输入选项 [0-7]: " choice
 }
 
 # 检查系统依赖
@@ -110,41 +111,46 @@ configure_env() {
         return 1
     fi
     
-    # 创建前端环境变量
-    cat > apps/web/.env.local << EOF
-# Supabase
+    # 创建统一的根目录环境变量文件
+    cat > .env.local << EOF
+# ===========================================
+# PIS 统一环境配置 (根目录)
+# 本地开发: 此文件被 apps/web 和 services/worker 共享
+# ===========================================
+
+# ==================== Supabase 数据库 ====================
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
-
-# 应用配置 (本地开发)
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-EOF
-    
-    success "已创建 apps/web/.env.local"
-    
-    # 创建 Worker 环境变量
-    cat > services/worker/.env << EOF
-# Supabase
 SUPABASE_URL=$SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 
-# MinIO (本地 Docker)
-MINIO_ENDPOINT_HOST=localhost
-MINIO_ENDPOINT_PORT=9000
-MINIO_USE_SSL=false
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=pis-photos
+# ==================== MinIO 存储配置 ====================
+NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
+STORAGE_TYPE=minio
+STORAGE_ENDPOINT=localhost
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+STORAGE_BUCKET=pis-photos
+STORAGE_PUBLIC_URL=http://localhost:9000/pis-photos
 
-# Redis
+# ==================== Worker 服务 ====================
+WORKER_URL=http://localhost:3001
+NEXT_PUBLIC_WORKER_URL=http://localhost:3001
+
+# ==================== Redis ====================
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# ==================== 应用配置 ====================
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 EOF
     
-    success "已创建 services/worker/.env"
+    success "已创建 .env.local (根目录统一配置)"
     success "环境变量配置完成!"
+    echo ""
+    info "提示: apps/web 和 services/worker 会自动从根目录读取配置"
 }
 
 # 本地开发环境设置
@@ -160,7 +166,7 @@ setup_local() {
     success "依赖安装完成"
     
     # 检查环境变量
-    if [[ ! -f "apps/web/.env.local" ]]; then
+    if [[ ! -f ".env.local" ]]; then
         warn "未找到环境变量配置"
         configure_env || return 1
     fi
@@ -311,6 +317,40 @@ manage_docker() {
     cd ..
 }
 
+# 数据库迁移
+run_migrations() {
+    step "数据库迁移"
+    
+    echo "PIS 使用 Supabase 托管数据库，迁移需要在 Supabase Dashboard 执行。"
+    echo ""
+    echo "选择操作:"
+    echo "  1) 查看迁移文件列表"
+    echo "  2) 生成完整架构文件 (新安装推荐)"
+    echo "  3) 查看 Supabase 迁移说明"
+    echo "  0) 返回"
+    echo ""
+    read -p "请选择 [0-3]: " migrate_choice
+    
+    case $migrate_choice in
+        1)
+            bash scripts/migrate.sh --status
+            ;;
+        2)
+            bash scripts/migrate.sh --generate
+            echo ""
+            success "已生成 database/full_schema.sql"
+            echo ""
+            echo "下一步:"
+            echo "  1. 打开 Supabase Dashboard -> SQL Editor"
+            echo "  2. 复制 database/full_schema.sql 的内容"
+            echo "  3. 粘贴并执行"
+            ;;
+        3)
+            bash scripts/migrate.sh --supabase
+            ;;
+    esac
+}
+
 # 检查系统状态
 check_status() {
     step "系统状态检查"
@@ -345,17 +385,17 @@ check_status() {
     
     # 检查环境变量
     echo "环境变量配置:"
-    if [[ -f "apps/web/.env.local" ]]; then
-        success "apps/web/.env.local 存在"
+    if [[ -f ".env.local" ]]; then
+        success ".env.local 存在 (根目录统一配置)"
     else
-        warn "apps/web/.env.local 不存在"
+        warn ".env.local 不存在，请运行配置向导"
     fi
     
-    if [[ -f "services/worker/.env" ]]; then
-        success "services/worker/.env 存在"
-    else
-        warn "services/worker/.env 不存在"
-    fi
+    # 检查数据库迁移
+    echo ""
+    echo "数据库迁移文件:"
+    local migration_count=$(ls -1 database/migrations/*.sql 2>/dev/null | wc -l | tr -d ' ')
+    success "共 ${migration_count} 个迁移文件"
 }
 
 # 主循环
@@ -381,10 +421,14 @@ main() {
                 read -p "按回车键继续..."
                 ;;
             5)
-                check_status
+                run_migrations
                 read -p "按回车键继续..."
                 ;;
             6)
+                check_status
+                read -p "按回车键继续..."
+                ;;
+            7)
                 if command -v open &> /dev/null; then
                     open docs/DEPLOYMENT.md
                 elif command -v xdg-open &> /dev/null; then
