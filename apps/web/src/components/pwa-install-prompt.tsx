@@ -22,18 +22,16 @@ export function PWAInstallPrompt() {
 
     if (standalone) return
 
+    // 检查是否已经提示过（永久不再提示）
+    const lastPrompt = localStorage.getItem('pwa-prompt-dismissed')
+    if (lastPrompt) {
+      // 如果已经关闭过，就不再提示
+      return
+    }
+
     // 检查是否是 iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
     setIsIOS(iOS)
-
-    // 检查是否已经提示过（24小时内不重复提示）
-    const lastPrompt = localStorage.getItem('pwa-prompt-dismissed')
-    if (lastPrompt) {
-      const lastTime = parseInt(lastPrompt, 10)
-      if (Date.now() - lastTime < 24 * 60 * 60 * 1000) {
-        return
-      }
-    }
 
     // 监听 beforeinstallprompt 事件
     const handler = (e: Event) => {
@@ -45,7 +43,7 @@ export function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handler)
 
-    // iOS 设备显示手动安装提示
+    // iOS 设备显示手动安装提示（只有在未关闭过的情况下）
     if (iOS) {
       setTimeout(() => setShowPrompt(true), 5000)
     }
@@ -64,6 +62,8 @@ export function PWAInstallPrompt() {
       
       if (outcome === 'accepted') {
         console.log('[PWA] User accepted install prompt')
+        // 用户接受了安装，记录到 localStorage，避免再次提示
+        localStorage.setItem('pwa-prompt-dismissed', Date.now().toString())
       }
     } catch (error) {
       console.error('[PWA] Install error:', error)
