@@ -530,21 +530,21 @@ If you find this project helpful, consider supporting the project! Your support 
   <table>
     <tr>
       <td align="center">
-        <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
+        <img src="./assets/support/WeChat.jpg" alt="WeChat Pay" width="200" />
         <br />
-        <strong>微信支付</strong>
+        <strong>WeChat Pay</strong>
       </td>
       <td align="center" style="padding-left: 30px;">
-        <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+        <img src="./assets/support/Alipay.jpg" alt="Alipay" width="200" />
         <br />
-        <strong>支付宝</strong>
+        <strong>Alipay</strong>
       </td>
     </tr>
   </table>
 </p>
 
 <p align="center">
-  <strong>请我喝杯茶 ☕</strong>
+  <strong>Buy me a coffee ☕</strong>
 </p>
 
 ## 🤝 Contributing
