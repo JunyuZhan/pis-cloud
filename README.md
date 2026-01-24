@@ -518,35 +518,6 @@ See [LICENSE](LICENSE) file for details.
 - Email: junyuzhan@outlook.com
 - GitHub: [@junyuzhan](https://github.com/junyuzhan)
 
-## ☕ Support
-
-If you find this project helpful, consider supporting the project! Your support helps:
-- 🐛 Fix bugs faster
-- ✨ Add new features
-- 📚 Improve documentation
-- 🎨 Enhance user experience
-
-<p align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="./assets/support/WeChat.jpg" alt="WeChat Pay" width="200" />
-        <br />
-        <strong>WeChat Pay</strong>
-      </td>
-      <td align="center" style="padding-left: 30px;">
-        <img src="./assets/support/Alipay.jpg" alt="Alipay" width="200" />
-        <br />
-        <strong>Alipay</strong>
-      </td>
-    </tr>
-  </table>
-</p>
-
-<p align="center">
-  <strong>Buy me a coffee ☕</strong>
-</p>
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -584,3 +555,34 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 
 - [English](README.md) (Current)
 - [中文 (Chinese)](README.zh-CN.md)
+
+---
+
+## ☕ Support
+
+If you find this project helpful, consider supporting the project! Your support helps:
+- 🐛 Fix bugs faster
+- ✨ Add new features
+- 📚 Improve documentation
+- 🎨 Enhance user experience
+
+<p align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="./assets/support/WeChat.jpg" alt="WeChat Pay" width="200" />
+        <br />
+        <strong>WeChat Pay</strong>
+      </td>
+      <td align="center" style="padding-left: 30px;">
+        <img src="./assets/support/Alipay.jpg" alt="Alipay" width="200" />
+        <br />
+        <strong>Alipay</strong>
+      </td>
+    </tr>
+  </table>
+</p>
+
+<p align="center">
+  <strong>Buy me a coffee ☕</strong>
+</p>

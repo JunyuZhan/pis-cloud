@@ -528,35 +528,6 @@ MIT License © 2026 junyuzhan
 - 邮箱: junyuzhan@outlook.com
 - GitHub: [@junyuzhan](https://github.com/junyuzhan)
 
-## ☕ 支持项目
-
-如果这个项目对你有帮助，欢迎支持项目的持续开发！您的支持将帮助：
-- 🐛 更快地修复 Bug
-- ✨ 添加新功能
-- 📚 完善文档
-- 🎨 提升用户体验
-
-<p align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
-        <br />
-        <strong>微信支付</strong>
-      </td>
-      <td align="center" style="padding-left: 30px;">
-        <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
-        <br />
-        <strong>支付宝</strong>
-      </td>
-    </tr>
-  </table>
-</p>
-
-<p align="center">
-  <strong>请我喝杯茶 ☕</strong>
-</p>
-
 ## 🤝 贡献
 
 欢迎贡献！请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献指南。
@@ -594,3 +565,34 @@ MIT License © 2026 junyuzhan
 
 - [English](README.md)
 - [中文 (Chinese)](README.zh-CN.md) (当前)
+
+---
+
+## ☕ 支持项目
+
+如果这个项目对你有帮助，欢迎支持项目的持续开发！您的支持将帮助：
+- 🐛 更快地修复 Bug
+- ✨ 添加新功能
+- 📚 完善文档
+- 🎨 提升用户体验
+
+<p align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
+        <br />
+        <strong>微信支付</strong>
+      </td>
+      <td align="center" style="padding-left: 30px;">
+        <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+        <br />
+        <strong>支付宝</strong>
+      </td>
+    </tr>
+  </table>
+</p>
+
+<p align="center">
+  <strong>请我喝杯茶 ☕</strong>
+</p>
