@@ -78,19 +78,6 @@
 
 ---
 
-## ✨ Features
-
-- 🚀 **Instant Delivery** - Minutes-level delivery after shooting, clients see photos immediately
-- 🎨 **Professional Display** - Immersive dark interface with photo-first visual design
-- 🔒 **Self-Hosted** - Data stored on your own server, complete privacy control
-- 💰 **Cost-Effective** - Support multiple storage solutions (MinIO/OSS/COS/S3), flexible choices
-- ⚡ **Real-time Sync** - Based on Supabase Realtime, upload and see instantly
-- 🖼️ **Smart Watermarking** - Support text/Logo watermarks to protect copyright
-- 🌍 **Multi-language Support** - Built-in i18n support (English, Chinese)
-- 🔌 **Flexible Extension** - Support multiple storage and databases for different deployment needs
-
----
-
 ## 🏗️ Architecture
 
 ```
@@ -278,239 +265,47 @@ pnpm dev
 
 ## 🌐 Production Deployment
 
-### Deployment Architecture
+1. **Configure Supabase** - Create project and run migrations
+2. **Deploy Server** - Run Docker Compose on your server
+3. **Deploy Frontend** - Deploy to Vercel or your hosting
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
-│  Supabase   │     │   Vercel    │     │   Your Server       │
-│  (Database) │     │  (Frontend) │     │  (MinIO + Worker)   │
-└─────────────┘     └─────────────┘     └─────────────────────┘
-```
-
-### Deployment Steps
-
-#### Step 1: Configure Supabase (5 minutes)
-
-1. [supabase.com](https://supabase.com) → Create project
-2. SQL Editor → Execute migration files in order (see manual setup)
-3. Authentication → Users → Create admin account
-4. Record Project URL + API Keys
-
-#### Step 2: Deploy Server (10 minutes)
-
-```bash
-# Upload project to server /opt/pis/
-
-# Create environment variables
-cat > /opt/pis/.env << EOF
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-MINIO_ACCESS_KEY=your-strong-password
-MINIO_SECRET_KEY=your-strong-password-8chars
-EOF
-
-# Start services
-cd /opt/pis/docker
-docker-compose up -d
-```
-
-Configure Nginx reverse proxy: `media.yourdomain.com` → `localhost:9000`
-
-#### Step 3: Deploy Vercel (5 minutes)
-
-1. [vercel.com](https://vercel.com) → Import GitHub repository
-2. Root Directory: `apps/web`
-3. Add environment variables:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-NEXT_PUBLIC_MEDIA_URL=https://media.yourdomain.com/pis-photos
-```
-
-4. Deploy → Bind custom domain
-
-#### Verify Deployment
-
-```bash
-# Check service status
-docker-compose ps
-
-# View Worker logs
-docker-compose logs -f worker
-```
-
-Visit `https://yourdomain.com/admin/login` to test login
-
-> 📖 Detailed documentation: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)
+> 📖 **Detailed deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)
 
 ---
 
-## 📖 Features
-
-### Admin Features
-
-| Feature | Description |
-|---------|-------------|
-| Album Management | Create, edit, delete albums |
-| Batch Album Management | Batch select and delete multiple albums |
-| Album Duplication | One-click copy album configuration |
-| Album Templates | Create and manage album configuration templates |
-| Album Event Metadata | Set event time and location, displayed on album cover |
-| Photo Upload | Batch upload, supports JPG/PNG/HEIC |
-| Batch Photo Management | Batch select, delete, quick set cover |
-| Photo Deletion | Single and batch photo deletion |
-| Package Download | Generate ZIP files with watermarked and original versions |
-| Multi-position Watermarking | Support up to 6 watermarks, flexible 9-position configuration |
-| WeChat Share Optimization | Custom share card (title, description, image) |
-| Access Control | Public/private albums, download permissions |
-| Photo Sorting | Manual sorting or by capture time |
-
-### Guest Features
-
-| Feature | Description |
-|---------|-------------|
-| Album Browsing | Masonry layout, infinite scroll |
-| Large Image View | Lightbox mode with keyboard navigation |
-| EXIF Display | Show camera parameter information |
-| Original Download | Admin-controlled download permissions |
-| Photo Selection | Guest selection visible to admin |
-
 ---
 
-## 🛠️ Common Commands
+## 🛠️ Quick Commands
 
 ```bash
-# Deployment & Configuration
-pnpm setup           # Start guided setup
-pnpm docker:up       # Start Docker services
-pnpm docker:down     # Stop Docker services
-pnpm docker:logs    # View Docker logs
-
-# Development
-pnpm dev             # Start development server
-pnpm build           # Build production version
-pnpm lint            # Code linting
-pnpm format          # Format code
-
-# Database
-pnpm db:types        # Generate Supabase types
+pnpm setup      # Guided setup
+pnpm dev        # Start development
+pnpm docker:up  # Start Docker services
 ```
 
 ---
 
 ## 📁 Environment Variables
 
-### Database Configuration
+Key variables: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_TYPE` | Database type: `supabase`(recommended), `postgresql`, `mysql` | ✅ |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (when using Supabase) | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | ✅ |
-
-### Storage Configuration
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `STORAGE_TYPE` | Storage type: `minio`(default), `oss`, `cos`, `s3` | ✅ |
-| `STORAGE_ENDPOINT` | Storage service endpoint | ✅ |
-| `STORAGE_ACCESS_KEY` | Storage access key | ✅ |
-| `STORAGE_SECRET_KEY` | Storage secret key | ✅ |
-| `STORAGE_BUCKET` | Storage bucket name | ✅ |
-| `NEXT_PUBLIC_MEDIA_URL` | Media file CDN address | ✅ |
-
-### Application Configuration
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_APP_URL` | Application access URL | ✅ |
-| `REDIS_*` | Redis queue configuration | Worker |
-
-> 📖 Detailed configuration guides:
-> - [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
-> - [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase, PostgreSQL, MySQL
+> 📖 **Full configuration guide**: See [.env.example](.env.example) and [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
 
 ---
 
 ## 🔧 FAQ
 
-<details>
-<summary><strong>Q: Images don't display after upload?</strong></summary>
+**Q: Images don't display after upload?**  
+Check Worker logs: `docker-compose logs worker` and verify `NEXT_PUBLIC_MEDIA_URL`
 
-1. Check if Worker is running: `docker-compose logs worker`
-2. Verify MinIO Bucket permissions are configured correctly
-3. Check if `NEXT_PUBLIC_MEDIA_URL` is correct
+**Q: Login redirect loop?**  
+Clear browser cookies and check Supabase Auth Redirect URLs
 
-</details>
+**Q: How to switch storage?**  
+See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
 
-<details>
-<summary><strong>Q: Login redirect loop?</strong></summary>
-
-1. Clear browser cookies (especially those starting with `sb-`)
-2. Verify Supabase Auth Redirect URLs configuration
-3. Check `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-</details>
-
-<details>
-<summary><strong>Q: How to backup data?</strong></summary>
-
-```bash
-# Backup MinIO data
-docker run --rm -v pis_minio_data:/data -v $(pwd):/backup \
-  alpine tar czf /backup/minio-backup.tar.gz /data
-
-# Supabase data can be exported from Dashboard
-# PostgreSQL: Use pg_dump
-# MySQL: Use mysqldump
-```
-
-</details>
-
-<details>
-<summary><strong>Q: How to switch to Alibaba Cloud OSS?</strong></summary>
-
-1. Configure in `services/worker/.env`:
-```bash
-STORAGE_TYPE=oss
-STORAGE_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
-STORAGE_REGION=cn-hangzhou
-STORAGE_ACCESS_KEY=your-access-key-id
-STORAGE_SECRET_KEY=your-access-key-secret
-STORAGE_BUCKET=your-bucket-name
-STORAGE_PUBLIC_URL=https://your-bucket-name.oss-cn-hangzhou.aliyuncs.com
-STORAGE_USE_SSL=true
-```
-
-2. Restart Worker: `docker-compose restart worker`
-
-See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) for details
-
-</details>
-
-<details>
-<summary><strong>Q: What storage and databases are supported?</strong></summary>
-
-**Storage Support:**
-- ✅ MinIO (default, self-hosted)
-- ✅ Alibaba Cloud OSS
-- ✅ Tencent Cloud COS
-- ✅ AWS S3
-
-**Database Support:**
-- ✅ Supabase (recommended, includes Auth + Realtime)
-- 🚧 PostgreSQL (interface implemented)
-- 🚧 MySQL (interface implemented)
-
-See:
-- [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
-- [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md)
-
-</details>
+**Q: Supported storage/databases?**  
+Storage: MinIO, OSS, COS, S3 | Database: Supabase (recommended), PostgreSQL, MySQL
 
 ---
 
