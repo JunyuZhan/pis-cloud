@@ -118,7 +118,8 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
       
       const submitData = {
         ...formData,
-        event_date: formData.event_date || null,
+        event_date: formData.event_date && formData.event_date.trim() ? formData.event_date : null,
+        expires_at: formData.expires_at && formData.expires_at.trim() ? formData.expires_at : null,
         location: formData.location.trim() || null,
         watermark_config: watermarkConfig,
       }

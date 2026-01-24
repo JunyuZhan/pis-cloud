@@ -115,6 +115,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         // 密码字段：如果为空字符串，设置为 null；否则保持原值
         if (field === 'password') {
           ;(updateData as Record<string, unknown>)[field] = body[field] === '' ? null : body[field]
+        } else if (field === 'event_date' || field === 'expires_at') {
+          // 时间戳字段：如果为空字符串或无效值，设置为 null
+          const value = body[field]
+          if (!value || value === '' || value.trim() === '') {
+            ;(updateData as Record<string, unknown>)[field] = null
+          } else {
+            // 验证时间格式，如果是 ISO 格式的日期时间字符串，需要转换为完整的 ISO 格式
+            try {
+              const date = new Date(value)
+              if (isNaN(date.getTime())) {
+                ;(updateData as Record<string, unknown>)[field] = null
+              } else {
+                // 如果只有日期部分（YYYY-MM-DDTHH:mm），补充秒和时区
+                if (value.length === 16) {
+                  ;(updateData as Record<string, unknown>)[field] = date.toISOString()
+                } else {
+                  ;(updateData as Record<string, unknown>)[field] = value
+                }
+              }
+            } catch {
+              ;(updateData as Record<string, unknown>)[field] = null
+            }
+          }
         } else if (field === 'watermark_config') {
           // 确保 watermark_config 是有效的 JSON 对象
           if (body[field] !== null && typeof body[field] !== 'object') {
