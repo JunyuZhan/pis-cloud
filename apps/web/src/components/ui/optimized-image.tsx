@@ -18,6 +18,7 @@ interface OptimizedImageProps {
   blurDataURL?: string
   onError?: () => void
   aspectRatio?: number
+  unoptimized?: boolean // 跳过 Next.js 优化，直接从 CDN 加载
 }
 
 /**
@@ -40,6 +41,7 @@ export function OptimizedImage({
   blurDataURL,
   onError,
   aspectRatio,
+  unoptimized = false, // 默认使用 Next.js 优化；CDN 已优化的图片可设为 true
 }: OptimizedImageProps) {
   const [imageError, setImageError] = useState(false)
   
@@ -70,6 +72,7 @@ export function OptimizedImage({
           placeholder={blurDataURL ? 'blur' : 'empty'}
           blurDataURL={blurDataURL}
           onError={handleError}
+          unoptimized={unoptimized}
         />
       </div>
     )

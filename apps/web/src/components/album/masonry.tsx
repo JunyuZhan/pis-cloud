@@ -319,6 +319,7 @@ function PhotoCard({
               blurDataURL={blurDataURL}
               aspectRatio={layout !== 'grid' ? aspectRatio : undefined}
               onError={() => setImageError(true)}
+              unoptimized // 缩略图已优化(400px)，跳过 Vercel 处理，直接从 Cloudflare CDN 加载
             />
           ) : (
             <div

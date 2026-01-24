@@ -52,6 +52,7 @@ function AlbumCard({ album, coverUrl, index }: {
               quality={isPriority ? 85 : 75}
               priority={isPriority}
               onError={() => setImageError(true)}
+              unoptimized // 缩略图已优化，直接从 Cloudflare CDN 加载
             />
             
             {/* 优雅的渐变遮罩 */}

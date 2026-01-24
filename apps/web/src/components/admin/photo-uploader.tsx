@@ -6,10 +6,11 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide
 import { cn, formatFileSize } from '@/lib/utils'
 
 // 分片上传配置
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
+// 注意: Vercel 免费版限制请求体 4.5MB，Pro 版 50MB
+const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB per chunk (适配 Vercel 限制)
 const MAX_CONCURRENT_CHUNKS = 3 // 同时上传 3 个分片
 const MAX_RETRIES = 3 // 每个分片最多重试 3 次
-const MULTIPART_THRESHOLD = 10 * 1024 * 1024 // 10MB 以上使用分片上传
+const MULTIPART_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上使用分片上传
 
 // 格式化网速
 function formatSpeed(bytesPerSecond: number): string {
@@ -194,7 +195,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       let errorMessage = `HTTP ${initRes.status}`
       try {
         const errorData = await initRes.json()
-        errorMessage = errorData.error || errorMessage
+        errorMessage = errorData.error || errorData.details || errorMessage
       } catch {
         // 如果响应不是 JSON，尝试读取文本
         try {
@@ -202,6 +203,13 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         } catch {
           // 忽略错误
         }
+      }
+      // 特殊处理常见错误
+      if (initRes.status === 503 || errorMessage.includes('Worker 服务不可用')) {
+        throw new Error('Worker 服务不可用，请检查 WORKER_URL 配置或 Worker 服务是否运行')
+      }
+      if (initRes.status === 413) {
+        throw new Error('请求体过大，请检查 Vercel 套餐限制')
       }
       throw new Error(`初始化分片上传失败: ${errorMessage}`)
     }
