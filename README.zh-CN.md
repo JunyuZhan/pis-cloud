@@ -537,8 +537,20 @@ MIT License © 2026 junyuzhan
 - 🎨 提升用户体验
 
 <p align="center">
-  <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
-  <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+  <table>
+    <tr>
+      <td align="center">
+        <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
+        <br />
+        <strong>微信支付</strong>
+      </td>
+      <td align="center" style="padding-left: 30px;">
+        <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+        <br />
+        <strong>支付宝</strong>
+      </td>
+    </tr>
+  </table>
 </p>
 
 <p align="center">

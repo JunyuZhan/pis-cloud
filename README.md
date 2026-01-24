@@ -527,8 +527,20 @@ If you find this project helpful, consider supporting the project! Your support 
 - 🎨 Enhance user experience
 
 <p align="center">
-  <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
-  <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+  <table>
+    <tr>
+      <td align="center">
+        <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
+        <br />
+        <strong>微信支付</strong>
+      </td>
+      <td align="center" style="padding-left: 30px;">
+        <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
+        <br />
+        <strong>支付宝</strong>
+      </td>
+    </tr>
+  </table>
 </p>
 
 <p align="center">
