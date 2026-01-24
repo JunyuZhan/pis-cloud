@@ -8,8 +8,8 @@ import { AlbumStickyNav } from '@/components/album/album-sticky-nav'
 import { AlbumShareButton } from '@/components/album/album-share-button'
 import { PhotoGroupFilter } from '@/components/album/photo-group-filter'
 import { FloatingActions } from '@/components/album/floating-actions'
-import { type SortRule } from '@/components/album/sort-toggle'
-import { type LayoutMode } from '@/components/album/layout-toggle'
+import { SortToggle, type SortRule } from '@/components/album/sort-toggle'
+import { LayoutToggle, type LayoutMode } from '@/components/album/layout-toggle'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -235,7 +235,11 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
             {group ? '分组照片' : '全部照片'} <span className="text-text-muted text-sm sm:text-base">({album.photo_count})</span>
           </h2>
           <div className="flex items-center gap-2">
-            {/* 这里保留原来的排序和布局切换，但只在非吸顶状态显示 */}
+            {/* 布局切换和排序切换 - 桌面端显示 */}
+            <div className="hidden sm:flex items-center gap-2">
+              <LayoutToggle currentLayout={currentLayout} />
+              <SortToggle currentSort={currentSort} />
+            </div>
           </div>
         </div>
 

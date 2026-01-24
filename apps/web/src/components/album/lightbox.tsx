@@ -346,7 +346,11 @@ export function PhotoLightbox({
         finite: false,
         preload: 2,
       }}
+      // 键盘导航：默认支持左右箭头键（← →）、Home/End 键
+      // 触摸滑动：默认支持触摸屏和触摸板左右滑动
+      // 鼠标点击：支持点击左右箭头按钮切换照片
       render={{
+        // 只有一张照片时隐藏导航按钮
         buttonPrev: photos.length <= 1 ? () => null : undefined,
         buttonNext: photos.length <= 1 ? () => null : undefined,
       }}
