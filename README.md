@@ -91,7 +91,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/junyuzhan/pis.git
+git clone https://github.com/JunyuZhan/PIS.git
 cd pis
 
 # Install dependencies

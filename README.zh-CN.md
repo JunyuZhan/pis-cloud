@@ -91,7 +91,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/junyuzhan/pis.git
+git clone https://github.com/JunyuZhan/PIS.git
 cd pis
 
 # 安装依赖

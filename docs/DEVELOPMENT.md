@@ -28,7 +28,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/pis.git
+git clone https://github.com/JunyuZhan/PIS.git
 cd pis
 
 # 2. 安装依赖
@@ -39,49 +39,58 @@ cd docker
 docker-compose up -d minio redis minio-init
 cd ..
 
-# 4. 配置环境变量
-cp env.example apps/web/.env.local
-cp env.example services/worker/.env
-# 编辑这两个文件，填入 Supabase 凭据
+# 4. 配置环境变量（统一使用根目录配置）
+cp .env.example .env.local
+# 编辑 .env.local，填入 Supabase 凭据
 
-# 5. 启动开发服务器
+# 5. 初始化数据库
+bash scripts/migrate.sh --generate
+# 复制 database/full_schema.sql 到 Supabase SQL Editor 执行
+
+# 6. 启动开发服务器
 pnpm dev
 ```
 
 ### 环境变量配置
 
-**apps/web/.env.local** (前端):
+PIS 使用**统一的根目录配置**，`apps/web` 和 `services/worker` 都从根目录的 `.env.local` 读取配置。
+
+**根目录 `.env.local`**:
 
 ```bash
-# Supabase - 从 Dashboard 获取
+# ===========================================
+# PIS 统一环境配置 (根目录)
+# ===========================================
+
+# Supabase 数据库 - 从 Dashboard 获取
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# 本地开发
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-```
-
-**services/worker/.env** (Worker):
-
-```bash
-# Supabase
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# MinIO (Docker 本地)
-MINIO_ENDPOINT_HOST=localhost
-MINIO_ENDPOINT_PORT=9000
-MINIO_USE_SSL=false
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=pis-photos
+# MinIO 存储配置
+NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
+STORAGE_TYPE=minio
+STORAGE_ENDPOINT=localhost
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+STORAGE_BUCKET=pis-photos
+
+# Worker 服务
+WORKER_URL=http://localhost:3001
+NEXT_PUBLIC_WORKER_URL=http://localhost:3001
 
 # Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# 应用配置
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+> **注意**: 生产环境不使用 `.env` 文件，而是通过 Vercel / Docker / K8s 等平台的环境变量注入。
 
 ---
 
@@ -193,6 +202,8 @@ pnpm format           # 格式化代码
 
 # 数据库
 pnpm db:types         # 生成 Supabase 类型
+bash scripts/migrate.sh --status   # 查看迁移文件列表
+bash scripts/migrate.sh --generate # 生成完整架构文件
 
 # Docker
 cd docker
@@ -200,6 +211,11 @@ docker-compose up -d              # 启动所有服务
 docker-compose up -d minio redis  # 只启动存储服务
 docker-compose logs -f worker     # 查看 Worker 日志
 docker-compose down               # 停止所有服务
+
+# 测试
+bash scripts/test-system.sh       # 基础功能测试
+bash scripts/test-api.sh          # API 功能测试
+bash scripts/run-all-tests.sh     # 运行所有测试
 ```
 
 ---

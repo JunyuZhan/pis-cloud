@@ -1,33 +1,28 @@
 # GitHub Actions Workflows
 
-## 计费说明
+## Workflow 说明
 
-GitHub Actions 免费账户每月有 **2000 分钟**的免费额度。
+| 文件 | 触发条件 | 说明 |
+|------|----------|------|
+| `ci.yml` | PR 和 push | 代码检查、构建测试 |
+| `deploy.yml` | main 分支 push | 自动部署到 Vercel |
 
-### 如果遇到计费问题
+## 优化配置
 
-1. **检查账户设置**
-   - 前往 GitHub Settings → Billing & plans
-   - 检查付款方式是否有效
-   - 确认是否超过免费额度
+已配置以下优化以减少 Actions 消耗：
 
-2. **优化 Workflow**
-   - 已添加 `timeout-minutes` 限制运行时间
-   - 已添加 `paths-ignore` 减少不必要的运行
-   - 使用缓存减少构建时间
+- `timeout-minutes`: 限制运行时间
+- `paths-ignore`: 跳过文档更改
+- 缓存: pnpm 依赖缓存
 
-3. **临时禁用 Workflow**
-   - 如果暂时不需要 CI/CD，可以在 GitHub 仓库设置中禁用 Actions
-   - 或者删除 `.github/workflows/` 目录中的文件
+## 禁用 Workflow
 
-### Workflow 说明
+如果暂时不需要 CI/CD：
 
-- **ci.yml**: 代码检查和测试（PR 和 push 时运行）
-- **deploy.yml**: 自动部署（仅在 main 分支 push 时运行）
+```bash
+# 方法 1: 在 GitHub 设置中禁用
+# Settings → Actions → General → Disable Actions
 
-### 减少消耗的建议
-
-1. 只在代码更改时运行（已配置 `paths-ignore`）
-2. 使用缓存加速构建（已配置）
-3. 设置超时时间（已配置）
-4. 考虑使用自托管 runner（如果可用）
+# 方法 2: 重命名文件
+mv .github/workflows/ci.yml .github/workflows/ci.yml.disabled
+```
