@@ -20,6 +20,8 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    # 设置超时时间，避免长时间运行消耗额度
+    timeout-minutes: 15
     
     steps:
       - name: Checkout code

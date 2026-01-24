@@ -7,6 +7,17 @@ on:
   push:
     branches:
       - main
+    # 只在特定文件更改时运行，减少不必要的运行
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'README*'
+      - 'AUTHORS.md'
+      - 'CONTRIBUTING.md'
+      - 'LEGAL.md'
+      - 'SECURITY_CHECKLIST.md'
 
 env:
   NODE_VERSION: '20'
@@ -16,6 +27,8 @@ jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    # 设置超时时间，避免长时间运行消耗额度
+    timeout-minutes: 10
     
     steps:
       - name: Checkout code
