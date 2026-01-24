@@ -45,7 +45,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
       : null
 
   return (
-    <div className="relative w-full h-[75vh] min-h-[500px] max-h-[800px] overflow-hidden pt-16">
+    <div className="relative w-full h-[70vh] sm:h-[75vh] min-h-[400px] sm:min-h-[500px] max-h-[600px] sm:max-h-[800px] overflow-hidden pt-14 sm:pt-16">
       {/* 背景图片 - 带parallax效果 */}
       {coverUrl ? (
         <motion.div
@@ -78,17 +78,17 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/40" />
 
       {/* 内容区域 */}
-      <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6 z-10">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-4 sm:px-6 z-10">
+        <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
           {/* Logo/品牌标识 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="flex items-center justify-center gap-2 mb-2"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 mb-1 sm:mb-2"
           >
-            <Sparkles className="w-6 h-6 text-accent" />
-            <span className="text-2xl md:text-3xl font-serif font-bold text-white tracking-wider">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+            <span className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-white tracking-wider">
               PIS
             </span>
           </motion.div>
@@ -98,7 +98,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: 'easeOut' }}
-            className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white drop-shadow-2xl leading-tight"
+            className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white drop-shadow-2xl leading-tight px-2"
           >
             专业摄影
             <br />
@@ -110,7 +110,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: 'easeOut' }}
-            className="text-lg md:text-xl text-white/90 font-light tracking-wide max-w-2xl mx-auto"
+            className="text-sm sm:text-base md:text-lg lg:text-xl text-white/90 font-light tracking-wide max-w-2xl mx-auto px-2"
           >
             捕捉每一个精彩瞬间，让光影诉说故事
           </motion.p>
@@ -121,12 +121,14 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.3, ease: 'easeOut' }}
-              className="pt-4"
+              className="pt-2 sm:pt-4"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                <span className="text-xs text-white/80">最新作品</span>
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
+                <span className="text-[10px] sm:text-xs text-white/80">最新作品</span>
                 <span className="w-1 h-1 bg-accent rounded-full" />
-                <span className="text-sm text-white font-medium">{featuredAlbum.title}</span>
+                <span className="text-xs sm:text-sm text-white font-medium line-clamp-1 max-w-[200px] sm:max-w-none">
+                  {featuredAlbum.title}
+                </span>
               </div>
             </motion.div>
           )}
@@ -139,9 +141,9 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/70 cursor-pointer hover:text-white transition-colors"
+        className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/70 cursor-pointer hover:text-white transition-colors touch-manipulation"
       >
-        <span className="text-xs mb-2 tracking-wider uppercase">探索作品</span>
+        <span className="text-[10px] sm:text-xs mb-1 sm:mb-2 tracking-wider uppercase">探索作品</span>
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ 
@@ -151,7 +153,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
             repeatType: 'reverse'
           }}
         >
-          <ChevronDown className="w-6 h-6" />
+          <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6" />
         </motion.div>
       </motion.a>
 

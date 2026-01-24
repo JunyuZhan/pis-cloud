@@ -68,11 +68,11 @@ export default async function HomePage() {
 
       {/* 作品展示区 - Instagram风格 */}
       {otherAlbums && otherAlbums.length > 0 ? (
-        <section id="works" className="py-6 md:py-8 px-4 md:px-6">
+        <section id="works" className="py-4 sm:py-6 md:py-8 px-3 sm:px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
             {/* 极简标题 */}
-            <div className="mb-6 text-center">
-              <h2 className="text-base md:text-lg font-medium text-text-secondary">
+            <div className="mb-4 sm:mb-6 text-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-medium text-text-secondary">
                 作品集
               </h2>
             </div>

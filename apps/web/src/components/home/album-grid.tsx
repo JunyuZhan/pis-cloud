@@ -33,9 +33,9 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
                 delay: Math.min(index * 0.03, 0.2),
                 ease: 'easeOut'
               }}
-              className="break-inside-avoid mb-2 md:mb-3 group cursor-pointer"
+              className="break-inside-avoid mb-2 md:mb-3 group cursor-pointer touch-manipulation"
             >
-              <Link href={`/album/${album.slug}?from=home`} className="block relative w-full overflow-hidden rounded-md bg-surface">
+              <Link href={`/album/${album.slug}?from=home`} className="block relative w-full overflow-hidden rounded-md bg-surface active:opacity-90 transition-opacity">
                 {coverUrl ? (
                   <div className="relative w-full aspect-square overflow-hidden">
                     <Image
