@@ -75,7 +75,7 @@ export function PhotoLightbox({
 
   // 使用 useMemo 稳定 currentPhoto 的引用，避免无限循环
   const currentPhoto = useMemo(() => {
-    if (photos.length === 0) return null
+    if (!photos || photos.length === 0) return null
     if (currentIndex >= 0 && currentIndex < photos.length) {
       return photos[currentIndex]
     }
@@ -83,11 +83,13 @@ export function PhotoLightbox({
   }, [photos, currentIndex])
   
   // 使用 useMemo 稳定 currentPhotoId，避免依赖整个对象
-  const currentPhotoId = useMemo(() => currentPhoto?.id || '', [currentPhoto])
+  const currentPhotoId = useMemo(() => {
+    return currentPhoto?.id || ''
+  }, [currentPhoto])
 
   // 构建 slides，默认使用预览图，点击"查看原图"后才使用原图
   const slides = useMemo(() => {
-    if (photos.length === 0) {
+    if (!photos || photos.length === 0) {
       return []
     }
     

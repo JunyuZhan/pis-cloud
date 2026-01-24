@@ -671,12 +671,15 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
         </div>
       )}
 
-      {/* Lightbox 预览 - 只在有照片时渲染 */}
-      {filteredPhotos.length > 0 && (
+      {/* Lightbox 预览 - 只在有照片且索引有效时渲染 */}
+      {filteredPhotos.length > 0 && 
+       lightboxIndex !== null && 
+       lightboxIndex >= 0 && 
+       lightboxIndex < filteredPhotos.length && (
         <PhotoLightbox
           photos={filteredPhotos}
-          index={lightboxIndex !== null ? lightboxIndex : -1}
-          open={lightboxIndex !== null}
+          index={lightboxIndex}
+          open={true}
           onClose={() => setLightboxIndex(null)}
           allowDownload={true}
         />
