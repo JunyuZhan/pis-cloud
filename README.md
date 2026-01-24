@@ -1,6 +1,12 @@
-# 📸 PIS - 私有化即时摄影分享系统
+# 📸 PIS - Private Instant Photo Sharing
 
-> Private Instant photo Sharing - 专为摄影师打造的私有化照片交付工具
+> A self-hosted photo delivery system designed for photographers
+
+<p align="center">
+  <a href="https://github.com/junyuzhan/pis/stargazers">
+    <img src="https://img.shields.io/github/stars/junyuzhan/pis?style=social" alt="GitHub stars" />
+  </a>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js 15" />
@@ -9,208 +15,285 @@
   <img src="https://img.shields.io/badge/MinIO-Object%20Storage-C72E49?style=flat-square&logo=minio" alt="MinIO" />
 </p>
 
----
-
-## ✨ 特性
-
-- 🚀 **即时交付** - 拍摄完成后分钟级交付，客户即刻可见
-- 🎨 **专业展示** - 沉浸式深色界面，照片优先的视觉设计
-- 🔒 **私有部署** - 数据存储在自有服务器，完全掌控隐私
-- 💰 **成本可控** - 利用内网 MinIO 存储，避免云存储高额费用
-- ⚡ **实时同步** - 基于 Supabase Realtime，上传即见
-- 🖼️ **智能水印** - 支持文字/Logo 水印，保护作品版权
+<p align="center">
+  <a href="README.zh-CN.md">中文</a> | <a href="README.md">English</a>
+</p>
 
 ---
 
-## 🏗️ 技术架构
+## 🌟 Why Choose PIS?
+
+### ⚡ **Instant Delivery**
+- **Minutes-level delivery** - Clients see photos immediately after shooting
+- **Real-time sync** - Upload and view instantly with Supabase Realtime
+- **Professional workflow** - Streamlined photo delivery process
+
+### 🔒 **Complete Privacy Control**
+- **Self-hosted** - Full control over your data and client privacy
+- **No third-party dependencies** - Store everything on your own servers
+- **GDPR compliant** - Perfect for professional photographers who value privacy
+
+### 💰 **Cost-Effective & Flexible**
+- **Multiple storage options** - Choose the best fit for your needs:
+  - MinIO (Self-hosted, zero cost)
+  - Alibaba Cloud OSS (China)
+  - Tencent Cloud COS (China)
+  - AWS S3 (Global)
+- **Pay-as-you-go** - Only pay for what you use
+- **No vendor lock-in** - Easy to switch storage providers
+
+### 🖼️ **Advanced Watermarking**
+- **Multi-position support** - Up to 6 watermarks simultaneously
+- **9-position grid** - Flexible placement options
+- **Text & Logo** - Support both text and image watermarks
+- **Copyright protection** - Professional-grade watermarking
+
+### 🎨 **Professional Presentation**
+- **Dark mode interface** - Immersive viewing experience
+- **Photo-first design** - Beautiful masonry layout
+- **Mobile optimized** - Perfect viewing on all devices
+- **Lightbox mode** - Full-screen photo viewing with keyboard navigation
+
+### 🚀 **Production Ready**
+- **One-click deployment** - Docker Compose setup
+- **Auto-scaling** - Queue-based image processing
+- **Health monitoring** - Built-in health check endpoints
+- **CI/CD ready** - GitHub Actions integration
+
+### 🔧 **Developer Friendly**
+- **Modern stack** - Next.js 15, TypeScript, Supabase
+- **Well documented** - Comprehensive guides in English & Chinese
+- **Easy to extend** - Modular architecture
+- **Open source** - MIT License
+
+---
+
+## ✨ Features
+
+- 🚀 **Instant Delivery** - Minutes-level delivery after shooting, clients see photos immediately
+- 🎨 **Professional Display** - Immersive dark interface with photo-first visual design
+- 🔒 **Self-Hosted** - Data stored on your own server, complete privacy control
+- 💰 **Cost-Effective** - Support multiple storage solutions (MinIO/OSS/COS/S3), flexible choices
+- ⚡ **Real-time Sync** - Based on Supabase Realtime, upload and see instantly
+- 🖼️ **Smart Watermarking** - Support text/Logo watermarks to protect copyright
+- 🌍 **Multi-language Support** - Built-in i18n support (English, Chinese)
+- 🔌 **Flexible Extension** - Support multiple storage and databases for different deployment needs
+  - Storage: MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
+  - Database: Supabase, PostgreSQL, MySQL
+
+---
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        用户浏览器                            │
+│                      User Browser                           │
 └─────────────────────────┬───────────────────────────────────┘
                           │
           ┌───────────────┴───────────────┐
           ▼                               ▼
 ┌──────────────────┐            ┌──────────────────────────────┐
-│   Vercel 前端     │            │      Supabase Cloud          │
-│   Next.js 15     │◄──────────►│  PostgreSQL + Auth + Realtime│
+│   Vercel Frontend│            │    Database Layer (Optional) │
+│   Next.js 15     │◄──────────►│  Supabase / PostgreSQL / MySQL│
 │   App Router     │            └──────────────────────────────┘
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                    内网服务器 (Docker)                         │
+│                  Server (Docker)                            │
 │  ┌─────────┐    ┌─────────┐    ┌──────────────────────────┐  │
-│  │  MinIO  │◄───│  Redis  │◄───│  Worker (Sharp 图片处理)  │  │
-│  │ 图片存储 │    │  队列   │    │  缩略图/水印/EXIF/BlurHash│  │
+│  │ Storage │◄───│  Redis  │◄───│  Worker (Sharp Processing)│  │
+│  │ MinIO/  │    │  Queue │    │  Thumb/Watermark/EXIF/   │  │
+│  │ OSS/COS │    │         │    │  BlurHash                │  │
+│  │ /S3     │    │         │    │                          │  │
 │  └─────────┘    └─────────┘    └──────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
+**Supported Storage Services:**
+- MinIO (Self-hosted, recommended for private deployment)
+- Alibaba Cloud OSS (For users in China)
+- Tencent Cloud COS (For users in China)
+- AWS S3 (For overseas users)
+
+**Supported Databases:**
+- Supabase (Recommended, includes Auth + Realtime)
+- PostgreSQL (Native)
+- MySQL (In development)
+
 ---
 
-## 📦 项目结构
+## 📦 Project Structure
 
 ```
 pis/
 ├── apps/
-│   └── web/                 # Next.js 前端应用
+│   └── web/                 # Next.js frontend application
 │       ├── src/
-│       │   ├── app/         # App Router 页面
-│       │   ├── components/  # React 组件
-│       │   ├── hooks/       # 自定义 Hooks
-│       │   └── lib/         # 工具库
+│       │   ├── app/         # App Router pages
+│       │   ├── components/  # React components
+│       │   ├── hooks/       # Custom Hooks
+│       │   └── lib/         # Utilities
 │       └── ...
 ├── services/
-│   └── worker/              # 图片处理 Worker
+│   └── worker/              # Image processing Worker
 │       └── src/
-│           ├── index.ts     # BullMQ Worker 入口
-│           ├── processor.ts # Sharp 图片处理
-│           └── lib/         # MinIO/Redis 客户端
+│           ├── index.ts     # BullMQ Worker entry
+│           ├── processor.ts # Sharp image processing
+│           └── lib/         # Storage/Database clients
 ├── database/
-│   └── migrations/          # SQL 迁移脚本
+│   └── migrations/          # SQL migration scripts
 ├── docker/
-│   ├── docker-compose.yml   # Docker 编排
-│   ├── worker.Dockerfile    # Worker 镜像
-│   └── nginx/               # Nginx 配置
-├── docs/                    # 项目文档
-└── env.example              # 环境变量模板
+│   ├── docker-compose.yml   # Docker orchestration
+│   ├── worker.Dockerfile    # Worker image
+│   └── nginx/               # Nginx configuration
+├── docs/                    # Project documentation
+└── .env.example             # Environment variables template
 ```
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 前置要求
+### Prerequisites
 
 - Node.js >= 20.0.0
 - pnpm >= 9.0.0
 - Docker & Docker Compose
-- Supabase 账号 ([免费注册](https://supabase.com))
+- Supabase account ([Free signup](https://supabase.com))
 
-### 一键部署 (推荐)
+### One-Click Setup (Recommended)
 
 ```bash
-# 克隆项目
+# Clone the repository
 git clone https://github.com/junyuzhan/pis.git
 cd pis
 
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 启动引导式部署
+# Start guided setup
 pnpm setup
 ```
 
-引导程序会自动完成：
-- ✅ 检查系统依赖
-- ✅ 配置环境变量 (交互式填写 Supabase 凭据)
-- ✅ 启动 Docker 服务 (MinIO + Redis)
-- ✅ 显示下一步操作指引
+The setup wizard will automatically:
+- ✅ Check system dependencies
+- ✅ Configure environment variables (interactive Supabase credentials)
+- ✅ Select storage type (MinIO/OSS/COS/S3)
+- ✅ Start Docker services (MinIO + Redis)
+- ✅ Display next steps
 
-### 手动部署
+> 💡 **Tip**: You can also manually configure storage and database types. See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) and [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md)
+
+### Manual Setup
 
 <details>
-<summary>点击展开手动部署步骤</summary>
+<summary>Click to expand manual setup steps</summary>
 
-#### 1. 配置 Supabase
+#### 1. Configure Supabase
 
-1. 创建 [Supabase](https://supabase.com) 项目
-2. 在 SQL Editor 中按顺序执行以下迁移文件：
-   - `database/migrations/001_init.sql` - 初始化数据库结构
-   - `database/migrations/002_secure_rls.sql` - 修复 RLS 安全策略
-   - `database/migrations/003_album_features.sql` - 添加相册高级功能
-   - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
-   - `database/migrations/005_package_downloads.sql` - 添加打包下载功能（可选）
-   - `database/migrations/006_album_share_config.sql` - 添加相册分享配置（可选）
-   - `database/migrations/007_photo_groups.sql` - 添加相册分组功能（可选）
-   - `database/migrations/008_album_event_metadata.sql` - 添加相册活动元数据（可选）
-3. 在 Authentication > Users 创建管理员账号
-4. 复制 API Keys (Settings → API)
+1. Create a [Supabase](https://supabase.com) project
+2. In SQL Editor, execute the following migration files in order:
+   - `database/migrations/001_init.sql` - Initialize database structure
+   - `database/migrations/002_secure_rls.sql` - Fix RLS security policies
+   - `database/migrations/003_album_features.sql` - Add album advanced features
+   - `database/migrations/004_album_templates.sql` - Add album templates (optional)
+   - `database/migrations/005_package_downloads.sql` - Add package downloads (optional)
+   - `database/migrations/006_album_share_config.sql` - Add album share config (optional)
+   - `database/migrations/007_photo_groups.sql` - Add photo groups (optional)
+   - `database/migrations/008_album_event_metadata.sql` - Add album event metadata (optional)
+3. Create admin account in Authentication > Users
+4. Copy API Keys (Settings → API)
 
-#### 2. 配置环境变量
+#### 2. Configure Environment Variables
 
+**Frontend Configuration** (`apps/web/.env.local`):
 ```bash
-# 前端配置
-cat > apps/web/.env.local << EOF
+# Database configuration
+DATABASE_TYPE=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-EOF
 
-# Worker 配置
-cat > services/worker/.env << EOF
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-MINIO_ENDPOINT_HOST=localhost
-MINIO_ENDPOINT_PORT=9000
-MINIO_USE_SSL=false
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=pis-photos
-REDIS_HOST=localhost
-REDIS_PORT=6379
-EOF
+# Storage configuration (default: MinIO)
+STORAGE_TYPE=minio
+NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
+
+# Application configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-#### 3. 启动服务
+**Worker Configuration** (`services/worker/.env`):
+```bash
+# Database configuration
+DATABASE_TYPE=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Storage configuration (default: MinIO)
+STORAGE_TYPE=minio
+STORAGE_ENDPOINT=localhost
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+STORAGE_BUCKET=pis-photos
+
+# Redis configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+> 💡 **Using cloud storage?** See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) for Alibaba Cloud OSS, Tencent Cloud COS, or AWS S3 setup
+
+#### 3. Start Services
 
 ```bash
-# 启动 Docker 服务
+# Start Docker services
 pnpm docker:up
 
-# 启动开发服务器
+# Start development server
 pnpm dev
 ```
 
 </details>
 
-### 访问应用
+### Access the Application
 
-| 地址 | 说明 |
-|------|------|
-| http://localhost:3000 | 首页 |
-| http://localhost:3000/admin/login | 管理后台 |
-| http://localhost:9001 | MinIO 控制台 |
+| URL | Description |
+|-----|-------------|
+| http://localhost:3000 | Homepage |
+| http://localhost:3000/admin/login | Admin dashboard |
+| http://localhost:9001 | MinIO Console |
 
 ---
 
-## 🌐 生产部署
+## 🌐 Production Deployment
 
-### 部署架构
+### Deployment Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
-│  Supabase   │     │   Vercel    │     │   你的服务器         │
-│  (数据库)    │     │   (前端)    │     │  (MinIO + Worker)   │
+│  Supabase   │     │   Vercel    │     │   Your Server       │
+│  (Database) │     │  (Frontend) │     │  (MinIO + Worker)   │
 └─────────────┘     └─────────────┘     └─────────────────────┘
 ```
 
-### 部署步骤
+### Deployment Steps
 
-#### 步骤 1: 配置 Supabase (5分钟)
+#### Step 1: Configure Supabase (5 minutes)
 
-1. [supabase.com](https://supabase.com) → 创建项目
-2. SQL Editor → 按顺序执行以下迁移文件：
-   - `database/migrations/001_init.sql` - 初始化数据库结构
-   - `database/migrations/002_secure_rls.sql` - 修复 RLS 安全策略
-   - `database/migrations/003_album_features.sql` - 添加相册高级功能
-   - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
-   - `database/migrations/005_package_downloads.sql` - 添加打包下载功能（可选）
-   - `database/migrations/006_album_share_config.sql` - 添加相册分享配置（可选）
-   - `database/migrations/007_photo_groups.sql` - 添加相册分组功能（可选）
-   - `database/migrations/008_album_event_metadata.sql` - 添加相册活动元数据（可选）
-3. Authentication → Users → 创建管理员账号
-4. 记录 Project URL + API Keys
+1. [supabase.com](https://supabase.com) → Create project
+2. SQL Editor → Execute migration files in order (see manual setup)
+3. Authentication → Users → Create admin account
+4. Record Project URL + API Keys
 
-#### 步骤 2: 部署服务器 (10分钟)
+#### Step 2: Deploy Server (10 minutes)
 
 ```bash
-# 上传项目到服务器 /opt/pis/
+# Upload project to server /opt/pis/
 
-# 创建环境变量
+# Create environment variables
 cat > /opt/pis/.env << EOF
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
@@ -218,18 +301,18 @@ MINIO_ACCESS_KEY=your-strong-password
 MINIO_SECRET_KEY=your-strong-password-8chars
 EOF
 
-# 启动服务
+# Start services
 cd /opt/pis/docker
 docker-compose up -d
 ```
 
-配置 Nginx 反向代理：`media.yourdomain.com` → `localhost:9000`
+Configure Nginx reverse proxy: `media.yourdomain.com` → `localhost:9000`
 
-#### 步骤 3: 部署 Vercel (5分钟)
+#### Step 3: Deploy Vercel (5 minutes)
 
-1. [vercel.com](https://vercel.com) → 导入 GitHub 仓库
+1. [vercel.com](https://vercel.com) → Import GitHub repository
 2. Root Directory: `apps/web`
-3. 添加环境变量：
+3. Add environment variables:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
@@ -239,138 +322,248 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 NEXT_PUBLIC_MEDIA_URL=https://media.yourdomain.com/pis-photos
 ```
 
-4. Deploy → 绑定自定义域名
+4. Deploy → Bind custom domain
 
-#### 验证部署
+#### Verify Deployment
 
 ```bash
-# 检查服务状态
+# Check service status
 docker-compose ps
 
-# 查看 Worker 日志
+# View Worker logs
 docker-compose logs -f worker
 ```
 
-访问 `https://yourdomain.com/admin/login` 测试登录
+Visit `https://yourdomain.com/admin/login` to test login
 
-> 📖 详细文档: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-
----
-
-## 📖 功能说明
-
-### 管理员功能
-
-| 功能 | 描述 |
-|------|------|
-| 相册管理 | 创建、编辑、删除相册 |
-| 相册批量管理 | 批量选择、批量删除多个相册 |
-| 相册复制 | 一键复制相册配置，快速创建相同设置的相册 |
-| 相册模板 | 创建和管理相册配置模板，快速复用设置 |
-| 相册活动元数据 | 设置活动时间和地点，展示在相册封面 |
-| 照片上传 | 批量上传，支持 JPG/PNG/HEIC |
-| 照片批量管理 | 批量选择、批量删除、快速设置封面 |
-| 照片删除 | 单张删除和批量删除照片 |
-| 打包下载 | 生成 ZIP 文件，包含有水印和无水印两个版本 |
-| 多位置水印 | 支持最多6个水印，可在9个位置灵活配置 |
-| 微信分享优化 | 自定义分享卡片（标题、描述、图片） |
-| 访问控制 | 公开/私有相册，下载权限 |
-| 照片排序 | 手动排序或按拍摄时间 |
-
-> 📖 详细使用指南：[docs/NEW_FEATURES_GUIDE.md](docs/NEW_FEATURES_GUIDE.md)
-
-### 访客功能
-
-| 功能 | 描述 |
-|------|------|
-| 相册浏览 | 瀑布流布局，无限滚动 |
-| 大图查看 | Lightbox 模式，支持键盘导航 |
-| EXIF 显示 | 显示相机参数信息 |
-| 原图下载 | 管理员控制的下载权限 |
-| 照片选择 | 访客选片，管理员可见 |
+> 📖 Detailed documentation: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)
 
 ---
 
-## 🛠️ 常用命令
+## 📖 Features
+
+### Admin Features
+
+| Feature | Description |
+|---------|-------------|
+| Album Management | Create, edit, delete albums |
+| Batch Album Management | Batch select and delete multiple albums |
+| Album Duplication | One-click copy album configuration |
+| Album Templates | Create and manage album configuration templates |
+| Album Event Metadata | Set event time and location, displayed on album cover |
+| Photo Upload | Batch upload, supports JPG/PNG/HEIC |
+| Batch Photo Management | Batch select, delete, quick set cover |
+| Photo Deletion | Single and batch photo deletion |
+| Package Download | Generate ZIP files with watermarked and original versions |
+| Multi-position Watermarking | Support up to 6 watermarks, flexible 9-position configuration |
+| WeChat Share Optimization | Custom share card (title, description, image) |
+| Access Control | Public/private albums, download permissions |
+| Photo Sorting | Manual sorting or by capture time |
+
+### Guest Features
+
+| Feature | Description |
+|---------|-------------|
+| Album Browsing | Masonry layout, infinite scroll |
+| Large Image View | Lightbox mode with keyboard navigation |
+| EXIF Display | Show camera parameter information |
+| Original Download | Admin-controlled download permissions |
+| Photo Selection | Guest selection visible to admin |
+
+---
+
+## 🛠️ Common Commands
 
 ```bash
-# 部署与配置
-pnpm setup           # 启动引导式部署
-pnpm docker:up       # 启动 Docker 服务
-pnpm docker:down     # 停止 Docker 服务
-pnpm docker:logs     # 查看 Docker 日志
+# Deployment & Configuration
+pnpm setup           # Start guided setup
+pnpm docker:up       # Start Docker services
+pnpm docker:down     # Stop Docker services
+pnpm docker:logs    # View Docker logs
 
-# 开发
-pnpm dev             # 启动开发服务器
-pnpm build           # 构建生产版本
-pnpm lint            # 代码检查
-pnpm format          # 格式化代码
+# Development
+pnpm dev             # Start development server
+pnpm build           # Build production version
+pnpm lint            # Code linting
+pnpm format          # Format code
 
-# 数据库
-pnpm db:types        # 生成 Supabase 类型
+# Database
+pnpm db:types        # Generate Supabase types
 ```
 
 ---
 
-## 📁 环境变量说明
+## 📁 Environment Variables
 
-| 变量名 | 说明 | 必填 |
-|--------|------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 公开密钥 | ✅ |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 服务端密钥 | ✅ |
-| `NEXT_PUBLIC_APP_URL` | 应用访问地址 | ✅ |
-| `NEXT_PUBLIC_MEDIA_URL` | 媒体文件 CDN 地址 | ✅ |
-| `MINIO_*` | MinIO 存储配置 | Worker |
-| `REDIS_*` | Redis 队列配置 | Worker |
+### Database Configuration
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_TYPE` | Database type: `supabase`(recommended), `postgresql`, `mysql` | ✅ |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (when using Supabase) | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | ✅ |
+
+### Storage Configuration
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `STORAGE_TYPE` | Storage type: `minio`(default), `oss`, `cos`, `s3` | ✅ |
+| `STORAGE_ENDPOINT` | Storage service endpoint | ✅ |
+| `STORAGE_ACCESS_KEY` | Storage access key | ✅ |
+| `STORAGE_SECRET_KEY` | Storage secret key | ✅ |
+| `STORAGE_BUCKET` | Storage bucket name | ✅ |
+| `NEXT_PUBLIC_MEDIA_URL` | Media file CDN address | ✅ |
+
+### Application Configuration
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_APP_URL` | Application access URL | ✅ |
+| `REDIS_*` | Redis queue configuration | Worker |
+
+> 📖 Detailed configuration guides:
+> - [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
+> - [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase, PostgreSQL, MySQL
 
 ---
 
-## 🔧 常见问题
+## 🔧 FAQ
 
 <details>
-<summary><strong>Q: 图片上传后不显示？</strong></summary>
+<summary><strong>Q: Images don't display after upload?</strong></summary>
 
-1. 检查 Worker 是否正常运行：`docker-compose logs worker`
-2. 确认 MinIO Bucket 权限配置正确
-3. 检查 `NEXT_PUBLIC_MEDIA_URL` 是否正确
+1. Check if Worker is running: `docker-compose logs worker`
+2. Verify MinIO Bucket permissions are configured correctly
+3. Check if `NEXT_PUBLIC_MEDIA_URL` is correct
 
 </details>
 
 <details>
-<summary><strong>Q: 登录后一直跳转？</strong></summary>
+<summary><strong>Q: Login redirect loop?</strong></summary>
 
-1. 清除浏览器 Cookies（特别是 `sb-` 开头的）
-2. 确认 Supabase Auth 配置中的 Redirect URLs
-3. 检查 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+1. Clear browser cookies (especially those starting with `sb-`)
+2. Verify Supabase Auth Redirect URLs configuration
+3. Check `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 </details>
 
 <details>
-<summary><strong>Q: 如何备份数据？</strong></summary>
+<summary><strong>Q: How to backup data?</strong></summary>
 
 ```bash
-# 备份 MinIO 数据
+# Backup MinIO data
 docker run --rm -v pis_minio_data:/data -v $(pwd):/backup \
   alpine tar czf /backup/minio-backup.tar.gz /data
 
-# Supabase 数据可在 Dashboard 导出
+# Supabase data can be exported from Dashboard
+# PostgreSQL: Use pg_dump
+# MySQL: Use mysqldump
 ```
+
+</details>
+
+<details>
+<summary><strong>Q: How to switch to Alibaba Cloud OSS?</strong></summary>
+
+1. Configure in `services/worker/.env`:
+```bash
+STORAGE_TYPE=oss
+STORAGE_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
+STORAGE_REGION=cn-hangzhou
+STORAGE_ACCESS_KEY=your-access-key-id
+STORAGE_SECRET_KEY=your-access-key-secret
+STORAGE_BUCKET=your-bucket-name
+STORAGE_PUBLIC_URL=https://your-bucket-name.oss-cn-hangzhou.aliyuncs.com
+STORAGE_USE_SSL=true
+```
+
+2. Restart Worker: `docker-compose restart worker`
+
+See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) for details
+
+</details>
+
+<details>
+<summary><strong>Q: What storage and databases are supported?</strong></summary>
+
+**Storage Support:**
+- ✅ MinIO (default, self-hosted)
+- ✅ Alibaba Cloud OSS
+- ✅ Tencent Cloud COS
+- ✅ AWS S3
+
+**Database Support:**
+- ✅ Supabase (recommended, includes Auth + Realtime)
+- 🚧 PostgreSQL (interface implemented)
+- 🚧 MySQL (interface implemented)
+
+See:
+- [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
+- [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md)
 
 </details>
 
 ---
 
-## 📄 许可证
+## 📄 License
 
-MIT License © 2026
+MIT License © 2026 junyuzhan
+
+See [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 致谢
+## 👤 Author
 
-- [Next.js](https://nextjs.org/) - React 框架
-- [Supabase](https://supabase.com/) - 后端即服务
-- [MinIO](https://min.io/) - 对象存储
-- [Sharp](https://sharp.pixelplumbing.com/) - 图片处理
-- [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
+**junyuzhan**
+- Email: junyuzhan@outlook.com
+- GitHub: [@junyuzhan](https://github.com/junyuzhan)
+
+## ☕ Support
+
+If you find this project helpful, consider supporting the project! Your support helps:
+- 🐛 Fix bugs faster
+- ✨ Add new features
+- 📚 Improve documentation
+- 🎨 Enhance user experience
+
+Thank you for your support! 🙏
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+See [AUTHORS.md](AUTHORS.md) for the list of contributors.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/) - React framework
+- [Supabase](https://supabase.com/) - Backend as a service
+- [MinIO](https://min.io/) - Object storage
+- [Sharp](https://sharp.pixelplumbing.com/) - Image processing
+- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+
+---
+
+## 📚 Documentation
+
+### Getting Started
+- [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps
+- [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
+- [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration
+- [Multi-Storage & Database Support](docs/i18n/en/MULTI_STORAGE_DATABASE.md) - Feature guide and migration
+
+### Development & Security
+- [Development Guide](docs/DEVELOPMENT.md) - Development setup, code standards, and feature documentation
+- [Security Guide](docs/SECURITY.md) - Security best practices, deployment checklist, and pre-open source security checklist
+- [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) - Performance optimization guide
+
+---
+
+## 🌍 Language
+
+- [English](README.md) (Current)
+- [中文 (Chinese)](README.zh-CN.md)
