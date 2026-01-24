@@ -58,6 +58,7 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
                       fill
                       className="object-cover transition-opacity duration-300 group-hover:opacity-90"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      unoptimized={true}
                       onError={(e) => {
                         // 如果图片加载失败，隐藏图片显示占位符
                         const target = e.target as HTMLImageElement

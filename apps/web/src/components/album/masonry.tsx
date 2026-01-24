@@ -287,7 +287,7 @@ function PhotoCard({
                 layout === 'grid' ? "h-full object-cover" : "h-auto"
               )}
               loading="lazy"
-            />
+              unoptimized={true}
           ) : (
             <div
               className="w-full bg-surface"
