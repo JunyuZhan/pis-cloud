@@ -537,8 +537,8 @@ MIT License © 2026 junyuzhan
 - 🎨 提升用户体验
 
 <p align="center">
-  <img src="./assets/support/wechat-pay.jpg" alt="微信支付" width="200" />
-  <img src="./assets/support/alipay.jpg" alt="支付宝" width="200" />
+  <img src="./assets/support/WeChat.jpg" alt="微信支付" width="200" />
+  <img src="./assets/support/Alipay.jpg" alt="支付宝" width="200" />
 </p>
 
 <p align="center">
