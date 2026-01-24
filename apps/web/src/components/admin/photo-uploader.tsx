@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { cn, formatFileSize } from '@/lib/utils'
 
-// 分片上传配置
-// 注意: Vercel 免费版限制请求体 4.5MB，Pro 版 50MB
-const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB per chunk (适配 Vercel 限制)
-const MAX_CONCURRENT_CHUNKS = 3 // 同时上传 3 个分片
-const MAX_RETRIES = 3 // 每个分片最多重试 3 次
-const MULTIPART_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上使用分片上传
+// 上传配置
+// 注意: Vercel 免费版限制请求体 4.5MB
+// 大文件使用 presigned URL 直接上传到 MinIO，绕过 Vercel 限制
+const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上使用 presigned URL 直接上传
+const MAX_RETRIES = 3 // 上传最多重试 3 次
 
 // 格式化网速
 function formatSpeed(bytesPerSecond: number): string {
@@ -34,12 +33,8 @@ interface UploadFile {
   progress: number
   speed?: number // bytes per second
   error?: string
-  // 分片上传状态
-  uploadId?: string
   originalKey?: string
   photoId?: string
-  uploadedParts?: Array<{ partNumber: number; etag: string }>
-  totalParts?: number
 }
 
 export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
@@ -103,235 +98,101 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     })
   }, [albumId])
 
-  // 获取 Worker API URL (使用代理路由，避免 CORS 问题)
-  const getWorkerUrl = () => {
-    // 使用 Next.js API 代理，所有请求通过同源转发
-    return '/api/worker'
-  }
+  // 获取 Worker API URL (使用代理路由)
+  const getWorkerUrl = () => '/api/worker'
 
-  // 上传单个分片（带重试）
-  const uploadChunkWithRetry = async (
-    chunk: Blob,
-    key: string,
-    uploadId: string,
-    partNumber: number,
-    onProgress: (loaded: number) => void
-  ): Promise<{ partNumber: number; etag: string }> => {
-    let lastError: Error | null = null
-    
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        return await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          const workerUrl = getWorkerUrl()
-          const url = `${workerUrl}/api/multipart/upload?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`
-          
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              onProgress(event.loaded)
-            }
-          }
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const response = JSON.parse(xhr.responseText)
-                resolve({ partNumber, etag: response.etag })
-              } catch {
-                reject(new Error('无效的响应'))
-              }
-            } else {
-              reject(new Error(`分片 ${partNumber} 上传失败: ${xhr.status}`))
-            }
-          }
-
-          xhr.onerror = () => {
-            reject(new Error('网络错误，请检查网络连接或 Worker 服务状态'))
-          }
-          xhr.ontimeout = () => reject(new Error('分片上传超时，请重试'))
-
-          xhr.open('PUT', url)
-          xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-          xhr.send(chunk)
-        })
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error('未知错误')
-        console.warn(`分片 ${partNumber} 第 ${attempt + 1} 次尝试失败:`, lastError.message)
-        // 等待一段时间再重试
-        if (attempt < MAX_RETRIES - 1) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
-        }
-      }
-    }
-    
-    throw lastError || new Error(`分片 ${partNumber} 上传失败`)
-  }
-
-  // 分片上传大文件
-  const uploadWithChunks = async (
+  // 使用 presigned URL 直接上传到 MinIO（绕过 Vercel 大小限制）
+  const uploadWithPresignedUrl = async (
     uploadFile: UploadFile,
     photoId: string,
     originalKey: string,
     respAlbumId: string
   ) => {
-    const file = uploadFile.file
-    const totalParts = Math.ceil(file.size / CHUNK_SIZE)
     const workerUrl = getWorkerUrl()
     
-    // 1. 初始化分片上传
-    let initRes: Response
+    // 1. 获取 presigned URL
+    let presignRes: Response
     try {
-      initRes = await fetch(`${workerUrl}/api/multipart/init`, {
+      presignRes = await fetch(`${workerUrl}/api/presign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: originalKey }),
+        body: JSON.stringify({ key: originalKey, method: 'PUT' }),
       })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '网络错误'
-      throw new Error(`初始化分片上传失败: ${errorMessage}`)
+      throw new Error(`获取上传地址失败: ${errorMessage}`)
     }
     
-    if (!initRes.ok) {
-      let errorMessage = `HTTP ${initRes.status}`
+    if (!presignRes.ok) {
+      let errorMessage = `HTTP ${presignRes.status}`
       try {
-        const errorData = await initRes.json()
-        errorMessage = errorData.error || errorData.details || errorMessage
-      } catch {
-        // 如果响应不是 JSON，尝试读取文本
-        try {
-          errorMessage = await initRes.text() || errorMessage
-        } catch {
-          // 忽略错误
-        }
-      }
-      // 特殊处理常见错误
-      if (initRes.status === 503 || errorMessage.includes('Worker 服务不可用')) {
-        throw new Error('Worker 服务不可用，请检查 WORKER_URL 配置或 Worker 服务是否运行')
-      }
-      if (initRes.status === 413) {
-        throw new Error('请求体过大，请检查 Vercel 套餐限制')
-      }
-      throw new Error(`初始化分片上传失败: ${errorMessage}`)
-    }
-    
-    const { uploadId } = await initRes.json()
-    
-    // 更新状态，保存 uploadId 用于断点续传
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === uploadFile.id
-          ? { ...f, uploadId, originalKey, photoId, totalParts, uploadedParts: [] }
-          : f
-      )
-    )
-
-    // 2. 准备所有分片
-    const chunks: Array<{ partNumber: number; start: number; end: number }> = []
-    for (let i = 0; i < totalParts; i++) {
-      chunks.push({
-        partNumber: i + 1,
-        start: i * CHUNK_SIZE,
-        end: Math.min((i + 1) * CHUNK_SIZE, file.size),
-      })
-    }
-
-    // 3. 并行上传分片
-    const uploadedParts: Array<{ partNumber: number; etag: string }> = []
-    let uploadedBytes = 0
-    const chunkProgress = new Map<number, number>()
-    let lastTime = Date.now()
-    let lastBytes = 0
-
-    const updateProgress = () => {
-      let totalUploaded = uploadedBytes
-      chunkProgress.forEach((loaded) => {
-        totalUploaded += loaded
-      })
-      
-      const progress = Math.round((totalUploaded / file.size) * 100)
-      const now = Date.now()
-      const timeDiff = (now - lastTime) / 1000
-      
-      let speed = 0
-      if (timeDiff >= 0.2) {
-        const bytesDiff = totalUploaded - lastBytes
-        speed = bytesDiff / timeDiff
-        lastBytes = totalUploaded
-        lastTime = now
-      }
-
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.id === uploadFile.id
-            ? { ...f, progress, ...(speed > 0 ? { speed } : {}), uploadedParts }
-            : f
-        )
-      )
-    }
-
-    // 使用队列控制并发
-    const queue = [...chunks]
-    const workers: Promise<void>[] = []
-
-    for (let i = 0; i < MAX_CONCURRENT_CHUNKS; i++) {
-      workers.push(
-        (async () => {
-          while (queue.length > 0) {
-            const chunk = queue.shift()
-            if (!chunk) break
-
-            const blob = file.slice(chunk.start, chunk.end)
-            const result = await uploadChunkWithRetry(
-              blob,
-              originalKey,
-              uploadId,
-              chunk.partNumber,
-              (loaded) => {
-                chunkProgress.set(chunk.partNumber, loaded)
-                updateProgress()
-              }
-            )
-
-            uploadedParts.push(result)
-            uploadedBytes += blob.size
-            chunkProgress.delete(chunk.partNumber)
-            updateProgress()
-          }
-        })()
-      )
-    }
-
-    await Promise.all(workers)
-
-    // 4. 完成分片上传
-    const sortedParts = uploadedParts.sort((a, b) => a.partNumber - b.partNumber)
-    
-    const completeRes = await fetch(`${workerUrl}/api/multipart/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        key: originalKey,
-        uploadId,
-        parts: sortedParts,
-      }),
-    })
-
-    if (!completeRes.ok) {
-      let errorMessage = `HTTP ${completeRes.status}`
-      try {
-        const errorData = await completeRes.json()
+        const errorData = await presignRes.json()
         errorMessage = errorData.error || errorMessage
       } catch {
-        try {
-          errorMessage = await completeRes.text() || errorMessage
-        } catch {
-          // 忽略错误
+        // 忽略
+      }
+      if (presignRes.status === 503) {
+        throw new Error('Worker 服务不可用，请检查 WORKER_URL 配置')
+      }
+      throw new Error(`获取上传地址失败: ${errorMessage}`)
+    }
+    
+    const { url: presignedUrl } = await presignRes.json()
+    
+    if (!presignedUrl || presignedUrl.includes('minio:9000') || presignedUrl.includes('localhost')) {
+      throw new Error('服务器未配置公网上传地址，请在 Worker 设置 MINIO_PUBLIC_URL')
+    }
+    
+    // 2. 直接上传到 MinIO
+    let lastLoaded = 0
+    let lastTime = Date.now()
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100)
+          const now = Date.now()
+          const timeDiff = (now - lastTime) / 1000
+          
+          let speed = 0
+          if (timeDiff >= 0.2) {
+            const bytesDiff = event.loaded - lastLoaded
+            speed = bytesDiff / timeDiff
+            lastLoaded = event.loaded
+            lastTime = now
+          }
+          
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === uploadFile.id 
+                ? { ...f, progress, ...(speed > 0 ? { speed } : {}) } 
+                : f
+            )
+          )
         }
       }
-      throw new Error(`完成分片上传失败: ${errorMessage}`)
-    }
 
-    // 5. 触发处理
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve()
+        } else {
+          reject(new Error(`上传失败: HTTP ${xhr.status}`))
+        }
+      }
+
+      xhr.onerror = () => {
+        reject(new Error('网络错误，请检查网络连接'))
+      }
+      xhr.ontimeout = () => reject(new Error('上传超时，请重试'))
+
+      xhr.open('PUT', presignedUrl)
+      xhr.setRequestHeader('Content-Type', uploadFile.file.type)
+      xhr.send(uploadFile.file)
+    })
+
+    // 3. 触发处理
     await fetch('/api/admin/photos/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -430,11 +291,11 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       const { photoId, uploadUrl, originalKey, albumId: respAlbumId } = await credRes.json()
 
       // 2. 根据文件大小选择上传方式
-      if (uploadFile.file.size >= MULTIPART_THRESHOLD) {
-        // 大文件使用分片上传
-        await uploadWithChunks(uploadFile, photoId, originalKey, respAlbumId)
+      if (uploadFile.file.size >= PRESIGN_THRESHOLD) {
+        // 大文件使用 presigned URL 直接上传到 MinIO（绕过 Vercel 限制）
+        await uploadWithPresignedUrl(uploadFile, photoId, originalKey, respAlbumId)
       } else {
-        // 小文件直接上传
+        // 小文件通过 Vercel 代理上传
         await uploadDirectly(uploadFile, photoId, uploadUrl, originalKey, respAlbumId)
       }
 
