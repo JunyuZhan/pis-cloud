@@ -101,49 +101,15 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
   // 获取 Worker API URL (使用代理路由)
   const getWorkerUrl = () => '/api/worker'
 
-  // 使用 presigned URL 直接上传到 MinIO（绕过 Vercel 大小限制）
-  const uploadWithPresignedUrl = async (
+  // 大文件直接上传到 Worker（Worker 没有大小限制）
+  const uploadToWorkerDirectly = async (
     uploadFile: UploadFile,
     photoId: string,
     originalKey: string,
     respAlbumId: string
   ) => {
-    const workerUrl = getWorkerUrl()
-    
-    // 1. 获取 presigned URL
-    let presignRes: Response
-    try {
-      presignRes = await fetch(`${workerUrl}/api/presign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: originalKey, method: 'PUT' }),
-      })
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '网络错误'
-      throw new Error(`获取上传地址失败: ${errorMessage}`)
-    }
-    
-    if (!presignRes.ok) {
-      let errorMessage = `HTTP ${presignRes.status}`
-      try {
-        const errorData = await presignRes.json()
-        errorMessage = errorData.error || errorMessage
-      } catch {
-        // 忽略
-      }
-      if (presignRes.status === 503) {
-        throw new Error('Worker 服务不可用，请检查 WORKER_URL 配置')
-      }
-      throw new Error(`获取上传地址失败: ${errorMessage}`)
-    }
-    
-    const { url: presignedUrl } = await presignRes.json()
-    
-    if (!presignedUrl || presignedUrl.includes('minio:9000') || presignedUrl.includes('localhost')) {
-      throw new Error('服务器未配置公网上传地址，请在 Worker 设置 MINIO_PUBLIC_URL')
-    }
-    
-    // 2. 直接上传到 MinIO
+    // 直接上传到 Worker 的 /api/upload 端点
+    // Worker 会将文件转存到 MinIO
     let lastLoaded = 0
     let lastTime = Date.now()
 
@@ -183,16 +149,18 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       xhr.onerror = () => {
-        reject(new Error('网络错误，请检查网络连接'))
+        reject(new Error('网络错误，请检查 Worker 服务'))
       }
       xhr.ontimeout = () => reject(new Error('上传超时，请重试'))
 
-      xhr.open('PUT', presignedUrl)
+      // 直接使用公网 Worker URL 上传（绕过 Vercel 代理的大小限制）
+      const workerDirectUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://worker.albertzhan.top'
+      xhr.open('PUT', `${workerDirectUrl}/api/upload?key=${encodeURIComponent(originalKey)}`)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
       xhr.send(uploadFile.file)
     })
 
-    // 3. 触发处理
+    // 触发处理
     await fetch('/api/admin/photos/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -292,8 +260,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
       // 2. 根据文件大小选择上传方式
       if (uploadFile.file.size >= PRESIGN_THRESHOLD) {
-        // 大文件使用 presigned URL 直接上传到 MinIO（绕过 Vercel 限制）
-        await uploadWithPresignedUrl(uploadFile, photoId, originalKey, respAlbumId)
+        // 大文件直接上传到 Worker（绕过 Vercel 4.5MB 限制）
+        await uploadToWorkerDirectly(uploadFile, photoId, originalKey, respAlbumId)
       } else {
         // 小文件通过 Vercel 代理上传
         await uploadDirectly(uploadFile, photoId, uploadUrl, originalKey, respAlbumId)
