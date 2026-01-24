@@ -67,11 +67,12 @@ export default async function HomePage() {
       if (album.cover_photo_id) {
         const { data: cover } = await supabase
           .from('photos')
-          .select('thumb_key, preview_key')
+          .select('thumb_key, preview_key, status')
           .eq('id', album.cover_photo_id)
-          .single()
+          .maybeSingle()  // 使用 maybeSingle 避免没有数据时报错
         
-        if (cover) {
+        // 只使用已处理完成的照片
+        if (cover && cover.status === 'completed' && (cover.thumb_key || cover.preview_key)) {
           coverThumbKey = cover.thumb_key
           coverPreviewKey = cover.preview_key
         }
@@ -84,11 +85,12 @@ export default async function HomePage() {
           .select('thumb_key, preview_key')
           .eq('album_id', album.id)
           .eq('status', 'completed')
+          .not('thumb_key', 'is', null)  // 确保 thumb_key 不为空
           .order('captured_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()  // 使用 maybeSingle 避免没有数据时报错
         
-        if (firstPhoto) {
+        if (firstPhoto && (firstPhoto.thumb_key || firstPhoto.preview_key)) {
           coverThumbKey = firstPhoto.thumb_key
           coverPreviewKey = firstPhoto.preview_key
         }

@@ -31,7 +31,10 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
           const albumWithCover = album as AlbumWithCover
           // 使用封面照片的 key（优先 preview_key，其次 thumb_key）
           const coverKey = albumWithCover.cover_preview_key || albumWithCover.cover_thumb_key
-          const coverUrl = coverKey ? `${safeMediaUrl}/${coverKey}` : null
+          // 确保 coverKey 存在且不为空字符串
+          const coverUrl = coverKey && coverKey.trim() 
+            ? `${safeMediaUrl.replace(/\/$/, '')}/${coverKey.replace(/^\//, '')}` 
+            : null
 
           return (
             <motion.div
@@ -55,6 +58,15 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
                       fill
                       className="object-cover transition-opacity duration-300 group-hover:opacity-90"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      onError={(e) => {
+                        // 如果图片加载失败，隐藏图片显示占位符
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent) {
+                          parent.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-surface-elevated"><svg class="w-10 h-10 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
+                        }
+                      }}
                     />
                     {/* 极简hover效果 - 只显示标题 */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
