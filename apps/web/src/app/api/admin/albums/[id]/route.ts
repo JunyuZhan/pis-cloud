@@ -178,15 +178,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 4. 如果水印配置发生变化，触发旧照片重处理
-    // 让我们在 UPDATE 之前先查询当前相册的配置
-    const { data: currentAlbum } = await supabase
-      .from('albums')
-      .select('watermark_enabled, watermark_type, watermark_config')
-      .eq('id', id)
-      .single();
-      
     // 执行更新
+    // 注意：水印配置变更后，只对新上传的照片生效
+    // 已上传的照片不会被重新处理，避免数据库错误和性能问题
+    // 水印配置会在照片上传时由 Worker 读取并应用
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: album, error } = await (supabase as any)
       .from('albums')
@@ -218,55 +213,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 检查水印是否变更
-    let watermarkChanged = false;
-    if (currentAlbum) {
-      const oldConfig = JSON.stringify(currentAlbum.watermark_config);
-      const newConfig = JSON.stringify(album.watermark_config);
-      
-      watermarkChanged = 
-        currentAlbum.watermark_enabled !== album.watermark_enabled ||
-        currentAlbum.watermark_type !== album.watermark_type ||
-        oldConfig !== newConfig;
-    }
-
-    if (watermarkChanged) {
-      // 查找该相册下所有已完成的照片
-      const { data: photos } = await supabase
-        .from('photos')
-        .select('id, original_key')
-        .eq('album_id', id)
-        .eq('status', 'completed');
-
-      if (photos && photos.length > 0) {
-        // 重置状态为 processing
-        await supabase
-          .from('photos')
-          .update({ status: 'processing' })
-          .eq('album_id', id)
-          .eq('status', 'completed');
-
-        // 发送重处理请求给 Worker
-        const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001';
-        
-        // 异步批量触发，不阻塞响应
-        Promise.allSettled(photos.map(photo => 
-          fetch(`${workerUrl}/api/process`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              photoId: photo.id,
-              albumId: id,
-              originalKey: photo.original_key
-            })
-          })
-        )).catch(console.error);
-      }
-    }
+    // 注意：水印配置变更后，只对新上传的照片生效
+    // 已上传的照片不会被重新处理，避免数据库错误和性能问题
+    // 水印配置会在照片上传时由 Worker 读取并应用（见 services/worker/src/index.ts）
 
     return NextResponse.json({
       ...album,
-      message: watermarkChanged ? '设置已更新，正在后台重新生成水印...' : '设置已更新'
+      message: '设置已更新。水印配置将应用于之后上传的新照片。'
     })
   } catch (err) {
     console.error('PATCH /api/admin/albums/[id] error:', err)
