@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { MultiWatermarkManager, type WatermarkItem } from './multi-watermark-manager'
+import { showSuccess, handleApiError } from '@/lib/toast'
 
 type Album = Database['public']['Tables']['albums']['Row']
 
@@ -139,12 +140,10 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
 
       const result = await response.json()
       router.refresh()
-      // 可以添加一个 toast 提示成功
-      alert(result.message || '设置已保存')
+      showSuccess(result.message || '设置已保存')
     } catch (error) {
       console.error('Save error:', error)
-      const errorMessage = error instanceof Error ? error.message : '保存失败，请重试'
-      alert(errorMessage)
+      handleApiError(error, '保存失败，请重试')
     } finally {
       setLoading(false)
     }

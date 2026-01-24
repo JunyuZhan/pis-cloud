@@ -12,6 +12,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { showSuccess, handleApiError, showInfo } from '@/lib/toast'
 
 export function TemplateManager() {
   const router = useRouter()
@@ -19,6 +21,13 @@ export function TemplateManager() {
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<AlbumTemplate | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+    variant?: 'default' | 'danger'
+  } | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -44,7 +53,7 @@ export function TemplateManager() {
 
   const handleCreate = async () => {
     if (!formData.name.trim()) {
-      alert('请输入模板名称')
+      showInfo('请输入模板名称')
       return
     }
 
@@ -69,33 +78,41 @@ export function TemplateManager() {
       if (res.ok) {
         setShowCreateDialog(false)
         setFormData({ name: '', description: '' })
+        showSuccess('模板创建成功')
         loadTemplates()
       } else {
         const data = await res.json()
-        alert(data.error?.message || '创建失败')
+        handleApiError(new Error(data.error?.message || '创建失败'))
       }
     } catch (error) {
-      alert('创建失败，请重试')
+      handleApiError(error, '创建失败，请重试')
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个模板吗？')) return
+  const handleDelete = (id: string) => {
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: '确定要删除这个模板吗？',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/templates/${id}`, {
+            method: 'DELETE',
+          })
 
-    try {
-      const res = await fetch(`/api/admin/templates/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (res.ok) {
-        loadTemplates()
-      } else {
-        const data = await res.json()
-        alert(data.error?.message || '删除失败')
-      }
-    } catch (error) {
-      alert('删除失败，请重试')
-    }
+          if (res.ok) {
+            showSuccess('模板已删除')
+            loadTemplates()
+          } else {
+            const data = await res.json()
+            handleApiError(new Error(data.error?.message || '删除失败'))
+          }
+        } catch (error) {
+          handleApiError(error, '删除失败，请重试')
+        }
+      },
+    })
   }
 
   const handleEdit = (template: AlbumTemplate) => {
@@ -109,7 +126,7 @@ export function TemplateManager() {
 
   const handleUpdate = async () => {
     if (!editingTemplate || !formData.name.trim()) {
-      alert('请输入模板名称')
+      showInfo('请输入模板名称')
       return
     }
 
@@ -127,13 +144,14 @@ export function TemplateManager() {
         setShowCreateDialog(false)
         setEditingTemplate(null)
         setFormData({ name: '', description: '' })
+        showSuccess('模板已更新')
         loadTemplates()
       } else {
         const data = await res.json()
-        alert(data.error?.message || '更新失败')
+        handleApiError(new Error(data.error?.message || '更新失败'))
       }
     } catch (error) {
-      alert('更新失败，请重试')
+      handleApiError(error, '更新失败，请重试')
     }
   }
 
@@ -173,7 +191,7 @@ export function TemplateManager() {
         <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
           <FileText className="w-12 h-12 text-text-muted mx-auto mb-4" />
           <p className="text-text-secondary mb-4">还没有模板</p>
-          <button onClick={() => setShowCreateDialog(true)} className="btn-secondary">
+          <button type="button" onClick={() => setShowCreateDialog(true)} className="btn-secondary">
             <Plus className="w-4 h-4" />
             创建第一个模板
           </button>
@@ -271,7 +289,7 @@ export function TemplateManager() {
           </div>
 
           <DialogFooter className="mt-6">
-            <button onClick={handleCloseDialog} className="btn-secondary">
+            <button type="button" onClick={handleCloseDialog} className="btn-secondary">
               取消
             </button>
             <button

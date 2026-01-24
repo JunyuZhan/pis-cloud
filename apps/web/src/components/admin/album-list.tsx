@@ -5,8 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings, ImageIcon } from 'lucide-react'
+import { useSwipeable } from 'react-swipeable'
 import { formatRelativeTime } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { PullToRefresh } from '@/components/ui/pull-to-refresh'
+import { LongPressMenu } from '@/components/ui/long-press-menu'
+import { showSuccess, handleApiError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +31,13 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+    variant?: 'default' | 'danger'
+  } | null>(null)
 
   useEffect(() => {
     setAlbums(initialAlbums)
@@ -46,108 +58,126 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
     setSelectionMode(false)
   }
 
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = () => {
     if (selectedAlbums.size === 0) return
 
-    if (!confirm(`确定要删除选中的 ${selectedAlbums.size} 个相册吗？此操作不可恢复。`)) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedAlbums.size} 个相册吗？此操作不可恢复。`,
+      variant: 'danger',
+      onConfirm: async () => {
+        setIsDeleting(true)
+        try {
+          const response = await fetch('/api/admin/albums/batch', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              albumIds: Array.from(selectedAlbums),
+            }),
+          })
 
-    setIsDeleting(true)
-    try {
-      const response = await fetch('/api/admin/albums/batch', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          albumIds: Array.from(selectedAlbums),
-        }),
-      })
+          if (!response.ok) {
+            throw new Error('删除失败')
+          }
 
-      if (!response.ok) {
-        throw new Error('删除失败')
-      }
+          const result = await response.json()
+          showSuccess(result.message || '删除成功')
 
-      const result = await response.json()
-      alert(result.message || '删除成功')
-
-      // 更新本地状态
-      setAlbums((prev) => prev.filter((a) => !selectedAlbums.has(a.id)))
-      clearSelection()
-      router.refresh()
-    } catch (error) {
-      console.error(error)
-      alert('删除失败，请重试')
-    } finally {
-      setIsDeleting(false)
-    }
+          // 更新本地状态
+          setAlbums((prev) => prev.filter((a) => !selectedAlbums.has(a.id)))
+          clearSelection()
+          router.refresh()
+        } catch (error) {
+          console.error(error)
+          handleApiError(error, '删除失败，请重试')
+        } finally {
+          setIsDeleting(false)
+        }
+      },
+    })
   }
 
-  const handleDuplicate = async (albumId: string, e: React.MouseEvent) => {
+  const handleDuplicate = (albumId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!confirm('确定要复制这个相册吗？将复制所有配置，但不包含照片。')) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: '确认复制',
+      message: '确定要复制这个相册吗？将复制所有配置，但不包含照片。',
+      onConfirm: async () => {
+        setDuplicatingId(albumId)
+        try {
+          const response = await fetch(`/api/admin/albums/${albumId}/duplicate`, {
+            method: 'POST',
+          })
 
-    setDuplicatingId(albumId)
-    try {
-      const response = await fetch(`/api/admin/albums/${albumId}/duplicate`, {
-        method: 'POST',
-      })
+          if (!response.ok) {
+            throw new Error('复制失败')
+          }
 
-      if (!response.ok) {
-        throw new Error('复制失败')
-      }
-
-      const result = await response.json()
-      alert('相册已复制')
-      router.refresh()
-      router.push(`/admin/albums/${result.id}`)
-    } catch (error) {
-      console.error(error)
-      alert('复制失败，请重试')
-    } finally {
-      setDuplicatingId(null)
-    }
+          const result = await response.json()
+          showSuccess('相册已复制')
+          router.refresh()
+          router.push(`/admin/albums/${result.id}`)
+        } catch (error) {
+          console.error(error)
+          handleApiError(error, '复制失败，请重试')
+        } finally {
+          setDuplicatingId(null)
+        }
+      },
+    })
   }
 
-  const handleDeleteAlbum = async (albumId: string, e: React.MouseEvent) => {
+  const handleDeleteAlbum = (albumId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!confirm('确定要删除这个相册吗？此操作不可恢复。')) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: '确定要删除这个相册吗？此操作不可恢复。',
+      variant: 'danger',
+      onConfirm: async () => {
+        setIsDeleting(true)
+        try {
+          const response = await fetch(`/api/admin/albums/${albumId}`, {
+            method: 'DELETE',
+          })
 
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/admin/albums/${albumId}`, {
-        method: 'DELETE',
-      })
+          if (!response.ok) {
+            throw new Error('删除失败')
+          }
 
-      if (!response.ok) {
-        throw new Error('删除失败')
-      }
+          const result = await response.json()
+          showSuccess(result.message || '删除成功')
 
-      const result = await response.json()
-      alert(result.message || '删除成功')
-      
-      // 更新本地状态
-      setAlbums((prev) => prev.filter((a) => a.id !== albumId))
-      router.refresh()
-    } catch (error) {
-      console.error(error)
-      alert('删除失败，请重试')
-    } finally {
-      setIsDeleting(false)
-    }
+          // 更新本地状态
+          setAlbums((prev) => prev.filter((a) => a.id !== albumId))
+          router.refresh()
+        } catch (error) {
+          console.error(error)
+          handleApiError(error, '删除失败，请重试')
+        } finally {
+          setIsDeleting(false)
+        }
+      },
+    })
+  }
+
+  const handleRefresh = async () => {
+    router.refresh()
+    // 等待一下让用户看到刷新动画
+    await new Promise(resolve => setTimeout(resolve, 500))
   }
 
   return (
-    <div>
-      {/* 页面标题 */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+    <PullToRefresh onRefresh={handleRefresh} className="w-full">
+      <div>
+        {/* 页面标题 */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
           <h1 className="text-xl md:text-2xl font-serif font-bold">我的相册</h1>
           <p className="text-text-secondary text-sm md:text-base mt-1">
@@ -186,10 +216,11 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
               >
                 批量管理
               </button>
-              <button
-                onClick={() => setCreateDialogOpen(true)}
-                className="btn-primary w-full md:w-auto"
-              >
+          <button
+            type="button"
+            onClick={() => setCreateDialogOpen(true)}
+            className="btn-primary w-full md:w-auto"
+          >
                 <Plus className="w-4 h-4" />
                 新建相册
               </button>
@@ -216,29 +247,32 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
           ))}
         </div>
       ) : (
-        /* 空状态 */
         <div className="text-center py-20">
           <FolderOpen className="w-16 h-16 text-text-muted mx-auto mb-4" />
-          <h2 className="text-xl font-medium mb-2">还没有相册</h2>
-          <p className="text-text-secondary mb-6">
-            创建您的第一个相册开始分享照片
-          </p>
-          <button
-            onClick={() => setCreateDialogOpen(true)}
-            className="btn-primary"
-          >
-            <Plus className="w-4 h-4" />
-            新建相册
+          <h3 className="text-lg font-semibold mb-2">还没有相册</h3>
+          <p className="text-text-secondary mb-6">创建您的第一个相册开始使用吧</p>
+          <button onClick={() => setCreateDialogOpen(true)} className="btn-primary">
+            创建相册
           </button>
         </div>
       )}
 
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog(open ? confirmDialog : null)}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant={confirmDialog.variant}
+          onConfirm={confirmDialog.onConfirm}
+        />
+      )}
+
       {/* 创建相册对话框 */}
-      <CreateAlbumDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
-    </div>
+      <CreateAlbumDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+      </div>
+    </PullToRefresh>
   )
 }
 
@@ -262,6 +296,8 @@ function AlbumCard({
   isDeleting?: boolean
 }) {
   const [imageError, setImageError] = useState(false)
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
   const safeMediaUrl = mediaUrl.startsWith('http://') 
@@ -284,15 +320,57 @@ function AlbumCard({
     }
   }
 
+  // 手势支持：移动端滑动删除
+  const swipeHandlers = useSwipeable({
+    onSwiping: (e) => {
+      if (selectionMode) return
+      // 只允许左滑（删除）
+      if (e.dir === 'Left' && e.deltaX < 0) {
+        setIsSwiping(true)
+        setSwipeOffset(Math.max(e.deltaX, -80)) // 最大滑动80px
+      }
+    },
+    onSwipedLeft: () => {
+      if (selectionMode) return
+      if (swipeOffset < -50) {
+        // 滑动超过50px，触发删除
+        onDelete?.(album.id, {} as React.MouseEvent)
+      }
+      setIsSwiping(false)
+      setSwipeOffset(0)
+    },
+    onSwipedRight: () => {
+      // 右滑恢复
+      setIsSwiping(false)
+      setSwipeOffset(0)
+    },
+    trackMouse: false, // 只在触摸设备上启用
+    trackTouch: true,
+    preventScrollOnSwipe: true,
+  })
+
   const CardContent = (
     <div
       className={cn(
-        'card group transition-all',
+        'card group transition-all relative overflow-hidden',
         selectionMode ? 'cursor-pointer' : 'hover:border-border-light',
-        isSelected && 'ring-2 ring-accent'
+        isSelected && 'ring-2 ring-accent',
+        isSwiping && 'transition-none' // 滑动时禁用过渡
       )}
       onClick={handleClick}
+      style={{
+        transform: swipeOffset !== 0 ? `translateX(${swipeOffset}px)` : undefined,
+      }}
     >
+      {/* 滑动删除提示 */}
+      {swipeOffset < -30 && !selectionMode && (
+        <div
+          className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500 text-white px-4"
+          style={{ width: `${Math.abs(swipeOffset)}px` }}
+        >
+          <Trash2 className="w-5 h-5" />
+        </div>
+      )}
       {/* 选择指示器 */}
       {selectionMode && (
         <div
@@ -318,7 +396,9 @@ function AlbumCard({
               'object-cover transition-transform duration-300',
               !selectionMode && 'group-hover:scale-105'
             )}
-            unoptimized={true}
+            quality={85}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            loading="lazy"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -328,25 +408,37 @@ function AlbumCard({
         )}
       </div>
 
-      {/* 操作按钮（悬停显示） */}
+      {/* 操作按钮（移动端始终显示，桌面端悬停时更明显） */}
       {!selectionMode && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          {/* 移动端：始终显示，桌面端：悬停时更明显 */}
           <Link
             href={`/admin/albums/${album.id}/settings`}
             onClick={(e) => e.stopPropagation()}
-            className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors backdrop-blur-sm"
+            className={cn(
+              'p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all backdrop-blur-sm',
+              'min-h-[44px] min-w-[44px] flex items-center justify-center', // 移动端触摸目标
+              'opacity-100 sm:opacity-70 sm:group-hover:opacity-100' // 移动端始终显示，桌面端悬停时更明显
+            )}
             title="编辑相册设置"
+            aria-label="编辑相册设置"
           >
             <Settings className="w-4 h-4" />
           </Link>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
               onDuplicate?.(album.id, e)
             }}
             disabled={isDuplicating}
-            className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
+            className={cn(
+              'p-2 bg-black/60 hover:bg-black/80 rounded-full text-white transition-all disabled:opacity-50 backdrop-blur-sm',
+              'min-h-[44px] min-w-[44px] flex items-center justify-center', // 移动端触摸目标
+              'opacity-100 sm:opacity-70 sm:group-hover:opacity-100' // 移动端始终显示，桌面端悬停时更明显
+            )}
             title="复制相册配置"
+            aria-label="复制相册配置"
           >
             {isDuplicating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -355,13 +447,19 @@ function AlbumCard({
             )}
           </button>
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
               onDelete?.(album.id, e)
             }}
             disabled={isDeleting}
-            className="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-colors disabled:opacity-50 backdrop-blur-sm"
+            className={cn(
+              'p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all disabled:opacity-50 backdrop-blur-sm',
+              'min-h-[44px] min-w-[44px] flex items-center justify-center', // 移动端触摸目标
+              'opacity-100 sm:opacity-70 sm:group-hover:opacity-100' // 移动端始终显示，桌面端悬停时更明显
+            )}
             title="删除相册"
+            aria-label="删除相册"
           >
             {isDeleting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -425,5 +523,40 @@ function AlbumCard({
     return CardContent
   }
 
-  return <Link href={`/admin/albums/${album.id}`}>{CardContent}</Link>
+  // 长按菜单项
+  const longPressMenuItems = [
+    {
+      label: '编辑设置',
+      icon: <Settings className="w-4 h-4" />,
+      onClick: () => {
+        window.location.href = `/admin/albums/${album.id}/settings`
+      },
+    },
+    {
+      label: '复制相册',
+      icon: <Copy className="w-4 h-4" />,
+      onClick: () => {
+        onDuplicate?.(album.id, {} as React.MouseEvent)
+      },
+    },
+    {
+      label: '删除相册',
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: () => {
+        onDelete?.(album.id, {} as React.MouseEvent)
+      },
+      variant: 'danger' as const,
+    },
+  ]
+
+  // 包装在 div 中以便手势处理正常工作
+  return (
+    <LongPressMenu menuItems={longPressMenuItems}>
+      <div {...swipeHandlers}>
+        <Link href={`/admin/albums/${album.id}`} className="block">
+          {CardContent}
+        </Link>
+      </div>
+    </LongPressMenu>
+  )
 }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Loader2, Folder, X } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { showSuccess, handleApiError, showInfo } from '@/lib/toast'
 import type { PhotoGroup } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +27,13 @@ export function PhotoGroupManager({
   const [editingGroup, setEditingGroup] = useState<GroupWithCount | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+    variant?: 'default' | 'danger'
+  } | null>(null)
 
   // 加载分组列表
   const loadGroups = async () => {
@@ -52,19 +61,20 @@ export function PhotoGroupManager({
       const response = await fetch(`/api/admin/albums/${albumId}/groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name: name.trim(), description }),
       })
 
       if (response.ok) {
         await loadGroups()
         setShowCreateDialog(false)
+        showSuccess('分组创建成功')
       } else {
         const data = await response.json()
-        alert(data.error?.message || '创建失败')
+        handleApiError(new Error(data.error?.message || '创建失败'))
       }
     } catch (error) {
       console.error('Failed to create group:', error)
-      alert('创建失败')
+      handleApiError(error, '创建失败')
     } finally {
       setIsSubmitting(false)
     }
@@ -83,43 +93,49 @@ export function PhotoGroupManager({
       if (response.ok) {
         await loadGroups()
         setEditingGroup(null)
+        showSuccess('分组已更新')
       } else {
         const data = await response.json()
-        alert(data.error?.message || '更新失败')
+        handleApiError(new Error(data.error?.message || '更新失败'))
       }
     } catch (error) {
       console.error('Failed to update group:', error)
-      alert('更新失败')
+      handleApiError(error, '更新失败')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   // 删除分组
-  const handleDelete = async (groupId: string) => {
-    if (!confirm('确定要删除此分组吗？分组中的照片不会被删除，只是解除分组关联。')) {
-      return
-    }
+  const handleDelete = (groupId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: '确定要删除此分组吗？分组中的照片不会被删除，只是解除分组关联。',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/admin/albums/${albumId}/groups/${groupId}`, {
+            method: 'DELETE',
+          })
 
-    try {
-      const response = await fetch(`/api/admin/albums/${albumId}/groups/${groupId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        await loadGroups()
-        // 如果删除的是当前选中的分组，清除选择
-        if (selectedGroupId === groupId && onGroupSelect) {
-          onGroupSelect(null)
+          if (response.ok) {
+            await loadGroups()
+            showSuccess('分组已删除')
+            // 如果删除的是当前选中的分组，清除选择
+            if (selectedGroupId === groupId && onGroupSelect) {
+              onGroupSelect(null)
+            }
+          } else {
+            const data = await response.json()
+            handleApiError(new Error(data.error?.message || '删除失败'))
+          }
+        } catch (error) {
+          console.error('Failed to delete group:', error)
+          handleApiError(error, '删除失败')
         }
-      } else {
-        const data = await response.json()
-        alert(data.error?.message || '删除失败')
-      }
-    } catch (error) {
-      console.error('Failed to delete group:', error)
-      alert('删除失败')
-    }
+      },
+    })
   }
 
   if (loading) {
@@ -185,6 +201,10 @@ export function PhotoGroupManager({
         <GroupDialog
           group={editingGroup}
           onSave={(name, description, sortOrder) => {
+            if (!name.trim()) {
+              showInfo('分组名称不能为空')
+              return
+            }
             if (editingGroup) {
               handleUpdate(editingGroup.id, name, description, sortOrder)
             } else {
@@ -242,6 +262,18 @@ export function PhotoGroupManager({
           </div>
         </div>
       )}
+
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog(open ? confirmDialog : null)}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant={confirmDialog.variant}
+          onConfirm={confirmDialog.onConfirm}
+        />
+      )}
     </div>
   )
 }
@@ -265,7 +297,7 @@ function GroupDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) {
-      alert('分组名称不能为空')
+      // 验证在父组件中处理
       return
     }
     onSave(name.trim(), description.trim() || undefined, Number(sortOrder) || 0)

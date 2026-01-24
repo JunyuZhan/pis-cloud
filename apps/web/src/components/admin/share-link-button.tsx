@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Share2, Copy, Check, ExternalLink, QrCode, Download } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { showError } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 interface ShareLinkButtonProps {
   url: string
@@ -19,8 +21,26 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+      // 关闭下拉菜单，提供更好的反馈
+      setTimeout(() => setShowDropdown(false), 1500)
     } catch (err) {
       console.error('复制失败:', err)
+      // 降级方案：使用传统复制方法
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+        setTimeout(() => setShowDropdown(false), 1500)
+      } catch {
+        showError('复制失败，请手动复制链接')
+      }
+      document.body.removeChild(textArea)
     }
   }
 
@@ -54,6 +74,7 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setShowDropdown(!showDropdown)}
         className="btn-primary text-sm"
       >
@@ -75,18 +96,26 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
             {/* 标签切换 */}
             <div className="flex gap-2 mb-4">
               <button
+                type="button"
                 onClick={() => setShowQR(false)}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                  !showQR ? 'bg-accent text-background' : 'bg-surface text-text-secondary hover:text-text-primary'
-                }`}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
+                  !showQR 
+                    ? 'bg-accent text-background' 
+                    : 'bg-surface text-text-secondary hover:text-text-primary'
+                )}
               >
                 链接分享
               </button>
               <button
+                type="button"
                 onClick={() => setShowQR(true)}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
-                  showQR ? 'bg-accent text-background' : 'bg-surface text-text-secondary hover:text-text-primary'
-                }`}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 min-h-[44px]',
+                  showQR 
+                    ? 'bg-accent text-background' 
+                    : 'bg-surface text-text-secondary hover:text-text-primary'
+                )}
               >
                 <QrCode className="w-4 h-4" />
                 二维码
@@ -136,12 +165,12 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
               <>
                 <p className="text-sm text-text-secondary mb-3 text-center">扫描二维码访问相册</p>
                 
-                {/* 二维码 */}
+                {/* 二维码 - 响应式尺寸 */}
                 <div className="flex justify-center p-4 bg-white rounded-lg mb-3">
                   <QRCodeSVG
                     id="qr-code-svg"
                     value={url}
-                    size={180}
+                    size={typeof window !== 'undefined' && window.innerWidth < 640 ? 160 : 200}
                     level="H"
                     includeMargin
                     imageSettings={{

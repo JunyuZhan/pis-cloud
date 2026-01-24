@@ -41,7 +41,8 @@ function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl
               fill
               className="object-cover transition-opacity duration-300 group-hover:opacity-90"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              unoptimized={true}
+              quality={85}
+              loading="lazy"
               onError={() => setImageError(true)}
             />
             {/* 极简hover效果 - 只显示标题 */}

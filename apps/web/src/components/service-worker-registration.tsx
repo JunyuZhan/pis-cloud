@@ -19,6 +19,7 @@ export function ServiceWorkerRegistration() {
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     // 新版本可用，提示用户刷新
+                    // 使用原生 confirm，因为这是系统级提示
                     if (confirm('发现新版本，是否立即更新？')) {
                       newWorker.postMessage('skipWaiting')
                       window.location.reload()

@@ -37,11 +37,12 @@ export class LightboxErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || '未知错误'}
             </p>
             <button
+              type="button"
               onClick={() => {
                 this.setState({ hasError: false, error: null })
                 window.location.reload()
               }}
-              className="px-4 py-2 bg-accent text-background rounded-lg hover:bg-accent/90 transition-colors"
+              className="btn-primary"
             >
               刷新页面
             </button>

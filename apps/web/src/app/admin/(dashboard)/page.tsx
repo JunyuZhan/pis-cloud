@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { AlbumList } from '@/components/admin/album-list'
+import { AlbumCardSkeleton } from '@/components/ui/skeleton'
 
 /**
  * 相册列表页 (管理后台首页)
@@ -50,21 +51,23 @@ export default async function AdminPage() {
 
 function AlbumListSkeleton() {
   return (
-    <div>
+    <div className="space-y-6">
+      {/* 标题骨架 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <div className="h-8 w-32 bg-surface-elevated rounded animate-pulse" />
-          <div className="h-4 w-48 bg-surface-elevated rounded animate-pulse mt-2" />
+          <div className="h-8 w-32 bg-surface rounded-lg animate-pulse mb-2" />
+          <div className="h-4 w-48 bg-surface rounded-lg animate-pulse" />
         </div>
-        <div className="h-10 w-full md:w-28 bg-surface-elevated rounded-lg animate-pulse" />
+        <div className="flex gap-3">
+          <div className="h-10 w-24 bg-surface rounded-lg animate-pulse" />
+          <div className="h-10 w-28 bg-surface rounded-lg animate-pulse" />
+        </div>
       </div>
+
+      {/* 相册网格骨架 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="card">
-            <div className="aspect-[4/3] bg-surface rounded-lg mb-4 animate-pulse" />
-            <div className="h-5 w-32 bg-surface-elevated rounded animate-pulse mb-2" />
-            <div className="h-4 w-20 bg-surface-elevated rounded animate-pulse" />
-          </div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <AlbumCardSkeleton key={i} />
         ))}
       </div>
     </div>

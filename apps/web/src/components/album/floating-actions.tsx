@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SortToggle, type SortRule } from './sort-toggle'
+import { showInfo, showError, handleApiError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -79,12 +80,12 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
 
     if (!album.allow_download) {
-      alert('此相册不允许下载')
+      showInfo('此相册不允许下载')
       return
     }
 
     if (!album.allow_batch_download) {
-      alert('此相册不允许批量下载')
+      showInfo('此相册不允许批量下载')
       return
     }
 
@@ -93,7 +94,7 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
     const selectedCount = (album as any).selected_count || 0
     
     if (selectedCount === 0) {
-      alert('请先选择您喜欢的照片（点击照片上的❤️图标），然后下载已选照片。')
+      showInfo('请先选择您喜欢的照片（点击照片上的❤️图标），然后下载已选照片。')
       setIsExpanded(false)
       return
     }
@@ -128,13 +129,13 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
         
         setDownloading(false)
         setIsExpanded(false)
-        alert(`正在下载 ${data.count} 张照片，请稍候...`)
+        showInfo(`正在下载 ${data.count} 张照片，请稍候...`)
       } else {
         throw new Error('未获取到下载链接')
       }
     } catch (error: any) {
       console.error('Download error:', error)
-      alert(error.message || '下载失败，请重试')
+      handleApiError(error, '下载失败，请重试')
       setDownloading(false)
     }
   }
@@ -227,9 +228,9 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                     } else {
                       // 复制链接到剪贴板
                       navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('链接已复制到剪贴板')
+                        showInfo('链接已复制到剪贴板')
                       }).catch(() => {
-                        alert('复制失败，请手动复制链接')
+                        showError('复制失败，请手动复制链接')
                       })
                     }
                     setIsExpanded(false)

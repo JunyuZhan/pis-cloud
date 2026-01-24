@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Trash2, Eye, EyeOff } from 'lucide-react'
+import { showInfo } from '@/lib/toast'
 
 export interface WatermarkItem {
   id: string
@@ -34,7 +35,7 @@ const POSITION_OPTIONS = [
 export function MultiWatermarkManager({ watermarks, onChange }: MultiWatermarkManagerProps) {
   const addWatermark = () => {
     if (watermarks.length >= 6) {
-      alert('最多支持6个水印')
+      showInfo('最多支持6个水印')
       return
     }
 

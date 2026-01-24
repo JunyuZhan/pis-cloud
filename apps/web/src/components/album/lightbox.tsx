@@ -11,6 +11,7 @@ import 'yet-another-react-lightbox/plugins/thumbnails.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
 import { Download, Heart, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { handleApiError } from '@/lib/toast'
 import type { Photo } from '@/types/database'
 
 interface PhotoLightboxProps {
@@ -60,7 +61,17 @@ export function PhotoLightbox({
   // const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
   const prevIndexRef = useRef(index)
 
-  // 同步外部传入的 index 到内部 state
+  // 预加载相邻图片
+  const preloadImage = useCallback((imageSrc: string) => {
+    if (!imageSrc) return
+    const link = document.createElement('link')
+    link.rel = 'preload'
+    link.as = 'image'
+    link.href = imageSrc
+    document.head.appendChild(link)
+  }, [])
+
+  // 同步外部传入的 index 到内部 state，并预加载相邻图片
   useEffect(() => {
     if (!open) return
     
@@ -70,8 +81,32 @@ export function PhotoLightbox({
     if (validIndex !== prevIndexRef.current) {
       prevIndexRef.current = validIndex
       setCurrentIndex(validIndex)
+      
+      // 预加载前一张和后一张图片
+      if (photos.length > 0) {
+        const prevIndex = validIndex > 0 ? validIndex - 1 : null
+        const nextIndex = validIndex < photos.length - 1 ? validIndex + 1 : null
+        
+        if (prevIndex !== null) {
+          const prevPhoto = photos[prevIndex]
+          const prevImageKey = prevPhoto.preview_key || prevPhoto.thumb_key || prevPhoto.original_key
+          if (prevImageKey && safeMediaUrl) {
+            const prevImageSrc = `${safeMediaUrl.replace(/\/$/, '')}/${prevImageKey.replace(/^\//, '')}`
+            preloadImage(prevImageSrc)
+          }
+        }
+        
+        if (nextIndex !== null) {
+          const nextPhoto = photos[nextIndex]
+          const nextImageKey = nextPhoto.preview_key || nextPhoto.thumb_key || nextPhoto.original_key
+          if (nextImageKey && safeMediaUrl) {
+            const nextImageSrc = `${safeMediaUrl.replace(/\/$/, '')}/${nextImageKey.replace(/^\//, '')}`
+            preloadImage(nextImageSrc)
+          }
+        }
+      }
     }
-  }, [index, open, photos.length])
+  }, [index, open, photos, safeMediaUrl, preloadImage])
 
   // 使用 useMemo 稳定 currentPhoto 的引用，避免无限循环
   const currentPhoto = useMemo(() => {
@@ -187,7 +222,7 @@ export function PhotoLightbox({
       const res = await fetch(`/api/public/download/${currentPhotoId}`)
       if (!res.ok) {
         const error = await res.json()
-        alert(error.error?.message || '下载失败')
+        handleApiError(new Error(error.error?.message || '下载失败'))
         return
       }
 
@@ -200,8 +235,8 @@ export function PhotoLightbox({
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-    } catch {
-      alert('下载失败，请重试')
+    } catch (error) {
+      handleApiError(error, '下载失败，请重试')
     }
   }, [currentPhotoId])
 

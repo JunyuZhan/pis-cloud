@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Download, Heart, Loader2 } from 'lucide-react'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'
+import { handleApiError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 
 interface AlbumHeaderProps {
@@ -29,7 +30,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
       const response = await fetch(`/api/public/albums/${album.slug}/download-selected`)
       if (!response.ok) {
         const error = await response.json()
-        alert(error.error?.message || '下载失败')
+        handleApiError(new Error(error.error?.message || '下载失败'))
         return
       }
 
@@ -49,7 +50,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
       }
     } catch (error) {
       console.error('Download error:', error)
-      alert('下载失败，请重试')
+      handleApiError(error, '下载失败，请重试')
     } finally {
       setDownloading(false)
     }

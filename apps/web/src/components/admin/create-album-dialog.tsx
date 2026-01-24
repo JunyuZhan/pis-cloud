@@ -318,7 +318,7 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
               </div>
 
               <DialogFooter>
-                <button onClick={handleClose} className="btn-primary w-full">
+                <button type="button" onClick={handleClose} className="btn-primary w-full">
                   开始上传照片
                 </button>
               </DialogFooter>

@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { showError, showInfo } from '@/lib/toast'
 
 interface PackageDownloadButtonProps {
   albumId: string
@@ -33,7 +34,7 @@ export function PackageDownloadButton({
 
   const handleCreatePackage = async () => {
     if (!includeWatermarked && !includeOriginal) {
-      alert('请至少选择一种版本（有水印或无水印）')
+      showInfo('请至少选择一种版本（有水印或无水印）')
       return
     }
 
@@ -61,7 +62,7 @@ export function PackageDownloadButton({
       // 开始轮询状态
       pollPackageStatus(data.packageId)
     } catch (error: any) {
-      alert(error.message || '创建打包任务失败')
+      showError(error.message || '创建打包任务失败')
     } finally {
       setLoading(false)
     }
@@ -84,10 +85,10 @@ export function PackageDownloadButton({
             setDownloadUrl(data.download_url)
           } else if (data.status === 'failed') {
             clearInterval(interval)
-            alert('打包失败，请重试')
+            showError('打包失败，请重试')
           } else if (pollCount >= maxPolls) {
             clearInterval(interval)
-            alert('打包超时，请稍后查看状态或重新创建')
+            showError('打包超时，请稍后查看状态或重新创建')
           }
         }
       } catch (error) {
@@ -179,10 +180,11 @@ export function PackageDownloadButton({
               </div>
 
               <DialogFooter>
-                <button onClick={() => setOpen(false)} className="btn-secondary">
+                <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
                   取消
                 </button>
                 <button
+                  type="button"
                   onClick={handleCreatePackage}
                   disabled={loading}
                   className="btn-primary"
@@ -231,7 +233,7 @@ export function PackageDownloadButton({
                     <p className="text-text-secondary mb-4">
                       打包完成！下载链接将在15天后过期。
                     </p>
-                    <button onClick={handleDownload} className="btn-primary w-full">
+                    <button type="button" onClick={handleDownload} className="btn-primary w-full">
                       <Download className="w-4 h-4" />
                       下载 ZIP 文件
                     </button>
@@ -254,7 +256,7 @@ export function PackageDownloadButton({
               </div>
 
               <DialogFooter>
-                <button onClick={() => setOpen(false)} className="btn-secondary">
+                <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
                   关闭
                 </button>
               </DialogFooter>

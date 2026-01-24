@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AdminSidebar } from '@/components/admin/sidebar'
 import { MobileSidebar } from '@/components/admin/mobile-sidebar'
+import { MobileBottomNav } from '@/components/admin/mobile-bottom-nav'
 
 /**
  * 管理后台布局
@@ -30,9 +31,12 @@ export default async function AdminLayout({
       <MobileSidebar user={user} />
 
       {/* 主内容区 - 移动端优化 */}
-      <main className="md:ml-64 min-h-screen">
+      <main className="md:ml-64 min-h-screen pb-16 md:pb-0">
         <div className="p-3 sm:p-4 md:p-8 pt-16 md:pt-8 safe-area-inset-bottom">{children}</div>
       </main>
+
+      {/* 移动端底部导航栏 */}
+      <MobileBottomNav />
     </div>
   )
 }

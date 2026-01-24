@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import { Heart, Download, Share2, Expand, Loader2, ImageIcon } from 'lucide-react'
 import type { Photo, Album } from '@/types/database'
 import { cn } from '@/lib/utils'
+import { getBlurDataURL } from '@/lib/blurhash'
+import { handleApiError } from '@/lib/toast'
 import { PhotoLightbox } from './lightbox'
 import { LayoutMode } from './layout-toggle'
 
@@ -123,8 +125,8 @@ export function MasonryGrid({
       <div
         className={cn(
           layout === 'masonry'
-            ? 'columns-2 md:columns-3 lg:columns-4 gap-0 space-y-0' // 移除 gap 和 space-y
-            : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0' // 移除 gap
+            ? 'columns-2 sm:columns-3 md:columns-3 lg:columns-4 gap-0 space-y-0' // 响应式列数
+            : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-0' // 响应式网格
         )}
       >
         {photos.map((photo, index) => (
@@ -195,6 +197,7 @@ function PhotoCard({
 }: PhotoCardProps) {
   const [showCopied, setShowCopied] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [blurDataURL, setBlurDataURL] = useState<string | undefined>(undefined)
   
   // 计算图片高度比例 (Masonry 模式使用)
   const aspectRatio =
@@ -207,6 +210,16 @@ function PhotoCard({
     ? mediaUrl.replace('http://', 'https://')
     : mediaUrl
 
+  // 在客户端生成 BlurHash data URL
+  useEffect(() => {
+    if (photo.blur_data && typeof window !== 'undefined') {
+      const dataURL = getBlurDataURL(photo.blur_data)
+      if (dataURL) {
+        setBlurDataURL(dataURL)
+      }
+    }
+  }, [photo.blur_data])
+
   // 下载照片
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -216,7 +229,7 @@ function PhotoCard({
       const response = await fetch(`/api/public/download/${photo.id}`)
       if (!response.ok) {
         const error = await response.json()
-        alert(error.error?.message || '下载失败')
+        handleApiError(new Error(error.error?.message || '下载失败'))
         return
       }
 
@@ -231,7 +244,7 @@ function PhotoCard({
       document.body.removeChild(a)
     } catch (error) {
       console.error('下载失败:', error)
-      alert('下载失败，请重试')
+      handleApiError(error, '下载失败，请重试')
     }
   }
 
@@ -272,7 +285,7 @@ function PhotoCard({
         {/* 图片区域 */}
         <div 
           className={cn(
-            "relative w-full overflow-hidden cursor-pointer",
+            "relative w-full overflow-hidden cursor-pointer touch-manipulation",
             layout === 'grid' ? 'aspect-square' : ''
           )}
           onClick={onClick}
@@ -287,8 +300,11 @@ function PhotoCard({
                 "w-full transition-transform duration-500 group-hover:scale-105",
                 layout === 'grid' ? "h-full object-cover" : "h-auto"
               )}
+              quality={85}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               loading="lazy"
-              unoptimized={true}
+              placeholder={blurDataURL ? "blur" : "empty"}
+              blurDataURL={blurDataURL}
               onError={() => setImageError(true)}
             />
           ) : (

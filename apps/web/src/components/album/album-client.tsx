@@ -3,7 +3,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
 import { MasonryGrid } from './masonry'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ImageIcon } from 'lucide-react'
 import type { Album, Photo } from '@/types/database'
 import type { LayoutMode } from './layout-toggle'
 
@@ -99,7 +99,9 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
         />
       ) : (
         <div className="text-center py-20">
-          <p className="text-text-secondary">暂无照片</p>
+          <ImageIcon className="w-16 h-16 text-text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2 text-text-primary">暂无照片</h3>
+          <p className="text-text-secondary">摄影师正在上传照片，请稍后再来查看</p>
         </div>
       )}
     </>

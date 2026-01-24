@@ -7,6 +7,8 @@ import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowD
 import { PhotoUploader } from './photo-uploader'
 import { PhotoLightbox } from '@/components/album/lightbox'
 import { PhotoGroupManager } from './photo-group-manager'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { showSuccess, handleApiError } from '@/lib/toast'
 import type { Album, Photo } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +32,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
   const [isReordering, setIsReordering] = useState(false)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    onConfirm: () => void | Promise<void>
+    variant?: 'default' | 'danger'
+  } | null>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
@@ -130,27 +139,35 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     setSelectionMode(false)
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedPhotos.size === 0) return
     
-    if (!confirm(`确定要删除选中的 ${selectedPhotos.size} 张照片吗？此操作不可恢复。`)) {
-      return
-    }
-
-    await deletePhotos(Array.from(selectedPhotos))
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedPhotos.size} 张照片吗？此操作不可恢复。`,
+      variant: 'danger',
+      onConfirm: async () => {
+        await deletePhotos(Array.from(selectedPhotos))
+      },
+    })
   }
 
-  const handleDeletePhoto = async (photoId: string, e?: React.MouseEvent) => {
+  const handleDeletePhoto = (photoId: string, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault()
       e.stopPropagation()
     }
     
-    if (!confirm('确定要删除这张照片吗？此操作不可恢复。')) {
-      return
-    }
-
-    await deletePhotos([photoId])
+    setConfirmDialog({
+      open: true,
+      title: '确认删除',
+      message: '确定要删除这张照片吗？此操作不可恢复。',
+      variant: 'danger',
+      onConfirm: async () => {
+        await deletePhotos([photoId])
+      },
+    })
   }
 
   const deletePhotos = async (photoIds: string[]) => {
@@ -169,7 +186,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       }
 
       const result = await response.json()
-      alert(result.message || '删除成功')
+      showSuccess(result.message || '删除成功')
       
       // 更新本地状态
       setPhotos((prev) => prev.filter((p) => !photoIds.includes(p.id)))
@@ -179,7 +196,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       router.refresh()
     } catch (error) {
       console.error(error)
-      alert('删除失败，请重试')
+      handleApiError(error, '删除失败，请重试')
     } finally {
       setIsDeleting(false)
     }
@@ -205,10 +222,11 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       }
 
       setCoverPhotoId(photoId)
+      showSuccess('封面已设置')
       router.refresh()
     } catch (error) {
       console.error(error)
-      alert('设置封面失败，请重试')
+      handleApiError(error, '设置封面失败，请重试')
     }
   }
 
@@ -235,10 +253,11 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       }
       
       setPhotos(newOrder)
+      showSuccess('排序已保存')
       router.refresh()
     } catch (error) {
       console.error('Failed to save photo order:', error)
-      alert('保存排序失败，请重试')
+      handleApiError(error, '保存排序失败，请重试')
     } finally {
       setIsSavingOrder(false)
     }
@@ -347,7 +366,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
               <span className="text-sm text-text-secondary hidden sm:inline">
                 已选择 {selectedPhotos.size} 张
               </span>
-              <button onClick={clearSelection} className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95">
+              <button type="button" onClick={clearSelection} className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95">
                 取消
               </button>
               {selectedPhotos.size > 0 && (
@@ -386,13 +405,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                             groupMap.set(selectedGroupId, [...currentPhotoIds, ...photoIds])
                             setPhotoGroupMap(groupMap)
                             clearSelection()
-                            alert('已添加到分组')
+                            showSuccess('已添加到分组')
                           } else {
-                            alert('添加到分组失败')
+                            handleApiError(new Error('添加到分组失败'))
                           }
                         } catch (error) {
                           console.error('Failed to assign photos to group:', error)
-                          alert('添加到分组失败')
+                          handleApiError(error, '添加到分组失败')
                         }
                       }}
                       className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
@@ -682,6 +701,18 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           open={true}
           onClose={() => setLightboxIndex(null)}
           allowDownload={true}
+        />
+      )}
+
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog(open ? confirmDialog : null)}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant={confirmDialog.variant}
+          onConfirm={confirmDialog.onConfirm}
         />
       )}
     </div>
