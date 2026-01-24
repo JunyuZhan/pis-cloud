@@ -15,15 +15,16 @@ export default async function AdminPage() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // 获取封面图的 key
+  // 获取封面图的 key（只获取已处理完成的照片）
   const coverPhotoIds = albumsData?.map((a) => a.cover_photo_id).filter(Boolean) || []
   let coverPhotosMap: Record<string, string> = {}
 
   if (coverPhotoIds.length > 0) {
     const { data: photos } = await supabase
       .from('photos')
-      .select('id, thumb_key')
+      .select('id, thumb_key, status')
       .in('id', coverPhotoIds)
+      .eq('status', 'completed') // 只获取已处理完成的照片
 
     if (photos) {
       coverPhotosMap = photos.reduce((acc, photo) => {

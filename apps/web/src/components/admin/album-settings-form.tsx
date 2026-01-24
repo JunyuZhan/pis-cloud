@@ -112,13 +112,15 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
 
     try {
       // 准备提交数据，将 watermarks 数组转换为正确的格式
+      const watermarkConfig = formData.watermark_config?.watermarks && formData.watermark_config.watermarks.length > 0
+        ? { watermarks: formData.watermark_config.watermarks }
+        : {}
+      
       const submitData = {
         ...formData,
         event_date: formData.event_date || null,
         location: formData.location.trim() || null,
-        watermark_config: formData.watermark_config.watermarks
-          ? { watermarks: formData.watermark_config.watermarks }
-          : formData.watermark_config,
+        watermark_config: watermarkConfig,
       }
 
       const response = await fetch(`/api/admin/albums/${album.id}`, {
@@ -127,14 +129,21 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         body: JSON.stringify(submitData),
       })
 
-      if (!response.ok) throw new Error('保存失败')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData?.error?.message || '保存失败'
+        console.error('Save failed:', errorData)
+        throw new Error(errorMessage)
+      }
 
+      const result = await response.json()
       router.refresh()
       // 可以添加一个 toast 提示成功
-      alert('设置已保存')
+      alert(result.message || '设置已保存')
     } catch (error) {
-      console.error(error)
-      alert('保存失败，请重试')
+      console.error('Save error:', error)
+      const errorMessage = error instanceof Error ? error.message : '保存失败，请重试'
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }

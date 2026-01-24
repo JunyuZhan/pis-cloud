@@ -74,7 +74,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch (err) {
+      console.error('Failed to parse request body:', err)
+      return NextResponse.json(
+        { error: { code: 'INVALID_REQUEST', message: '请求体格式错误' } },
+        { status: 400 }
+      )
+    }
     
     // 允许更新的字段白名单
     const allowedFields: (keyof AlbumUpdate)[] = [
@@ -85,6 +94,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'layout',
       'sort_rule',
       'allow_download',
+      'allow_batch_download',
       'show_exif',
       'watermark_enabled',
       'watermark_type',
@@ -94,6 +104,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'share_title',
       'share_description',
       'share_image_url',
+      'event_date',
+      'location',
     ]
 
     // 过滤只保留允许的字段
@@ -103,6 +115,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         // 密码字段：如果为空字符串，设置为 null；否则保持原值
         if (field === 'password') {
           ;(updateData as Record<string, unknown>)[field] = body[field] === '' ? null : body[field]
+        } else if (field === 'watermark_config') {
+          // 确保 watermark_config 是有效的 JSON 对象
+          if (body[field] !== null && typeof body[field] !== 'object') {
+            console.error('Invalid watermark_config format:', body[field])
+            return NextResponse.json(
+              { error: { code: 'VALIDATION_ERROR', message: '水印配置格式错误' } },
+              { status: 400 }
+            )
+          }
+          ;(updateData as Record<string, unknown>)[field] = body[field]
         } else {
           ;(updateData as Record<string, unknown>)[field] = body[field]
         }
@@ -152,8 +174,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single()
 
     if (error) {
+      console.error('Database update error:', error)
+      console.error('Update data:', JSON.stringify(updateData, null, 2))
       return NextResponse.json(
-        { error: { code: 'DB_ERROR', message: error.message } },
+        { 
+          error: { 
+            code: 'DB_ERROR', 
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? JSON.stringify(error) : undefined,
+          } 
+        },
         { status: 500 }
       )
     }
@@ -216,8 +246,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       message: watermarkChanged ? '设置已更新，正在后台重新生成水印...' : '设置已更新'
     })
   } catch (err) {
+    console.error('PATCH /api/admin/albums/[id] error:', err)
+    const errorMessage = err instanceof Error ? err.message : '未知错误'
+    const errorStack = err instanceof Error ? err.stack : undefined
+    
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
+      { 
+        error: { 
+          code: 'INTERNAL_ERROR', 
+          message: '服务器错误',
+          details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+          stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+        } 
+      },
       { status: 500 }
     )
   }

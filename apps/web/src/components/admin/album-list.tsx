@@ -261,11 +261,19 @@ function AlbumCard({
   isDuplicating?: boolean
   isDeleting?: boolean
 }) {
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
+  const safeMediaUrl = mediaUrl.startsWith('http://') 
+    ? mediaUrl.replace('http://', 'https://')
+    : mediaUrl
+  
+  // 构建封面图URL
+  // 优先使用 cover_thumb_key（完整路径，如 processed/thumbs/albumId/photoId.jpg）
+  // 如果没有，回退到使用 cover_photo_id 构建路径
   const coverUrl = album.cover_thumb_key
-    ? `${mediaUrl}/${album.cover_thumb_key}`
+    ? `${safeMediaUrl.replace(/\/$/, '')}/${album.cover_thumb_key.replace(/^\//, '')}`
     : album.cover_photo_id
-    ? `${mediaUrl}/thumbs/${album.id}/${album.cover_photo_id}.jpg`
+    ? `${safeMediaUrl.replace(/\/$/, '')}/processed/thumbs/${album.id}/${album.cover_photo_id}.jpg`
     : null
 
   const handleClick = (e: React.MouseEvent) => {
@@ -309,6 +317,16 @@ function AlbumCard({
               'object-cover transition-transform duration-300',
               !selectionMode && 'group-hover:scale-105'
             )}
+            unoptimized={true}
+            onError={(e) => {
+              // 如果图片加载失败，显示占位符
+              const target = e.target as HTMLImageElement
+              target.style.display = 'none'
+              const parent = target.parentElement
+              if (parent) {
+                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-12 h-12 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
+              }
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
