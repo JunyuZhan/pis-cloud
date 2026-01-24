@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings } from 'lucide-react'
+import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings, ImageIcon } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import type { Album } from '@/types/database'
@@ -261,6 +261,7 @@ function AlbumCard({
   isDuplicating?: boolean
   isDeleting?: boolean
 }) {
+  const [imageError, setImageError] = useState(false)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   // 确保 mediaUrl 使用 HTTPS（避免 Mixed Content）
   const safeMediaUrl = mediaUrl.startsWith('http://') 
@@ -308,7 +309,7 @@ function AlbumCard({
 
       {/* 封面图 */}
       <div className="aspect-[4/3] bg-surface rounded-lg mb-4 overflow-hidden relative">
-        {coverUrl ? (
+        {coverUrl && !imageError ? (
           <Image
             src={coverUrl}
             alt={album.title}
@@ -318,19 +319,11 @@ function AlbumCard({
               !selectionMode && 'group-hover:scale-105'
             )}
             unoptimized={true}
-            onError={(e) => {
-              // 如果图片加载失败，显示占位符
-              const target = e.target as HTMLImageElement
-              target.style.display = 'none'
-              const parent = target.parentElement
-              if (parent) {
-                parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-12 h-12 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
-              }
-            }}
+            onError={() => setImageError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <FolderOpen className="w-12 h-12 text-text-muted" />
+            <ImageIcon className="w-12 h-12 text-text-muted" />
           </div>
         )}
       </div>

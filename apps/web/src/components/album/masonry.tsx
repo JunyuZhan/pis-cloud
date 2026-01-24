@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Heart, Download, Share2, Expand, Loader2 } from 'lucide-react'
+import { Heart, Download, Share2, Expand, Loader2, ImageIcon } from 'lucide-react'
 import type { Photo, Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 import { PhotoLightbox } from './lightbox'
@@ -194,6 +194,7 @@ function PhotoCard({
   layout = 'masonry',
 }: PhotoCardProps) {
   const [showCopied, setShowCopied] = useState(false)
+  const [imageError, setImageError] = useState(false)
   
   // 计算图片高度比例 (Masonry 模式使用)
   const aspectRatio =
@@ -276,7 +277,7 @@ function PhotoCard({
           )}
           onClick={onClick}
         >
-          {photo.thumb_key ? (
+          {photo.thumb_key && !imageError ? (
             <Image
               src={`${safeMediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`}
               alt={photo.filename || 'Photo'}
@@ -288,21 +289,18 @@ function PhotoCard({
               )}
               loading="lazy"
               unoptimized={true}
-              onError={(e) => {
-                // 图片加载失败时显示占位符
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-                const parent = target.parentElement
-                if (parent) {
-                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-surface-elevated"><svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>'
-                }
-              }}
+              onError={() => setImageError(true)}
             />
           ) : (
             <div
-              className="w-full bg-surface"
-              style={{ paddingBottom: layout === 'grid' ? '100%' : `${aspectRatio * 100}%` }}
-            />
+              className={cn(
+                "w-full flex items-center justify-center bg-surface-elevated",
+                layout === 'grid' ? 'aspect-square' : ''
+              )}
+              style={layout !== 'grid' ? { paddingBottom: `${aspectRatio * 100}%` } : undefined}
+            >
+              <ImageIcon className="w-8 h-8 text-text-muted" />
+            </div>
           )}
 
           {/* 悬停遮罩 */}
