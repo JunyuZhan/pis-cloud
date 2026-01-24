@@ -4,8 +4,8 @@
  * 使用 MinIO SDK 进行常规操作，使用 AWS SDK 进行分片上传（S3 兼容）
  */
 import * as Minio from 'minio';
-import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
-import type { StorageAdapter, StorageConfig, UploadResult } from './types.js';
+import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import type { StorageAdapter, StorageConfig, UploadResult, StorageObject } from './types.js';
 
 export class MinIOAdapter implements StorageAdapter {
   private client: Minio.Client;
@@ -221,6 +221,43 @@ export class MinIOAdapter implements StorageAdapter {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async listObjects(prefix: string): Promise<StorageObject[]> {
+    const objects: StorageObject[] = [];
+    const stream = this.client.listObjectsV2(this.bucket, prefix, true);
+    
+    return new Promise((resolve, reject) => {
+      stream.on('data', (obj) => {
+        if (obj.name) {
+          objects.push({
+            key: obj.name,
+            size: obj.size || 0,
+            lastModified: obj.lastModified || new Date(),
+            etag: obj.etag || '',
+          });
+        }
+      });
+      stream.on('end', () => resolve(objects));
+      stream.on('error', (err) => reject(err));
+    });
+  }
+
+  async copy(srcKey: string, destKey: string): Promise<void> {
+    try {
+      // MinIO 的 copyObject 需要源对象路径格式为 /bucket/key
+      const source = `/${this.bucket}/${srcKey}`;
+      await this.client.copyObject(
+        this.bucket,
+        destKey,
+        source
+      );
+      console.log(`[MinIO] Copied ${srcKey} -> ${destKey}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error copying ${srcKey} to ${destKey}:`, errorMessage);
+      throw new Error(`Failed to copy object: ${errorMessage}`);
     }
   }
 

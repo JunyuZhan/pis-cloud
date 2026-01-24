@@ -19,6 +19,7 @@ interface PhotoLightboxProps {
   onClose: () => void
   allowDownload?: boolean
   onSelectChange?: (photoId: string, isSelected: boolean) => void
+  onIndexChange?: (index: number) => void
 }
 
 export function PhotoLightbox({
@@ -28,6 +29,7 @@ export function PhotoLightbox({
   onClose,
   allowDownload = true,
   onSelectChange,
+  onIndexChange,
 }: PhotoLightboxProps) {
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   
@@ -267,8 +269,57 @@ export function PhotoLightbox({
     if (newIndex >= 0 && newIndex < photos.length && newIndex !== prevIndexRef.current) {
       prevIndexRef.current = newIndex
       setCurrentIndex(newIndex)
+      onIndexChange?.(newIndex)
     }
-  }, [photos.length])
+  }, [photos.length, onIndexChange])
+
+  const toolbarButtons = useMemo(() => {
+    if (!currentPhoto) {
+      return ['close']
+    }
+
+    const currentPhotoId = currentPhoto.id
+    const isSelected = selectedMap[currentPhotoId] || false
+
+    const buttons: Array<React.ReactNode> = [
+      <button
+        key="select"
+        type="button"
+        onClick={handleSelect}
+        className={cn(
+          'yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors',
+          isSelected
+            ? 'bg-red-500 text-white'
+            : 'bg-white/10 text-white hover:bg-white/20'
+        )}
+        aria-label={isSelected ? '取消选择' : '选择'}
+      >
+        <Heart
+          className={cn(
+            'w-5 h-5',
+            isSelected && 'fill-current'
+          )}
+        />
+      </button>,
+    ]
+
+    if (allowDownload) {
+      buttons.push(
+        <button
+          key="download"
+          type="button"
+          onClick={handleDownload}
+          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+          aria-label="下载原图"
+        >
+          <Download className="w-5 h-5" />
+        </button>
+      )
+    }
+
+    buttons.push('close')
+    return buttons
+  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload])
 
   // 如果未打开或没有照片，不渲染
   if (!open || photos.length === 0) {
@@ -302,73 +353,6 @@ export function PhotoLightbox({
   }
 
   // 构建工具栏按钮数组，确保稳定的引用以避免 hydration 问题
-  const toolbarButtons = useMemo(() => {
-    if (!currentPhoto) {
-      return ['close']
-    }
-
-    const currentPhotoId = currentPhoto.id
-    const isSelected = selectedMap[currentPhotoId] || false
-
-    const buttons: Array<React.ReactNode> = [
-      // 选片按钮
-      <button
-        key="select"
-        type="button"
-        onClick={handleSelect}
-        className={cn(
-          'yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors',
-          isSelected
-            ? 'bg-red-500 text-white'
-            : 'bg-white/10 text-white hover:bg-white/20'
-        )}
-        aria-label={isSelected ? '取消选择' : '选择'}
-      >
-        <Heart
-          className={cn(
-            'w-5 h-5',
-            isSelected && 'fill-current'
-          )}
-        />
-      </button>,
-    ]
-
-    // 查看原图按钮（已移除）
-    // if (showLoadOriginalButton) {
-    //   buttons.push(
-    //     <button
-    //       key="load-original"
-    //       type="button"
-    //       onClick={handleLoadOriginal}
-    //       className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent/90 text-background hover:bg-accent transition-colors"
-    //       aria-label="查看原图"
-    //       title="查看原图"
-    //     >
-    //       <ImageIcon className="w-5 h-5" />
-    //       <span className="text-sm font-medium">查看原图</span>
-    //     </button>
-    //   )
-    // }
-
-    // 下载按钮
-    if (allowDownload) {
-      buttons.push(
-        <button
-          key="download"
-          type="button"
-          onClick={handleDownload}
-          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-          aria-label="下载原图"
-        >
-          <Download className="w-5 h-5" />
-        </button>
-      )
-    }
-
-    buttons.push('close')
-    return buttons
-  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload])
-
   return (
     <Lightbox
       open={open}
@@ -378,6 +362,7 @@ export function PhotoLightbox({
       plugins={[Zoom, Captions]}
       on={{
         view: handleView,
+        click: onClose,
       }}
       controller={{
         // 移动端下滑关闭

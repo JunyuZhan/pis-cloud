@@ -22,6 +22,13 @@ export interface UploadResult {
   url?: string;
 }
 
+export interface StorageObject {
+  key: string;
+  size: number;
+  lastModified: Date;
+  etag: string;
+}
+
 export interface StorageAdapter {
   /**
    * 下载文件
@@ -85,4 +92,18 @@ export interface StorageAdapter {
    * 检查文件是否存在
    */
   exists(key: string): Promise<boolean>;
+  
+  /**
+   * 列出指定前缀下的所有对象
+   * @param prefix 前缀路径，如 "sync/album-uuid/"
+   * @returns 对象列表
+   */
+  listObjects(prefix: string): Promise<StorageObject[]>;
+  
+  /**
+   * 复制对象（用于移动文件）
+   * @param srcKey 源路径
+   * @param destKey 目标路径
+   */
+  copy(srcKey: string, destKey: string): Promise<void>;
 }

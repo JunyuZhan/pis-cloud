@@ -126,6 +126,18 @@ export async function abortMultipartUpload(key: string, uploadId: string): Promi
   return getStorageAdapter().abortMultipartUpload(key, uploadId);
 }
 
+export async function listObjects(prefix: string) {
+  return getStorageAdapter().listObjects(prefix);
+}
+
+export async function copyFile(srcKey: string, destKey: string): Promise<void> {
+  return getStorageAdapter().copy(srcKey, destKey);
+}
+
+export async function deleteFile(key: string): Promise<void> {
+  return getStorageAdapter().delete(key);
+}
+
 export function getMinioClient() {
   // 为了向后兼容，返回存储适配器
   // 注意：新代码应该使用 getStorageAdapter()

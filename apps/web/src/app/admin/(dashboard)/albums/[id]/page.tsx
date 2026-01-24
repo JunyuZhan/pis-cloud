@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AlbumDetailClient } from '@/components/admin/album-detail-client'
 import { ShareLinkButton } from '@/components/admin/share-link-button'
 import { PackageDownloadButton } from '@/components/admin/package-download-button'
+import { ScanSyncButtonWrapper } from '@/components/admin/scan-sync-button-wrapper'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -78,6 +79,8 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* 扫描同步 */}
+          <ScanSyncButtonWrapper albumId={id} />
           {/* 打包下载 */}
           <PackageDownloadButton
             albumId={id}

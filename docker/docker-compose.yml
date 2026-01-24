@@ -22,8 +22,8 @@ services:
     image: minio/minio:latest
     container_name: pis-minio
     ports:
-      - "127.0.0.1:19000:9000"  # API (通过 Nginx/FRP 反代，使用 19000 避免冲突)
-      - "127.0.0.1:19001:9001"  # 控制台 (使用 19001 避免冲突)
+      - "19000:9000"  # API (绑定到所有接口，允许局域网访问)
+      - "19001:9001"  # 控制台 (绑定到所有接口，允许局域网访问)
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}

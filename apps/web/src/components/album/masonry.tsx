@@ -51,6 +51,8 @@ export function MasonryGrid({
 
   // 无限滚动观察器
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const photoRefs = useRef<Array<HTMLDivElement | null>>([])
+  const lastViewedIndexRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!hasMore || isLoading || !onLoadMore) return
@@ -87,6 +89,7 @@ export function MasonryGrid({
   }, [photos])
 
   const handlePhotoClick = useCallback((index: number) => {
+    lastViewedIndexRef.current = index
     setLightboxIndex(index)
   }, [])
 
@@ -126,6 +129,29 @@ export function MasonryGrid({
     [onSelectChange]
   )
 
+  const handleLightboxIndexChange = useCallback((newIndex: number) => {
+    lastViewedIndexRef.current = newIndex
+  }, [])
+
+  const scrollToPhotoIndex = useCallback((targetIndex: number | null) => {
+    if (targetIndex === null) return
+    const target = photoRefs.current[targetIndex]
+    if (!target) return
+    const rect = target.getBoundingClientRect()
+    const inView = rect.top >= 0 && rect.bottom <= window.innerHeight
+    if (!inView) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [])
+
+  const handleLightboxClose = useCallback(() => {
+    const targetIndex = lastViewedIndexRef.current ?? lightboxIndex
+    setLightboxIndex(null)
+    if (targetIndex !== null && targetIndex !== undefined) {
+      requestAnimationFrame(() => scrollToPhotoIndex(targetIndex))
+    }
+  }, [lightboxIndex, scrollToPhotoIndex])
+
   return (
     <>
       <div
@@ -141,6 +167,9 @@ export function MasonryGrid({
             key={photo.id}
             photo={photo}
             index={index}
+            cardRef={(node) => {
+              photoRefs.current[index] = node
+            }}
             onClick={() => handlePhotoClick(index)}
             showSelect={true}
             isSelected={selectedMap[photo.id] || false}
@@ -172,9 +201,10 @@ export function MasonryGrid({
           photos={photos}
           index={lightboxIndex}
           open={true}
-          onClose={() => setLightboxIndex(null)}
+          onClose={handleLightboxClose}
           allowDownload={album.allow_download}
           onSelectChange={handleLightboxSelectChange}
+          onIndexChange={handleLightboxIndexChange}
         />
       )}
     </>
@@ -185,6 +215,7 @@ interface PhotoCardProps {
   photo: Photo
   index: number
   onClick: () => void
+  cardRef?: React.Ref<HTMLDivElement>
   showSelect?: boolean
   isSelected?: boolean
   onSelect?: (e: React.MouseEvent) => void
@@ -196,6 +227,7 @@ function PhotoCard({
   photo,
   index,
   onClick,
+  cardRef,
   showSelect,
   isSelected,
   onSelect,
@@ -281,6 +313,7 @@ function PhotoCard({
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: (index % 10) * 0.05 }}

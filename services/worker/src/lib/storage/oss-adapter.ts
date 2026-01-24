@@ -3,7 +3,7 @@
  * OSS 兼容 S3 API，使用 MinIO SDK（S3 兼容模式）
  */
 import * as Minio from 'minio';
-import type { StorageAdapter, StorageConfig, UploadResult } from './types.js';
+import type { StorageAdapter, StorageConfig, UploadResult, StorageObject } from './types.js';
 
 export class OSSAdapter implements StorageAdapter {
   private client: Minio.Client;
@@ -168,6 +168,42 @@ export class OSSAdapter implements StorageAdapter {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async listObjects(prefix: string): Promise<StorageObject[]> {
+    const objects: StorageObject[] = [];
+    const stream = this.client.listObjectsV2(this.bucket, prefix, true);
+    
+    return new Promise((resolve, reject) => {
+      stream.on('data', (obj) => {
+        if (obj.name) {
+          objects.push({
+            key: obj.name,
+            size: obj.size || 0,
+            lastModified: obj.lastModified || new Date(),
+            etag: obj.etag || '',
+          });
+        }
+      });
+      stream.on('end', () => resolve(objects));
+      stream.on('error', (err) => reject(err));
+    });
+  }
+
+  async copy(srcKey: string, destKey: string): Promise<void> {
+    try {
+      const source = `/${this.bucket}/${srcKey}`;
+      await this.client.copyObject(
+        this.bucket,
+        destKey,
+        source
+      );
+      console.log(`[OSS] Copied ${srcKey} -> ${destKey}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[OSS] Error copying ${srcKey} to ${destKey}:`, errorMessage);
+      throw new Error(`Failed to copy object: ${errorMessage}`);
     }
   }
 

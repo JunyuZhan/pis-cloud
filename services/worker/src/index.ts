@@ -27,6 +27,9 @@ import {
   abortMultipartUpload,
   getPresignedGetUrl,
   getPresignedPutUrl,
+  listObjects,
+  copyFile,
+  deleteFile,
   bucketName
 } from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
@@ -564,6 +567,149 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: true }));
       } catch (err: any) {
         console.error('Multipart abort error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // ============================================
+  // 扫描同步 API
+  // ============================================
+
+  // 扫描同步
+  if (url.pathname === '/api/scan' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { albumId } = JSON.parse(body);
+        if (!albumId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing albumId' }));
+          return;
+        }
+
+        console.log(`[Scan] Starting scan for album: ${albumId}`);
+        
+        // 1. 列出 sync/{albumId}/ 下的所有文件
+        const prefix = `sync/${albumId}/`;
+        const objects = await listObjects(prefix);
+        
+        // 2. 过滤出图片文件
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp'];
+        const imageObjects = objects.filter(obj => {
+          const ext = obj.key.toLowerCase().slice(obj.key.lastIndexOf('.'));
+          return imageExtensions.includes(ext);
+        });
+
+        console.log(`[Scan] Found ${imageObjects.length} images in ${prefix}`);
+
+        if (imageObjects.length === 0) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            success: true, 
+            found: 0, 
+            added: 0,
+            skipped: 0,
+            message: '未找到新图片' 
+          }));
+          return;
+        }
+
+        // 3. 查询数据库已有的文件（通过 filename 比对）
+        const { data: existingPhotos } = await supabase
+          .from('photos')
+          .select('filename')
+          .eq('album_id', albumId);
+        
+        const existingFilenames = new Set(
+          (existingPhotos || []).map(p => p.filename)
+        );
+
+        // 4. 处理新图片
+        let addedCount = 0;
+        let skippedCount = 0;
+        for (const obj of imageObjects) {
+          const filename = obj.key.split('/').pop() || '';
+          
+          // 跳过已存在的文件
+          if (existingFilenames.has(filename)) {
+            console.log(`[Scan] Skipping existing: ${filename}`);
+            skippedCount++;
+            continue;
+          }
+
+          // 生成新的 photo_id
+          const photoId = crypto.randomUUID();
+          const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
+          const newKey = `raw/${albumId}/${photoId}.${ext}`;
+
+          try {
+            // 复制文件到标准路径
+            await copyFile(obj.key, newKey);
+            console.log(`[Scan] Copied ${obj.key} -> ${newKey}`);
+
+            // 创建数据库记录
+            const { error: insertError } = await supabase
+              .from('photos')
+              .insert({
+                id: photoId,
+                album_id: albumId,
+                original_key: newKey,
+                filename: filename,
+                file_size: obj.size,
+                status: 'pending',
+              });
+
+            if (insertError) {
+              console.error(`[Scan] Failed to insert photo: ${insertError.message}`);
+              // 如果数据库插入失败，删除已复制的文件
+              try {
+                await deleteFile(newKey);
+              } catch (deleteErr) {
+                console.error(`[Scan] Failed to cleanup copied file: ${deleteErr}`);
+              }
+              continue;
+            }
+
+            // 添加到处理队列
+            await photoQueue.add('process-photo', { 
+              photoId, 
+              albumId, 
+              originalKey: newKey 
+            });
+
+            // 删除原始文件（可选，或保留备份）
+            try {
+              await deleteFile(obj.key);
+            } catch (deleteErr) {
+              console.warn(`[Scan] Failed to delete source file ${obj.key}: ${deleteErr}`);
+              // 不阻止流程继续
+            }
+            
+            addedCount++;
+          } catch (err: any) {
+            console.error(`[Scan] Error processing ${filename}:`, err.message);
+            // 继续处理下一个文件
+          }
+        }
+
+        console.log(`[Scan] Added ${addedCount} new photos, skipped ${skippedCount}`);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          success: true, 
+          found: imageObjects.length,
+          skipped: skippedCount,
+          added: addedCount,
+          message: addedCount > 0 
+            ? `成功导入 ${addedCount} 张新图片${skippedCount > 0 ? `，跳过 ${skippedCount} 张已存在图片` : ''}`
+            : `未找到新图片${skippedCount > 0 ? `，跳过 ${skippedCount} 张已存在图片` : ''}`
+        }));
+      } catch (err: any) {
+        console.error('[Scan] Error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
