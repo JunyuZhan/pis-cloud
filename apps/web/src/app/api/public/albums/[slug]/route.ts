@@ -43,17 +43,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const requiresPassword = !!album.password
 
     // 返回相册信息（不包含密码）
-    return NextResponse.json({
-      id: album.id,
-      title: album.title,
-      description: album.description,
-      layout: album.layout,
-      allow_download: album.allow_download,
-      show_exif: album.show_exif,
-      photo_count: album.photo_count,
-      requires_password: requiresPassword,
-      is_public: album.is_public,
-    })
+    // 添加缓存头：公开相册缓存5分钟，私有相册不缓存
+    const cacheHeaders = album.is_public
+      ? {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        }
+      : {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        }
+
+    return NextResponse.json(
+      {
+        id: album.id,
+        title: album.title,
+        description: album.description,
+        layout: album.layout,
+        allow_download: album.allow_download,
+        show_exif: album.show_exif,
+        photo_count: album.photo_count,
+        requires_password: requiresPassword,
+        is_public: album.is_public,
+      },
+      { headers: cacheHeaders }
+    )
   } catch (err) {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },

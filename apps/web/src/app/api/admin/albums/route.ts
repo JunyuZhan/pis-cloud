@@ -93,7 +93,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析请求体
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch (err) {
+      console.error('Failed to parse request body:', err)
+      return NextResponse.json(
+        { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
+        { status: 400 }
+      )
+    }
+    
     const {
       title,
       description,

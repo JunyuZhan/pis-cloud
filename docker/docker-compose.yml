@@ -5,54 +5,67 @@ version: '3.8'
 # 
 # 架构：Vercel (前端) + Supabase Cloud (数据库) + 内网 (存储/Worker)
 # 
-# 如果您已有 MinIO，可以注释掉 minio 和 minio-init 服务
-# 只需部署 redis 和 worker
+# 使用独立端口避免与其他应用冲突:
+# - MinIO API: 19000 (避免与默认 9000 冲突)
+# - MinIO Console: 19001 (避免与默认 9001 冲突)
+# - Redis: 16379 (避免与默认 6379 冲突)
 # ============================================
 
+networks:
+  pis-network:
+    driver: bridge
+    name: pis-network
+
 services:
-  # MinIO 对象存储 (如已有可注释掉)
+  # MinIO 对象存储 (独立端口部署)
   minio:
     image: minio/minio:latest
     container_name: pis-minio
     ports:
-      - "127.0.0.1:9000:9000"  # API (通过 Nginx/FRP 反代)
-      - "127.0.0.1:9001:9001"  # 控制台
+      - "127.0.0.1:19000:9000"  # API (通过 Nginx/FRP 反代，使用 19000 避免冲突)
+      - "127.0.0.1:19001:9001"  # 控制台 (使用 19001 避免冲突)
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     volumes:
-      - minio_data:/data
+      - pis_minio_data:/data
     command: server /data --console-address ":9001"
     restart: unless-stopped
+    networks:
+      - pis-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
 
-  # Redis 任务队列
+  # Redis 任务队列 (独立端口部署)
   redis:
     image: redis:7-alpine
     container_name: pis-redis
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:16379:6379"  # 使用 16379 避免与默认 6379 冲突
     volumes:
-      - redis_data:/data
+      - pis_redis_data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+    networks:
+      - pis-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # MinIO Bucket 初始化 (如已有可注释掉)
+  # MinIO Bucket 初始化
   minio-init:
     image: minio/mc:latest
     container_name: pis-minio-init
     depends_on:
       minio:
         condition: service_healthy
+    networks:
+      - pis-network
     entrypoint: >
       /bin/sh -c "
       mc alias set pis http://minio:9000 $${MINIO_ACCESS_KEY:-minioadmin} $${MINIO_SECRET_KEY:-minioadmin};
@@ -72,21 +85,31 @@ services:
       # Supabase Cloud
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      # MinIO (如使用已有 MinIO，修改 HOST 为实际地址)
+      # MinIO (Docker 内部网络，使用服务名)
       - MINIO_ENDPOINT_HOST=${MINIO_ENDPOINT_HOST:-minio}
       - MINIO_ENDPOINT_PORT=${MINIO_ENDPOINT_PORT:-9000}
       - MINIO_USE_SSL=false
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=${MINIO_BUCKET:-pis-photos}
-      # Redis
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # Redis (Docker 内部网络，使用服务名)
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      # Worker HTTP API 端口
+      - HTTP_PORT=${HTTP_PORT:-3001}
     depends_on:
+      minio:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3001"  # Worker HTTP API
     restart: unless-stopped
+    networks:
+      - pis-network
 
 volumes:
-  minio_data:
-  redis_data:
+  pis_minio_data:
+    name: pis_minio_data
+  pis_redis_data:
+    name: pis_redis_data

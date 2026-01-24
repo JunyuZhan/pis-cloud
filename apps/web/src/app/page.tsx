@@ -10,7 +10,10 @@ type Photo = Database['public']['Tables']['photos']['Row']
 
 /**
  * 公开相册广场首页 - 专业摄影师作品集
+ * 使用ISR（增量静态再生）优化性能，每60秒重新生成
  */
+export const revalidate = 60 // ISR: 60秒重新验证
+
 export default async function HomePage() {
   const supabase = await createClient()
 
@@ -58,51 +61,92 @@ export default async function HomePage() {
   // 其他相册（排除第一个，因为已经在Hero中展示）
   const otherAlbums = albums && albums.length > 1 ? albums.slice(1) : albums
 
-  // 为每个相册获取封面照片的 key（用于首页网格显示）
-  const albumsWithCoverKeys = await Promise.all(
-    (otherAlbums || []).map(async (album) => {
+  // 优化：批量获取所有相册的封面照片，减少N+1查询
+  const albumsWithCoverKeys = await (async () => {
+    if (!otherAlbums || otherAlbums.length === 0) return []
+    
+    // 收集所有需要查询的封面照片ID
+    const coverPhotoIds = otherAlbums
+      .map(album => album.cover_photo_id)
+      .filter((id): id is string => !!id)
+    
+    // 批量获取封面照片
+    const { data: coverPhotos } = coverPhotoIds.length > 0
+      ? await supabase
+          .from('photos')
+          .select('id, thumb_key, preview_key, status')
+          .in('id', coverPhotoIds)
+          .eq('status', 'completed')
+      : { data: [] }
+    
+    // 创建封面照片映射
+    const coverMap = new Map(
+      (coverPhotos || []).map(photo => [
+        photo.id,
+        { thumb_key: photo.thumb_key, preview_key: photo.preview_key }
+      ])
+    )
+    
+    // 收集需要获取第一张照片的相册ID
+    const albumsNeedingFirstPhoto = otherAlbums.filter(
+      album => !album.cover_photo_id || !coverMap.has(album.cover_photo_id)
+    )
+    
+    // 批量获取第一张照片（只查询需要的相册）
+    const albumIdsNeedingPhoto = albumsNeedingFirstPhoto.map(a => a.id)
+    const { data: firstPhotos } = albumIdsNeedingPhoto.length > 0
+      ? await supabase
+          .from('photos')
+          .select('album_id, thumb_key, preview_key')
+          .in('album_id', albumIdsNeedingPhoto)
+          .eq('status', 'completed')
+          .not('thumb_key', 'is', null)
+          .order('captured_at', { ascending: false })
+      : { data: [] }
+    
+    // 为每个相册创建第一张照片映射（每个相册只取第一张）
+    const firstPhotoMap = new Map<string, { thumb_key: string | null; preview_key: string | null }>()
+    if (firstPhotos) {
+      const seenAlbums = new Set<string>()
+      for (const photo of firstPhotos) {
+        if (!seenAlbums.has(photo.album_id)) {
+          firstPhotoMap.set(photo.album_id, {
+            thumb_key: photo.thumb_key,
+            preview_key: photo.preview_key
+          })
+          seenAlbums.add(photo.album_id)
+        }
+      }
+    }
+    
+    // 组合结果
+    return otherAlbums.map(album => {
       let coverThumbKey: string | null = null
       let coverPreviewKey: string | null = null
-
+      
       if (album.cover_photo_id) {
-        const { data: cover } = await supabase
-          .from('photos')
-          .select('thumb_key, preview_key, status')
-          .eq('id', album.cover_photo_id)
-          .maybeSingle()  // 使用 maybeSingle 避免没有数据时报错
-        
-        // 只使用已处理完成的照片
-        if (cover && cover.status === 'completed' && (cover.thumb_key || cover.preview_key)) {
+        const cover = coverMap.get(album.cover_photo_id)
+        if (cover) {
           coverThumbKey = cover.thumb_key
           coverPreviewKey = cover.preview_key
         }
       }
-
-      // 如果没有封面，获取第一张照片
-      if (!coverThumbKey && !coverPreviewKey && album.id) {
-        const { data: firstPhoto } = await supabase
-          .from('photos')
-          .select('thumb_key, preview_key')
-          .eq('album_id', album.id)
-          .eq('status', 'completed')
-          .not('thumb_key', 'is', null)  // 确保 thumb_key 不为空
-          .order('captured_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()  // 使用 maybeSingle 避免没有数据时报错
-        
-        if (firstPhoto && (firstPhoto.thumb_key || firstPhoto.preview_key)) {
+      
+      if (!coverThumbKey && !coverPreviewKey) {
+        const firstPhoto = firstPhotoMap.get(album.id)
+        if (firstPhoto) {
           coverThumbKey = firstPhoto.thumb_key
           coverPreviewKey = firstPhoto.preview_key
         }
       }
-
+      
       return {
         ...album,
         cover_thumb_key: coverThumbKey,
         cover_preview_key: coverPreviewKey,
       }
     })
-  )
+  })()
 
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">

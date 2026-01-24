@@ -74,7 +74,8 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
       ],
       pageParams: [1],
     },
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000, // 5分钟缓存，减少API请求
+    gcTime: 10 * 60 * 1000, // 10分钟垃圾回收时间
   })
 
   // 展平所有页面的照片

@@ -23,7 +23,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 解析请求体
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch (err) {
+      console.error('Failed to parse request body:', err)
+      return NextResponse.json(
+        { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
+        { status: 400 }
+      )
+    }
+    
     const { albumIds } = body
 
     if (!Array.isArray(albumIds) || albumIds.length === 0) {
@@ -108,7 +118,18 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
+    // 解析请求体
+    let body: any
+    try {
+      body = await request.json()
+    } catch (err) {
+      console.error('Failed to parse request body:', err)
+      return NextResponse.json(
+        { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
+        { status: 400 }
+      )
+    }
+    
     const { albumIds, updates } = body
 
     if (!Array.isArray(albumIds) || albumIds.length === 0) {

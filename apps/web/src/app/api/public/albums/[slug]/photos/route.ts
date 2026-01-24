@@ -9,6 +9,8 @@ interface PhotoRow {
   id: string
   thumb_key: string | null
   preview_key: string | null
+  original_key: string | null
+  filename: string | null
   width: number | null
   height: number | null
   exif: Record<string, unknown> | null
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 根据排序参数构建不同的查询
     let query = supabase
       .from('photos')
-      .select('id, thumb_key, preview_key, width, height, exif, blur_data, captured_at, is_selected', { count: 'exact' })
+      .select('id, thumb_key, preview_key, original_key, filename, width, height, exif, blur_data, captured_at, is_selected', { count: 'exact' })
       .eq('album_id', album.id)
       .eq('status', 'completed')
       .is('deleted_at', null)
@@ -133,34 +135,46 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const photos = data as PhotoRow[] | null
 
-    return NextResponse.json({
-      photos: photos?.map((photo) => ({
-        id: photo.id,
-        thumb_key: photo.thumb_key,
-        preview_key: photo.preview_key,
-        width: photo.width,
-        height: photo.height,
-        exif: photo.exif,
-        blur_data: photo.blur_data,
-        captured_at: photo.captured_at,
-        is_selected: photo.is_selected,
-        filename: '', // 补充缺失字段以匹配 Photo 类型
-        album_id: album.id,
-        created_at: '',
-        updated_at: '',
-        original_key: '',
-        status: 'completed',
-        sort_order: 0,
-        file_size: 0,
-        mime_type: null
-      })),
-      pagination: {
-        page,
-        limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
+    // 添加缓存头：公开相册缓存5分钟，私有相册不缓存
+    const cacheHeaders = albumData.is_public
+      ? {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        }
+      : {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        }
+
+    return NextResponse.json(
+      {
+        photos: photos?.map((photo) => ({
+          id: photo.id,
+          thumb_key: photo.thumb_key,
+          preview_key: photo.preview_key,
+          original_key: photo.original_key,
+          filename: photo.filename || '',
+          width: photo.width,
+          height: photo.height,
+          exif: photo.exif,
+          blur_data: photo.blur_data,
+          captured_at: photo.captured_at,
+          is_selected: photo.is_selected,
+          album_id: album.id,
+          created_at: '',
+          updated_at: '',
+          status: 'completed',
+          sort_order: 0,
+          file_size: 0,
+          mime_type: null
+        })) || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+        },
       },
-    })
+      { headers: cacheHeaders }
+    )
   } catch (err) {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
