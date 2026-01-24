@@ -58,11 +58,13 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
       })
   }, [album.id, album.slug, mounted])
 
-  // 获取封面图 URL
+  // 获取封面图 URL（添加缓存破坏参数以支持旋转后刷新）
+  const rotation = coverPhoto?.rotation ?? 'auto'
+  const timestamp = coverPhoto?.updated_at ? new Date(coverPhoto.updated_at).getTime() : Date.now()
   const coverUrl = coverPhoto?.preview_key 
-    ? `${mediaUrl}/${coverPhoto.preview_key}`
+    ? `${mediaUrl}/${coverPhoto.preview_key}?r=${rotation}&t=${timestamp}`
     : coverPhoto?.thumb_key 
-      ? `${mediaUrl}/${coverPhoto.thumb_key}`
+      ? `${mediaUrl}/${coverPhoto.thumb_key}?r=${rotation}&t=${timestamp}`
       : null
 
   // 格式化日期 - 使用固定格式避免 hydration 不匹配
@@ -104,6 +106,7 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
           src={coverUrl}
           alt={album.title}
           fill
+          sizes="100vw"
           priority
           className={`object-cover transition-all duration-1000 ${
             isLoaded ? 'scale-100 blur-0' : 'scale-110 blur-sm'

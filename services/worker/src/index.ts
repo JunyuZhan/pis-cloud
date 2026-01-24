@@ -83,7 +83,14 @@ const worker = new Worker<PhotoJobData>(
       const originalBuffer = await downloadFile(originalKey);
       console.timeEnd(`[${job.id}] Download`);
 
-      // 3. 获取相册水印配置
+      // 3. 获取照片的手动旋转角度
+      const { data: photo } = await supabase
+        .from('photos')
+        .select('rotation')
+        .eq('id', photoId)
+        .single();
+
+      // 4. 获取相册水印配置
       const { data: album } = await supabase
         .from('albums')
         .select('watermark_enabled, watermark_type, watermark_config')
@@ -104,13 +111,13 @@ const worker = new Worker<PhotoJobData>(
         position: watermarkConfigRaw.position ?? 'center',
       };
 
-      // 4. 处理图片 (Sharp)
+      // 5. 处理图片 (Sharp)
       console.time(`[${job.id}] Process`);
       const processor = new PhotoProcessor(originalBuffer);
-      const result = await processor.process(watermarkConfig);
+      const result = await processor.process(watermarkConfig, photo?.rotation ?? null);
       console.timeEnd(`[${job.id}] Process`);
 
-      // 5. 上传处理后的图片到存储
+      // 6. 上传处理后的图片到存储
       const thumbKey = `processed/thumbs/${albumId}/${photoId}.jpg`;
       const previewKey = `processed/previews/${albumId}/${photoId}.jpg`;
 
@@ -121,7 +128,7 @@ const worker = new Worker<PhotoJobData>(
       ]);
       console.timeEnd(`[${job.id}] Upload`);
 
-      // 5. 更新数据库
+      // 7. 更新数据库
       const { error } = await supabase
         .from('photos')
         .update({
@@ -136,12 +143,14 @@ const worker = new Worker<PhotoJobData>(
           mime_type: result.metadata.format,
           // 尝试从 EXIF 获取拍摄时间，否则用当前时间
           captured_at: result.exif?.exif?.DateTimeOriginal || new Date().toISOString(),
+          // 更新时间戳（用于前端缓存破坏）
+          updated_at: new Date().toISOString(),
         })
         .eq('id', photoId);
 
       if (error) throw error;
 
-      // 6. 更新相册照片数量
+      // 8. 更新相册照片数量
       const { count } = await supabase
         .from('photos')
         .select('*', { count: 'exact', head: true })

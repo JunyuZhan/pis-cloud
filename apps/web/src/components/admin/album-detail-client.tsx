@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw } from 'lucide-react'
 import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -214,6 +214,103 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
 
   const handleUploadComplete = () => {
     router.refresh()
+  }
+
+  // 旋转照片（向左旋转，逆时针）
+  const handleRotateLeft = async (photoId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    await rotatePhoto(photoId, -90)
+  }
+
+  // 旋转照片（向右旋转，顺时针）
+  const handleRotateRight = async (photoId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    await rotatePhoto(photoId, 90)
+  }
+
+  // 旋转照片的核心函数
+  const rotatePhoto = async (photoId: string, angle: number) => {
+    const photo = photos.find(p => p.id === photoId)
+    if (!photo) return
+    
+    // 计算新的旋转角度
+    const currentRotation = (photo as any).rotation ?? 0
+    let nextRotation = (currentRotation + angle) % 360
+    
+    // 确保角度在 0-360 范围内
+    if (nextRotation < 0) {
+      nextRotation += 360
+    }
+    
+    // 标准化为 0, 90, 180, 270
+    nextRotation = Math.round(nextRotation / 90) * 90
+    if (nextRotation === 360) {
+      nextRotation = 0
+    }
+    
+    try {
+      const response = await fetch(`/api/admin/photos/${photoId}/rotate`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotation: nextRotation === 0 ? null : nextRotation }),
+      })
+
+      if (!response.ok) {
+        throw new Error('旋转失败')
+      }
+
+      const finalRotation = nextRotation === 0 ? null : nextRotation
+      
+      // 先更新本地状态为处理中（显示加载动画）
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId 
+            ? { ...p, rotation: finalRotation, status: 'pending' as const } 
+            : p
+        )
+      )
+      
+      // 等待图片处理完成后再更新
+      let attempts = 0
+      const maxAttempts = 30 // 最多等待30秒
+      const checkStatus = async () => {
+        try {
+          const statusRes = await fetch(`/api/admin/albums/${album.id}/photos`)
+          if (statusRes.ok) {
+            const { photos: updatedPhotos } = await statusRes.json()
+            const updatedPhoto = updatedPhotos.find((p: Photo) => p.id === photoId)
+            
+            if (updatedPhoto && updatedPhoto.status === 'completed') {
+              // 图片处理完成，用服务器返回的数据更新本地状态
+              setPhotos((prev) =>
+                prev.map((p) =>
+                  p.id === photoId ? { ...updatedPhoto } : p
+                )
+              )
+              showSuccess(finalRotation === null ? '已重置为自动旋转' : `已旋转 ${finalRotation}°`)
+              return
+            }
+          }
+          
+          attempts++
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, 1000) // 每秒检查一次
+          } else {
+            // 超时后刷新页面
+            router.refresh()
+          }
+        } catch (error) {
+          console.error('Failed to check photo status:', error)
+          setTimeout(() => router.refresh(), 2000)
+        }
+      }
+      
+      // 延迟1秒后开始检查，给处理任务一些启动时间
+      setTimeout(checkStatus, 1000)
+    } catch (error) {
+      console.error(error)
+      handleApiError(error, '旋转失败，请重试')
+    }
   }
 
   // 设置封面
@@ -511,22 +608,40 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
             <div
               key={photo.id}
               onClick={() => {
-                if (isReordering || selectionMode) return
+                if (isReordering) return
+                if (selectionMode) {
+                  // 选择模式下，点击切换选择状态
+                  if (selectedPhotos.has(photo.id)) {
+                    setSelectedPhotos(prev => {
+                      const next = new Set(prev)
+                      next.delete(photo.id)
+                      return next
+                    })
+                  } else {
+                    setSelectedPhotos(prev => new Set(prev).add(photo.id))
+                  }
+                  return
+                }
+                // 普通模式下，打开灯箱
                 const idx = filteredPhotos.findIndex(p => p.id === photo.id)
                 setLightboxIndex(idx)
               }}
               className={cn(
                 'aspect-square bg-surface rounded-lg overflow-hidden relative group transition-all',
                 selectedPhotos.has(photo.id) && 'ring-2 ring-accent',
-                isReordering && 'cursor-default'
+                isReordering && 'cursor-default',
+                selectionMode && 'cursor-pointer'
               )}
             >
               {photo.thumb_key ? (
                 <Image
-                  src={`${mediaUrl}/${photo.thumb_key}`}
+                  src={`${mediaUrl}/${photo.thumb_key}?r=${(photo as any).rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
                   alt=""
                   fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                  priority={index < 6}
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  key={`${photo.id}-${(photo as any).rotation ?? 'auto'}-${photo.updated_at || Date.now()}`}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">
@@ -618,6 +733,26 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 </div>
               )}
 
+              {/* 旋转按钮（图片上方左右各一个） */}
+              {photo.thumb_key && !isReordering && (
+                <div className="absolute top-2 left-0 right-0 z-20 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <button
+                    onClick={(e) => handleRotateLeft(photo.id, e)}
+                    className="bg-black/70 hover:bg-black/90 p-2 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto"
+                    title="向左旋转（逆时针）"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => handleRotateRight(photo.id, e)}
+                    className="bg-black/70 hover:bg-black/90 p-2 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto"
+                    title="向右旋转（顺时针）"
+                  >
+                    <RotateCw className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* 操作按钮 (悬停显示) */}
               {!selectionMode && !isReordering && photo.thumb_key && (
                 <div className="absolute bottom-2 left-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
@@ -645,11 +780,23 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
               {selectionMode && (
                 <div
                   className={cn(
-                    'absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors z-10',
+                    'absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors z-10 cursor-pointer',
                     selectedPhotos.has(photo.id)
                       ? 'bg-accent border-accent'
                       : 'border-white/50 bg-black/30'
                   )}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (selectedPhotos.has(photo.id)) {
+                      setSelectedPhotos(prev => {
+                        const next = new Set(prev)
+                        next.delete(photo.id)
+                        return next
+                      })
+                    } else {
+                      setSelectedPhotos(prev => new Set(prev).add(photo.id))
+                    }
+                  }}
                 >
                   {selectedPhotos.has(photo.id) && (
                     <Check className="w-4 h-4 text-background" />

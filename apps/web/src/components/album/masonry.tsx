@@ -334,7 +334,7 @@ function PhotoCard({
         >
           {photo.thumb_key ? (
             <OptimizedImage
-              src={`${safeMediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`}
+              src={`${safeMediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
               alt={photo.filename || 'Photo'}
               width={layout === 'grid' ? undefined : 400}
               height={layout === 'grid' ? undefined : Math.round(400 * aspectRatio)}

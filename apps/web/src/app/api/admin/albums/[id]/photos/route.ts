@@ -22,6 +22,7 @@ interface PhotoRow {
   status: string
   is_selected: boolean
   sort_order: number
+  rotation: number | null
   created_at: string
   updated_at: string
 }
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         status: photo.status,
         is_selected: photo.is_selected,
         sort_order: photo.sort_order,
+        rotation: photo.rotation,
         created_at: photo.created_at,
         updated_at: photo.updated_at,
         thumbUrl: photo.thumb_key ? `${mediaUrl}/${photo.thumb_key}` : null,

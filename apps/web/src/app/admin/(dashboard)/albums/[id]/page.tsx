@@ -33,13 +33,21 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
     notFound()
   }
 
-  // 获取照片列表，同时统计数量
-  const { data: photos, count: actualPhotoCount } = await supabase
+  // 获取照片列表，同时统计数量（包含 rotation 字段）
+  // 管理后台显示所有状态的照片（包括处理中的），以便管理员查看处理进度
+  const { data: photos } = await supabase
     .from('photos')
-    .select('*', { count: 'exact' })
+    .select('*, rotation')
+    .eq('album_id', id)
+    .in('status', ['pending', 'processing', 'completed'])
+    .order('sort_order', { ascending: true })
+
+  // 统计已完成的照片数量（用于显示）
+  const { count: actualPhotoCount } = await supabase
+    .from('photos')
+    .select('*', { count: 'exact', head: true })
     .eq('album_id', id)
     .eq('status', 'completed')
-    .order('sort_order', { ascending: true })
 
   // 如果实际照片数量与存储的不一致，更新数据库
   const photoCount = actualPhotoCount ?? 0

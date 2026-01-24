@@ -47,14 +47,15 @@ export class PhotoProcessor {
     this.image = sharp(buffer);
   }
 
-  async process(watermarkConfig?: WatermarkConfig): Promise<ProcessedResult> {
-    const metadata = await this.image.metadata();
+  async process(watermarkConfig?: WatermarkConfig, manualRotation?: number | null): Promise<ProcessedResult> {
+    // 先获取原始 metadata（用于提取 EXIF）
+    const originalMetadata = await this.image.metadata();
     
     // 1. 提取 EXIF（剥离敏感信息）
     let exif = {};
-    if (metadata.exif) {
+    if (originalMetadata.exif) {
       try {
-        const rawExif = exifReader(metadata.exif);
+        const rawExif = exifReader(originalMetadata.exif);
         // 剥离 GPS 地理位置信息，防止隐私泄露
         exif = this.sanitizeExif(rawExif);
       } catch (e) {
@@ -62,18 +63,29 @@ export class PhotoProcessor {
       }
     }
 
-    // 2. 生成 BlurHash
-    const blurHash = await this.generateBlurHash();
+    // 应用旋转：如果有手动旋转角度，使用手动角度；否则使用 EXIF orientation 自动旋转
+    let rotatedImage: sharp.Sharp;
+    if (manualRotation !== null && manualRotation !== undefined) {
+      // 手动旋转：先应用 EXIF orientation，再应用手动旋转
+      rotatedImage = this.image.clone().rotate().rotate(manualRotation);
+    } else {
+      // 自动旋转：只根据 EXIF orientation
+      rotatedImage = this.image.clone().rotate();
+    }
+    const metadata = await rotatedImage.metadata();
 
-    // 3. 生成缩略图 (400px)
-    const thumbBuffer = await this.image
+    // 2. 生成 BlurHash（基于旋转后的图片）
+    const blurHash = await this.generateBlurHash(manualRotation);
+
+    // 3. 生成缩略图 (400px) - 自动根据 EXIF orientation 旋转
+    const thumbBuffer = await rotatedImage
       .clone()
       .resize(400, null, { withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toBuffer();
 
-    // 4. 生成预览图 (2560px)
-    let previewPipeline = this.image
+    // 4. 生成预览图 (2560px) - 自动根据 EXIF orientation 旋转
+    let previewPipeline = rotatedImage
       .clone()
       .resize(2560, null, { withoutEnlargement: true });
 
@@ -139,9 +151,9 @@ export class PhotoProcessor {
     const previewBuffer = await previewPipeline
       .jpeg({ quality: 85 })
       .toBuffer();
-
+    
     return {
-      metadata,
+      metadata, // 已经是旋转后的 metadata，包含正确的宽高
       exif,
       blurHash,
       thumbBuffer,
@@ -343,9 +355,17 @@ export class PhotoProcessor {
     return sanitized;
   }
 
-  private async generateBlurHash(): Promise<string> {
-    const { data, info } = await this.image
-      .clone()
+  private async generateBlurHash(manualRotation?: number | null): Promise<string> {
+    let image = this.image.clone();
+    
+    // 应用旋转：如果有手动旋转角度，使用手动角度；否则使用 EXIF orientation 自动旋转
+    if (manualRotation !== null && manualRotation !== undefined) {
+      image = image.rotate().rotate(manualRotation); // 先应用 EXIF，再应用手动旋转
+    } else {
+      image = image.rotate(); // 只应用 EXIF orientation
+    }
+    
+    const { data, info } = await image
       .raw()
       .ensureAlpha()
       .resize(32, 32, { fit: 'inside' })

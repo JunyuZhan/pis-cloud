@@ -133,6 +133,7 @@ export interface Database {
           status: 'pending' | 'processing' | 'completed' | 'failed'
           is_selected: boolean
           sort_order: number
+          rotation: number | null
           created_at: string
           updated_at: string
         }
@@ -153,6 +154,7 @@ export interface Database {
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           is_selected?: boolean
           sort_order?: number
+          rotation?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -173,6 +175,7 @@ export interface Database {
           status?: 'pending' | 'processing' | 'completed' | 'failed'
           is_selected?: boolean
           sort_order?: number
+          rotation?: number | null
           created_at?: string
           updated_at?: string
         }
