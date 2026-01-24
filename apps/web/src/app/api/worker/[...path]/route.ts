@@ -55,7 +55,9 @@ async function proxyRequest(
     const pathSegments = params.path
     
     // 构建目标 URL
-    let targetPath = '/api/' + pathSegments.join('/')
+    // 前端调用 /api/worker/api/multipart/init，pathSegments = ['api', 'multipart', 'init']
+    // 需要转换为 /api/multipart/init
+    let targetPath = '/' + pathSegments.join('/')
     
     // 特殊处理 health 端点
     if (pathSegments[0] === 'health') {
