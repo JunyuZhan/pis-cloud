@@ -6,14 +6,36 @@
  */
 
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Noto_Serif_SC, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt'
 import { ServiceWorkerRegistration } from '@/components/service-worker-registration'
 import { SiteFooter } from '@/components/site-footer'
 
-const inter = Inter({ subsets: ['latin'] })
+// 优化字体加载 - 使用 next/font 自动优化
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  preload: true,
+  variable: '--font-inter',
+})
+
+const notoSerifSC = Noto_Serif_SC({ 
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  display: 'swap',
+  preload: false, // 按需加载
+  variable: '--font-noto-serif-sc',
+})
+
+const playfairDisplay = Playfair_Display({ 
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  display: 'swap',
+  preload: false, // 按需加载
+  variable: '--font-playfair-display',
+})
 
 export const metadata: Metadata = {
   title: 'PIS - 专业级摄影分享',
@@ -52,9 +74,24 @@ export default async function RootLayout({
   // Get locale from cookie (handled by middleware)
   const locale = 'zh-CN' // Default, will be updated by middleware/cookie
   
+  // 获取媒体服务器域名用于预连接
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  const mediaHost = mediaUrl ? new URL(mediaUrl).origin : null
+  
   return (
-    <html lang={locale} className="dark" data-scroll-behavior="smooth">
+    <html lang={locale} className={`dark ${inter.variable} ${notoSerifSC.variable} ${playfairDisplay.variable}`} data-scroll-behavior="smooth">
       <head>
+        {/* 性能优化：DNS 预解析和预连接 */}
+        {mediaHost && (
+          <>
+            <link rel="dns-prefetch" href={mediaHost} />
+            <link rel="preconnect" href={mediaHost} crossOrigin="anonymous" />
+          </>
+        )}
+        {/* 预连接 Google Fonts（next/font 会自动处理，但添加以优化） */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        
         {/* PWA Apple 特定 meta */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

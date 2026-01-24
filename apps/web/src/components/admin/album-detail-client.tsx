@@ -2,15 +2,25 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown } from 'lucide-react'
-import { PhotoUploader } from './photo-uploader'
-import { PhotoLightbox } from '@/components/album/lightbox'
 import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
 import type { Album, Photo } from '@/types/database'
 import { cn } from '@/lib/utils'
+
+// 动态导入大型组件（按需加载，减少初始 bundle）
+const PhotoUploader = dynamic(() => import('./photo-uploader').then(mod => ({ default: mod.PhotoUploader })), {
+  ssr: false,
+  loading: () => <div className="p-4 text-center text-text-muted">加载上传组件...</div>,
+})
+
+const PhotoLightbox = dynamic(() => import('@/components/album/lightbox').then(mod => ({ default: mod.PhotoLightbox })), {
+  ssr: false,
+  loading: () => null,
+})
 
 interface AlbumDetailClientProps {
   album: Album

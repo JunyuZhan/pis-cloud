@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     // 使用时间戳或 Git commit SHA（Vercel 会自动设置）
     return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`
   },
+  // 压缩配置（Next.js 15 默认启用）
+  compress: true,
+  // 优化生产构建
+  productionBrowserSourceMaps: false, // 生产环境不生成 source maps，减少构建时间
+  // 优化图片加载
   images: {
     remotePatterns: [
       {
@@ -29,13 +34,17 @@ const nextConfig: NextConfig = {
       },
     ],
     // 图片优化配置
-    formats: ['image/avif', 'image/webp'],
+    formats: ['image/avif', 'image/webp'], // AVIF 优先（体积最小），WebP 作为后备
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 31536000, // 图片缓存 1 年（图片内容不变）
     // Next.js 16+ 要求：配置允许的 quality 值
-    // 确保包含项目中使用的所有 quality 值 (如 85)
-    qualities: [75, 85, 100],
+    // 确保包含项目中使用的所有 quality 值
+    qualities: [60, 75, 85, 100], // 添加 60 用于低质量占位符
+    // 优化图片加载
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   experimental: {
     serverActions: {
@@ -130,7 +139,79 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // JavaScript 和 CSS 文件缓存优化
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // 字体文件缓存优化
+        source: '/_next/static/media/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
     ]
+  },
+  // Webpack 优化配置
+  webpack: (config, { isServer }) => {
+    // 生产环境优化
+    if (!isServer && process.env.NODE_ENV === 'production') {
+      // 优化代码分割
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+        runtimeChunk: 'single',
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            // 框架代码单独打包
+            framework: {
+              name: 'framework',
+              chunks: 'all',
+              test: /(?<!node_modules.*)[\\/]node_modules[\\/](react|react-dom|scheduler|next)[\\/]/,
+              priority: 40,
+              enforce: true,
+            },
+            // 第三方库单独打包
+            lib: {
+              test: /[\\/]node_modules[\\/]/,
+              name(module: { context: string }) {
+                const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)?.[1]
+                return packageName ? `npm.${packageName.replace('@', '')}` : 'lib'
+              },
+              priority: 30,
+              minChunks: 1,
+              reuseExistingChunk: true,
+            },
+            // 公共代码
+            commons: {
+              name: 'commons',
+              minChunks: 2,
+              priority: 20,
+            },
+            // 共享代码
+            shared: {
+              name: 'shared',
+              minChunks: 2,
+              priority: 10,
+              reuseExistingChunk: true,
+            },
+          },
+        },
+      }
+    }
+    return config
   },
 }
 

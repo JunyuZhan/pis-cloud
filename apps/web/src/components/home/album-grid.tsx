@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { FolderOpen, ImageIcon } from 'lucide-react'
 import { useState } from 'react'
 import type { Album } from '@/types/database'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface AlbumGridProps {
   albums: Album[]
@@ -18,6 +18,8 @@ interface AlbumWithCover extends Album {
 
 function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl: string | null; index: number }) {
   const [imageError, setImageError] = useState(false)
+  // 前 4 个相册使用 priority 加载（首屏可见区域）
+  const isPriority = index < 4
 
   return (
     <motion.div
@@ -33,16 +35,16 @@ function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl
       className="break-inside-avoid mb-1 group cursor-pointer touch-manipulation"
     >
       <Link href={`/album/${album.slug}?from=home`} className="block relative w-full overflow-hidden rounded-md bg-surface active:opacity-90 transition-opacity">
-        {coverUrl && !imageError ? (
+        {coverUrl ? (
           <div className="relative w-full aspect-square overflow-hidden">
-            <Image
+            <OptimizedImage
               src={coverUrl}
               alt={album.title}
               fill
               className="object-cover transition-opacity duration-300 group-hover:opacity-90"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              quality={85}
-              loading="lazy"
+              quality={isPriority ? 85 : 75} // 优先图片质量高，其他降低
+              priority={isPriority}
               onError={() => setImageError(true)}
             />
             {/* 极简hover效果 - 只显示标题 */}

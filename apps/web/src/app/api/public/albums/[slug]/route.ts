@@ -44,13 +44,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // 返回相册信息（不包含密码）
     // 添加缓存头：公开相册缓存5分钟，私有相册不缓存
-    const cacheHeaders = album.is_public
+    const cacheHeaders: Record<string, string> = album.is_public
       ? {
           'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
         }
       : {
           'Cache-Control': 'private, no-cache, no-store, must-revalidate',
         }
+
+    // 添加 ETag 支持（基于相册 ID 和更新时间）
+    const etag = `"${album.id}-${album.expires_at || 'no-expiry'}"`
+    cacheHeaders['ETag'] = etag
+
+    // 检查 If-None-Match 头（客户端缓存验证）
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch === etag) {
+      return new NextResponse(null, { status: 304, headers: cacheHeaders })
+    }
 
     return NextResponse.json(
       {

@@ -1,15 +1,21 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import { Heart, Download, Share2, Expand, Loader2, ImageIcon } from 'lucide-react'
 import type { Photo, Album } from '@/types/database'
 import { cn } from '@/lib/utils'
 import { getBlurDataURL } from '@/lib/blurhash'
 import { handleApiError } from '@/lib/toast'
-import { PhotoLightbox } from './lightbox'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { LayoutMode } from './layout-toggle'
+
+// 动态导入 Lightbox 组件（按需加载，减少初始 bundle）
+const PhotoLightbox = dynamic(() => import('./lightbox').then(mod => ({ default: mod.PhotoLightbox })), {
+  ssr: false,
+  loading: () => null, // Lightbox 打开时才显示，不需要加载状态
+})
 
 interface MasonryGridProps {
   photos: Photo[]
@@ -211,6 +217,10 @@ function PhotoCard({
     ? mediaUrl.replace('http://', 'https://')
     : mediaUrl
 
+  // 前 6 张图片优先加载（首屏可见区域）
+  // 其他图片通过 Intersection Observer 在进入视口时加载
+  const isPriority = index < 6
+
   // 在客户端生成 BlurHash data URL
   useEffect(() => {
     if (photo.blur_data && typeof window !== 'undefined') {
@@ -291,21 +301,25 @@ function PhotoCard({
           )}
           onClick={onClick}
         >
-          {photo.thumb_key && !imageError ? (
-            <Image
+          {photo.thumb_key ? (
+            <OptimizedImage
               src={`${safeMediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`}
               alt={photo.filename || 'Photo'}
-              width={400}
-              height={Math.round(400 * aspectRatio)}
+              width={layout === 'grid' ? undefined : 400}
+              height={layout === 'grid' ? undefined : Math.round(400 * aspectRatio)}
+              fill={layout === 'grid'}
               className={cn(
                 "w-full transition-transform duration-500 group-hover:scale-105",
                 layout === 'grid' ? "h-full object-cover" : "h-auto"
               )}
-              quality={85}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              loading="lazy"
-              placeholder={blurDataURL ? "blur" : "empty"}
+              quality={isPriority ? 85 : 75} // 优先图片质量高，其他降低质量
+              sizes={layout === 'grid' 
+                ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              }
+              priority={isPriority}
               blurDataURL={blurDataURL}
+              aspectRatio={layout !== 'grid' ? aspectRatio : undefined}
               onError={() => setImageError(true)}
             />
           ) : (

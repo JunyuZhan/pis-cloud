@@ -29,8 +29,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ['Noto Serif SC', 'Playfair Display', 'serif'],
-        sans: ['Inter', 'SF Pro', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-noto-serif-sc)', 'var(--font-playfair-display)', 'serif'],
+        sans: ['var(--font-inter)', 'SF Pro', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
