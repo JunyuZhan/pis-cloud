@@ -288,6 +288,7 @@ function PhotoCard({
               )}
               loading="lazy"
               unoptimized={true}
+            />
           ) : (
             <div
               className="w-full bg-surface"
