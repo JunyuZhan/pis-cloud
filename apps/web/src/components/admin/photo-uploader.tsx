@@ -2,13 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Pause, Play } from 'lucide-react'
 import { cn, formatFileSize } from '@/lib/utils'
 
 // 上传配置
-// 注意: Vercel 免费版限制请求体 4.5MB
-// 大文件使用 presigned URL 直接上传到 MinIO，绕过 Vercel 限制
-const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上使用 presigned URL 直接上传
+const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker
+const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 const MAX_RETRIES = 3 // 上传最多重试 3 次
 
 // 格式化网速
@@ -29,12 +28,14 @@ interface PhotoUploaderProps {
 interface UploadFile {
   id: string
   file: File
-  status: 'pending' | 'uploading' | 'completed' | 'failed'
+  status: 'pending' | 'uploading' | 'paused' | 'completed' | 'failed'
   progress: number
   speed?: number // bytes per second
   error?: string
   originalKey?: string
   photoId?: string
+  uploadUrl?: string
+  respAlbumId?: string
 }
 
 export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
@@ -42,6 +43,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
   const [files, setFiles] = useState<UploadFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const completedTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  const xhrMapRef = useRef<Map<string, XMLHttpRequest>>(new Map())
+  const uploadQueueRef = useRef<string[]>([]) // 等待上传的文件 ID 队列
+  const isProcessingQueueRef = useRef(false)
 
   // 自动移除已完成的上传项（延迟2秒后移除，让用户看到成功反馈）
   useEffect(() => {
@@ -73,6 +77,30 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     }
   }, [])
 
+  // 处理上传队列
+  const processQueue = useCallback(() => {
+    if (isProcessingQueueRef.current) return
+    isProcessingQueueRef.current = true
+
+    setFiles(currentFiles => {
+      const uploadingCount = currentFiles.filter(f => f.status === 'uploading').length
+      const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount
+
+      if (availableSlots > 0 && uploadQueueRef.current.length > 0) {
+        const toStart = uploadQueueRef.current.splice(0, availableSlots)
+        toStart.forEach(fileId => {
+          const file = currentFiles.find(f => f.id === fileId)
+          if (file && file.status === 'pending') {
+            uploadSingleFile(file)
+          }
+        })
+      }
+
+      isProcessingQueueRef.current = false
+      return currentFiles
+    })
+  }, [])
+
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)
     const validFiles = fileArray.filter((file) => {
@@ -90,13 +118,13 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       progress: 0,
     }))
 
+    // 将新文件加入队列
+    uploadQueueRef.current.push(...uploadFiles.map(f => f.id))
     setFiles((prev) => [...prev, ...uploadFiles])
 
-    // 开始上传
-    uploadFiles.forEach((uploadFile) => {
-      uploadSingleFile(uploadFile)
-    })
-  }, [albumId])
+    // 开始处理队列
+    setTimeout(processQueue, 0)
+  }, [processQueue])
 
   // 获取 Worker API URL (使用代理路由)
   const getWorkerUrl = () => '/api/worker'
@@ -108,13 +136,12 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     originalKey: string,
     respAlbumId: string
   ) => {
-    // 直接上传到 Worker 的 /api/upload 端点
-    // Worker 会将文件转存到 MinIO
     let lastLoaded = 0
     let lastTime = Date.now()
 
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
+      xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
       
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -141,6 +168,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       xhr.onload = () => {
+        xhrMapRef.current.delete(uploadFile.id)
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve()
         } else {
@@ -149,11 +177,20 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       xhr.onerror = () => {
+        xhrMapRef.current.delete(uploadFile.id)
         reject(new Error('网络错误，请检查 Worker 服务'))
       }
-      xhr.ontimeout = () => reject(new Error('上传超时，请重试'))
+      
+      xhr.onabort = () => {
+        xhrMapRef.current.delete(uploadFile.id)
+        // 暂停时不 reject，让 promise 保持 pending
+      }
+      
+      xhr.ontimeout = () => {
+        xhrMapRef.current.delete(uploadFile.id)
+        reject(new Error('上传超时，请重试'))
+      }
 
-      // 直接使用公网 Worker URL 上传（绕过 Vercel 代理的大小限制）
       const workerDirectUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://worker.albertzhan.top'
       xhr.open('PUT', `${workerDirectUrl}/api/upload?key=${encodeURIComponent(originalKey)}`)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
@@ -181,6 +218,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
+      xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
       
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -207,6 +245,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       xhr.onload = () => {
+        xhrMapRef.current.delete(uploadFile.id)
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve()
         } else {
@@ -215,9 +254,19 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       xhr.onerror = () => {
-        reject(new Error('网络错误，请检查网络连接或 Worker 服务状态'))
+        xhrMapRef.current.delete(uploadFile.id)
+        reject(new Error('网络错误，请检查网络连接'))
       }
-      xhr.ontimeout = () => reject(new Error('上传超时，请重试'))
+      
+      xhr.onabort = () => {
+        xhrMapRef.current.delete(uploadFile.id)
+        // 暂停时不 reject
+      }
+      
+      xhr.ontimeout = () => {
+        xhrMapRef.current.delete(uploadFile.id)
+        reject(new Error('上传超时，请重试'))
+      }
 
       xhr.open('PUT', uploadUrl)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
@@ -230,6 +279,26 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
     })
+  }
+
+  // 暂停上传
+  const pauseUpload = (fileId: string) => {
+    const xhr = xhrMapRef.current.get(fileId)
+    if (xhr) {
+      xhr.abort()
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+      ))
+    }
+  }
+
+  // 恢复上传（重新开始）
+  const resumeUpload = (file: UploadFile) => {
+    setFiles(prev => prev.map(f => 
+      f.id === file.id ? { ...f, status: 'pending' as const, progress: 0 } : f
+    ))
+    uploadQueueRef.current.unshift(file.id) // 加到队列最前面
+    setTimeout(processQueue, 0)
   }
 
   const uploadSingleFile = async (uploadFile: UploadFile) => {
@@ -279,6 +348,12 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 刷新页面数据
       router.refresh()
     } catch (err) {
+      // 检查是否是暂停导致的中断
+      const currentFile = files.find(f => f.id === uploadFile.id)
+      if (currentFile?.status === 'paused') {
+        return // 暂停状态，不标记为失败
+      }
+      
       // 更新状态为失败
       setFiles((prev) =>
         prev.map((f) =>
@@ -291,6 +366,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
             : f
         )
       )
+    } finally {
+      // 上传完成（无论成功失败），处理队列中的下一个文件
+      setTimeout(processQueue, 100)
     }
   }
 
@@ -333,6 +411,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
   const completedCount = files.filter((f) => f.status === 'completed').length
   const uploadingCount = files.filter((f) => f.status === 'uploading').length
+  const pausedCount = files.filter((f) => f.status === 'paused').length
+  const pendingCount = files.filter((f) => f.status === 'pending').length
 
   return (
     <div className="space-y-4">
@@ -373,7 +453,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-text-secondary">
               {uploadingCount > 0
-                ? `正在上传 ${uploadingCount} 个文件...`
+                ? `正在上传 ${uploadingCount}/${MAX_CONCURRENT_UPLOADS}${pendingCount > 0 ? `，等待 ${pendingCount}` : ''}${pausedCount > 0 ? `，暂停 ${pausedCount}` : ''}`
+                : pausedCount > 0
+                ? `已暂停 ${pausedCount} 个，已完成 ${completedCount}/${files.length}`
                 : `已完成 ${completedCount}/${files.length}`}
             </span>
             {completedCount === files.length && files.length > 0 && (
@@ -396,6 +478,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                 <div className="shrink-0">
                   {file.status === 'uploading' && (
                     <Loader2 className="w-5 h-5 text-accent animate-spin" />
+                  )}
+                  {file.status === 'paused' && (
+                    <Pause className="w-5 h-5 text-yellow-400" />
                   )}
                   {file.status === 'completed' && (
                     <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -421,10 +506,17 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                       </div>
                     )}
                   </div>
-                  {file.status === 'uploading' ? (
-                    <div className="w-full h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+                  {file.status === 'uploading' || file.status === 'paused' ? (
+                    <div 
+                      className="w-full h-1.5 bg-surface-elevated rounded-full overflow-hidden cursor-pointer group/progress"
+                      onClick={() => file.status === 'uploading' ? pauseUpload(file.id) : resumeUpload(file)}
+                      title={file.status === 'uploading' ? '点击暂停' : '点击继续'}
+                    >
                       <div 
-                        className="h-full bg-accent transition-all duration-300 ease-out"
+                        className={cn(
+                          "h-full transition-all duration-300 ease-out",
+                          file.status === 'paused' ? 'bg-yellow-400' : 'bg-accent'
+                        )}
                         style={{ width: `${file.progress}%` }}
                       />
                     </div>
@@ -440,6 +532,25 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
                 {/* 操作按钮 */}
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* 暂停/继续按钮 */}
+                  {file.status === 'uploading' && (
+                    <button
+                      onClick={() => pauseUpload(file.id)}
+                      className="p-1 text-yellow-400 hover:text-yellow-300"
+                      title="暂停"
+                    >
+                      <Pause className="w-4 h-4" />
+                    </button>
+                  )}
+                  {file.status === 'paused' && (
+                    <button
+                      onClick={() => resumeUpload(file)}
+                      className="p-1 text-green-400 hover:text-green-300"
+                      title="继续"
+                    >
+                      <Play className="w-4 h-4" />
+                    </button>
+                  )}
                   {/* 重试按钮 */}
                   {file.status === 'failed' && (
                     <button
