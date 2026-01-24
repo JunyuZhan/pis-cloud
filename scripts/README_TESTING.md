@@ -65,7 +65,7 @@
 
 ```bash
 # 设置测试环境URL
-export PIS_BASE_URL=https://pic.albertzhan.top
+export PIS_BASE_URL=https://yourdomain.com
 
 # 运行测试
 ./scripts/test-system.sh
@@ -73,13 +73,21 @@ export PIS_BASE_URL=https://pic.albertzhan.top
 
 ## 测试报告
 
-测试报告会自动生成到 `docs/TEST_REPORT.md`
+测试报告会在终端输出，也可以重定向到文件保存：
+```bash
+./scripts/run-all-tests.sh > test-report.txt
+```
 
 ## 测试结果
 
-最新测试结果（2026-01-24）：
-- ✅ 总测试数: 26
-- ✅ 通过: 24
-- ❌ 失败: 0
-- ⏭️ 跳过: 2
-- 📊 通过率: 92.3%
+运行测试脚本查看最新测试结果：
+
+```bash
+./scripts/run-all-tests.sh
+```
+
+## 注意事项
+
+- 所有测试脚本都使用环境变量配置，不会硬编码敏感信息
+- 测试脚本中的默认值（如 `test-password-123`）仅用于测试环境
+- 生产环境请使用强密码和安全的配置

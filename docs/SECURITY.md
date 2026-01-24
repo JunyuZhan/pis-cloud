@@ -234,24 +234,160 @@ server {
 
 ## 🛡️ 安全检查清单
 
-### 部署前检查
+### 🔐 环境变量安全
 
-- [ ] HTTPS 已配置并测试
-- [ ] CORS 配置正确（不是 `*`）
-- [ ] 环境变量已设置且足够复杂
-- [ ] Nginx 速率限制已配置
-- [ ] 数据库 RLS 策略已启用
-- [ ] 密码使用 bcrypt 加密（新相册）
+**必须配置**:
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` - 已设置为强密码（至少 32 位随机字符串）
+- [ ] `MINIO_SECRET_KEY` - 已设置为强密码（至少 32 位随机字符串）
+- [ ] `MINIO_ACCESS_KEY` - 已设置为强密码
+- [ ] `.env` 文件已添加到 `.gitignore`
+- [ ] 生产环境使用密钥管理服务（如 AWS Secrets Manager）
+
+**检查命令**:
+```bash
+# 检查环境变量是否泄露
+grep -r "SUPABASE_SERVICE_ROLE_KEY\|MINIO_SECRET_KEY" .git/
+# 应该没有输出
+```
+
+### 🔒 HTTPS 配置
+
+**Nginx 配置**:
+- [ ] SSL 证书已配置
+- [ ] 强制 HTTPS 重定向
+- [ ] TLS 版本 >= 1.2
+- [ ] 禁用不安全的加密套件
+
+**检查项**:
+```nginx
+# 必须配置
+listen 443 ssl http2;
+ssl_certificate /path/to/cert.pem;
+ssl_certificate_key /path/to/key.pem;
+ssl_protocols TLSv1.2 TLSv1.3;
+
+# 必须重定向 HTTP 到 HTTPS
+server {
+    listen 80;
+    return 301 https://$host$request_uri;
+}
+```
+
+### 🛡️ CORS 配置
+
+**Next.js 配置**:
+- [ ] `Access-Control-Allow-Origin` 不是 `*`
+- [ ] 限制为你的域名
+
+**检查项** (`next.config.ts`):
+```typescript
+headers: [
+  {
+    key: 'Access-Control-Allow-Origin',
+    value: 'https://yourdomain.com', // 不是 '*'
+  },
+]
+```
+
+**MinIO CORS 配置**:
+- [ ] CORS 规则已设置
+- [ ] 只允许你的域名
+
+### ⚡ 速率限制
+
+**Nginx 层限制**:
+- [ ] 上传接口速率限制（建议：10 次/分钟）
+- [ ] API 接口速率限制（建议：60 次/分钟）
+- [ ] 全局速率限制（建议：100 次/分钟）
+
+**应用层限制**:
+- [x] 上传 API 已启用速率限制（✅ 已实现：20 次/分钟）
+- [ ] 其他敏感 API 已启用速率限制
+
+### 🔍 EXIF 隐私保护
+
+- [ ] Worker 已更新到最新版本（包含 EXIF 清理功能）
+- [ ] 测试上传照片，确认 GPS 信息已被移除
+
+**测试方法**:
+1. 上传一张包含 GPS 信息的照片
+2. 检查数据库中的 `exif` 字段
+3. 确认没有 `gps`、`GPSInfo` 等字段
+
+### 🗄️ 数据库安全
+
+**RLS 策略**:
+- [ ] 所有表已启用 RLS
+- [ ] RLS 策略已测试
+- [ ] 匿名用户权限已限制
+
+**检查命令** (Supabase SQL Editor):
+```sql
+-- 检查所有表的 RLS 状态
+SELECT tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'public';
+
+-- 应该所有表都是 true
+```
+
+**密码存储**:
+- [x] 密码字段已添加（✅ 已实现）
+- [x] 密码验证 API 已实现（✅ 已实现）
+- [ ] 建议：使用 bcrypt 加密存储（可选，当前支持明文向后兼容）
+
+### 📁 文件存储安全
+
+**MinIO 配置**:
 - [ ] MinIO 访问密钥已更换
-- [ ] Supabase Service Role Key 已保护
+- [ ] MinIO 使用 HTTPS
+- [ ] Bucket 策略已配置
+- [ ] 定期备份策略已设置
 
-### 运行时监控
+### 🔐 访问控制
 
-- [ ] 监控异常上传行为
-- [ ] 监控 API 错误率
-- [ ] 监控磁盘使用情况
-- [ ] 监控 Worker 队列积压
-- [ ] 定期检查日志中的安全事件
+**相册访问**:
+- [ ] 密码保护功能已测试
+- [ ] 过期时间功能已测试
+- [ ] 软删除功能已测试
+
+**管理员权限**:
+- [ ] 只有认证用户才能访问管理后台
+- [ ] Service Role Key 未泄露
+- [ ] 管理员账户使用强密码
+
+### 📊 监控和日志
+
+**日志配置**:
+- [ ] API 错误日志已配置
+- [ ] Worker 处理日志已配置
+- [ ] 异常行为监控已设置
+
+**监控指标**:
+- [ ] 磁盘使用率监控
+- [ ] API 响应时间监控
+- [ ] 错误率监控
+- [ ] 异常上传行为告警
+
+### 🚨 应急响应
+
+**安全事件处理**:
+- [ ] 安全事件响应流程已制定
+- [ ] 密钥泄露处理流程已制定
+- [ ] 数据泄露处理流程已制定
+
+### ✅ 部署前最终检查
+
+1. [ ] 所有环境变量已设置
+2. [ ] HTTPS 已配置并测试
+3. [ ] CORS 配置正确
+4. [ ] 速率限制已配置
+5. [ ] 数据库迁移已执行
+6. [ ] RLS 策略已启用
+7. [ ] 密码功能已测试
+8. [ ] EXIF 清理功能已测试
+9. [ ] 监控和日志已配置
+10. [ ] 备份策略已设置
 
 ---
 
@@ -327,3 +463,178 @@ server {
 ---
 
 **最后更新**: 2026-01-24
+
+---
+
+## 📋 开源前安全检查清单
+
+在公开 GitHub 仓库之前，请完成以下检查：
+
+### 1. 敏感文件检查
+
+确认以下文件**未被 Git 跟踪**：
+
+```bash
+# 检查是否有敏感文件被 Git 跟踪
+git ls-files | grep -E "\.env$|\.env\.local$|\.key$|\.pem$"
+```
+
+**预期结果：** 应该没有输出，表示这些文件未被跟踪。
+
+**需要排除的文件：**
+- ✅ `.env.local` - 应在 `.gitignore` 中
+- ✅ `services/worker/.env` - 应在 `.gitignore` 中
+- ✅ 所有密钥文件（`.key`, `.pem`, `.p12`）
+- ✅ SSH 密钥文件
+
+### 2. Git 历史检查
+
+检查 Git 历史中是否有敏感文件：
+
+```bash
+# 检查 Git 历史中是否有敏感文件
+git log --all --full-history --source -- .env.local services/worker/.env .env
+```
+
+**预期结果：** 应该没有输出，表示历史记录干净。
+
+**如果发现敏感文件在历史中：**
+
+```bash
+# 使用 git-filter-repo（推荐）
+pip install git-filter-repo
+git filter-repo --path .env.local --path services/worker/.env --invert-paths
+
+# ⚠️ 警告：这会重写 Git 历史，如果已推送到远程，需要强制推送
+git push origin --force --all
+```
+
+### 3. 硬编码密钥检查
+
+检查代码中是否有硬编码的密钥：
+
+```bash
+# 检查 JWT tokens
+grep -r "eyJ[A-Za-z0-9_-]\{50,\}" --exclude-dir=node_modules --exclude-dir=.git .
+
+# 检查 AWS keys
+grep -r "AKIA[0-9A-Z]\{16\}" --exclude-dir=node_modules --exclude-dir=.git .
+
+# 检查其他常见密钥格式
+grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git .
+```
+
+**预期结果：** 应该没有输出，或只有 `.env.example` 中的占位符。
+
+### 4. 环境变量示例文件检查
+
+确认 `.env.example` 只包含占位符：
+
+```bash
+# 检查 .env.example 文件
+cat .env.example | grep -E "(your-|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.)"
+```
+
+**预期结果：** 所有值都应该是占位符（`your-...`, `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`）
+
+### 5. .gitignore 配置检查
+
+确认 `.gitignore` 包含以下规则：
+
+```gitignore
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Keys and certificates
+*.key
+*.pem
+*.p12
+*.p8
+id_rsa
+id_rsa.pub
+```
+
+### 🔍 自动化安全检查
+
+使用项目提供的安全检查脚本：
+
+```bash
+# 运行安全检查
+bash scripts/check-security.sh
+```
+
+脚本会检查：
+1. 敏感文件是否被 Git 跟踪
+2. Git 历史中是否有敏感文件
+3. 是否有硬编码的 JWT tokens
+4. 是否有 AWS Access Keys
+5. 是否有硬编码的密码
+6. `.env.example` 是否只包含占位符
+7. `.gitignore` 是否正确配置
+
+**预期输出：**
+```
+✅ 安全检查通过！可以安全地公开仓库。
+```
+
+### ⚠️ 如果密钥已泄露
+
+如果发现密钥已经被提交到公开仓库：
+
+1. **立即撤销所有密钥**
+   - **Supabase**: 登录 Dashboard → Settings → API → 重新生成 Service Role Key
+   - **Vercel**: 登录 Dashboard → Settings → Tokens → 删除泄露的 token → 生成新的 token
+   - **OSS/COS/S3**: 登录控制台 → 重新生成所有 Access Key
+
+2. **从 Git 历史中删除**
+   ```bash
+   # 使用 git-filter-repo
+   pip install git-filter-repo
+   git filter-repo --path .env.local --path services/worker/.env --invert-paths
+   git push origin --force --all
+   ```
+
+3. **更新本地配置**
+   更新所有 `.env` 文件中的密钥。
+
+### 📋 公开仓库前的最终检查清单
+
+- [ ] 确认 `.env.local` 未被 Git 跟踪
+- [ ] 确认 `services/worker/.env` 未被 Git 跟踪
+- [ ] 确认 Git 历史中没有敏感文件
+- [ ] 确认代码中没有硬编码的密钥
+- [ ] 确认 `.env.example` 只包含占位符
+- [ ] 确认文档中的示例都是占位符
+- [ ] 确认 `.gitignore` 正确配置
+- [ ] 已运行 `scripts/check-security.sh` 并通过
+- [ ] 如果密钥已泄露，已重新生成所有密钥
+- [ ] 已测试使用 `.env.example` 可以正常配置项目
+
+### 🚀 公开仓库步骤
+
+1. **运行安全检查**
+   ```bash
+   bash scripts/check-security.sh
+   ```
+
+2. **确认检查通过**
+   - 应该看到 "✅ 安全检查通过！可以安全地公开仓库。"
+
+3. **提交代码**
+   ```bash
+   git add .
+   git commit -m "chore: prepare for open source release"
+   ```
+
+4. **推送到 GitHub**
+   ```bash
+   git push origin main
+   ```
+
+5. **在 GitHub 上设置为公开**
+   - Settings → Change repository visibility → Make public
+
+---

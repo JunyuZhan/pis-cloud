@@ -1,3 +1,10 @@
+/**
+ * PIS Photo Processor - Image Processing with Sharp
+ * 
+ * @author junyuzhan <junyuzhan@outlook.com>
+ * @license MIT
+ */
+
 import sharp from 'sharp';
 import { encode } from 'blurhash';
 import exifReader from 'exif-reader';

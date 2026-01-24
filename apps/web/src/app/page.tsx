@@ -1,5 +1,6 @@
 import { Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getTranslations } from 'next-intl/server'
 import { HomeHeader } from '@/components/home/header'
 import { HomeHero } from '@/components/home/home-hero'
 import { AlbumGrid } from '@/components/home/album-grid'
@@ -15,6 +16,7 @@ type Photo = Database['public']['Tables']['photos']['Row']
 export const revalidate = 60 // ISR: 60秒重新验证
 
 export default async function HomePage() {
+  const t = await getTranslations('home')
   const supabase = await createClient()
 
   // 获取公开相册列表
@@ -163,7 +165,7 @@ export default async function HomePage() {
             {/* 极简标题 */}
             <div className="mb-4 sm:mb-6 text-center">
               <h2 className="text-sm sm:text-base md:text-lg font-medium text-text-secondary">
-                作品集
+                {t('works')}
               </h2>
             </div>
 
@@ -176,7 +178,7 @@ export default async function HomePage() {
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <p className="text-text-secondary text-lg">
-              查看更多精彩作品即将上线
+              {t('moreComing')}
             </p>
           </div>
         </section>
@@ -185,9 +187,9 @@ export default async function HomePage() {
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <Camera className="w-16 h-16 text-text-muted mx-auto mb-4" />
-            <h2 className="text-xl font-medium mb-2">暂无公开相册</h2>
+            <h2 className="text-xl font-medium mb-2">{t('noAlbums')}</h2>
             <p className="text-text-secondary">
-              管理员还没有公开任何相册
+              {t('noAlbumsDesc')}
             </p>
           </div>
         </section>

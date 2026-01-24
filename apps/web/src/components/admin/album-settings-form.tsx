@@ -20,11 +20,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   // 解析水印配置（兼容旧格式和新格式）
   const parseWatermarkConfig = (config: any) => {
     if (!config) {
+      const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
       return {
         watermarks: [{
           id: 'watermark-1',
           type: 'text' as const,
-          text: '© PIS Photography',
+          text: `© ${photographerName}`,
           opacity: 0.5,
           position: 'center',
           enabled: true,

@@ -5,7 +5,7 @@
 # 用途: 更新 FRP 配置，将 PIS MinIO 端口改为 19000
 # ============================================
 
-SSH_HOST=${1:-"192.168.50.10"}
+SSH_HOST=${1:-"your-server-ip"}
 SSH_USER=${SSH_USER:-"root"}
 
 echo "🔧 FRP 配置更新脚本"
@@ -119,6 +119,6 @@ echo "===================="
 echo -e "${GREEN}配置更新完成！${NC}"
 echo ""
 echo "💡 下一步:"
-echo "  1. 验证外部访问: curl https://media.albertzhan.top/minio/health/live"
-echo "  2. 检查 Vercel 环境变量: NEXT_PUBLIC_MEDIA_URL=https://media.albertzhan.top/pis-photos"
+echo "  1. 验证外部访问: curl \${NEXT_PUBLIC_MEDIA_URL:-https://media.example.com}/minio/health/live"
+echo "  2. 检查 Vercel 环境变量: NEXT_PUBLIC_MEDIA_URL=\${NEXT_PUBLIC_MEDIA_URL:-https://media.example.com}/pis-photos"
 echo "  3. 测试前端图片加载"

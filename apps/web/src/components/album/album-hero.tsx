@@ -16,12 +16,47 @@ interface AlbumHeroProps {
 export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
+  // 确保正确读取初始浏览次数
+  const initialViewCount = (album as any).view_count ?? (album as any).viewCount ?? 0
+  const [viewCount, setViewCount] = useState(initialViewCount)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
 
   // 确保只在客户端挂载后显示返回按钮，避免 hydration 错误
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // 增加浏览次数（每次页面加载都计数）
+  useEffect(() => {
+    if (!mounted) return
+
+    // 调用API增加浏览次数（每次访问都计数，不限制）
+    fetch(`/api/public/albums/${album.slug}/view`, {
+      method: 'POST',
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data) => {
+        // 使用API返回的实际值更新UI
+        if (typeof data.view_count === 'number') {
+          setViewCount(data.view_count)
+        } else if (data.success) {
+          // 如果成功但没有返回 view_count，乐观更新
+          setViewCount((prev: number) => prev + 1)
+        } else {
+          console.warn('View count API failed:', data)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to increment view count:', err)
+        // API 失败时乐观更新
+        setViewCount((prev: number) => prev + 1)
+      })
+  }, [album.id, album.slug, mounted])
 
   // 获取封面图 URL
   const coverUrl = coverPhoto?.preview_key 
@@ -32,31 +67,33 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
 
   // 格式化日期 - 使用固定格式避免 hydration 不匹配
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return ''
     const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return ''
     const year = date.getFullYear()
     const month = date.getMonth() + 1
     const day = date.getDate()
-    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
-    return `${year}年${monthNames[month - 1]}${day}日`
+    if (month < 1 || month > 12) return ''
+    return `${year}年${month}月${day}日`
   }
 
   // 格式化日期时间（用于活动时间）- 使用固定格式避免 hydration 不匹配
   const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return ''
     const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return ''
     const year = date.getFullYear()
     const month = date.getMonth() + 1
     const day = date.getDate()
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
-    return `${year}年${monthNames[month - 1]}${day}日 ${hours}:${minutes}`
+    // const hours = String(date.getHours()).padStart(2, '0')
+    // const minutes = String(date.getMinutes()).padStart(2, '0')
+    if (month < 1 || month > 12) return ''
+    // 简化为仅日期，避免时区导致的 hydration 问题
+    return `${year}年${month}月${day}日` 
   }
 
   const eventDate = (album as any).event_date
   const location = (album as any).location
-
-  // 使用固定值避免 hydration 不匹配，后续可替换为真实数据
-  const viewCount = (album as any).view_count || 0
   const selectedCount = (album as any).selected_count || 0
 
   return (
@@ -81,22 +118,22 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
 
-      {/* 返回首页按钮 - 只在客户端挂载后显示，避免 hydration 错误 */}
-      {mounted && from === 'home' && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="absolute top-4 left-4 z-20"
-        >
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-4 py-2 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full text-white/90 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">返回首页</span>
-          </Link>
-        </motion.div>
-      )}
+            {/* 返回首页按钮 */}
+            {from === 'home' && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="absolute top-4 left-4 z-20"
+              >
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 px-4 py-2 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full text-white/90 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm font-medium">返回首页</span>
+                </Link>
+              </motion.div>
+            )}
 
       {/* 内容区域 */}
       <div className="absolute inset-0 flex flex-col justify-end">
@@ -157,17 +194,16 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
             className="flex flex-wrap items-center gap-4 md:gap-6 text-white/80"
           >
             {/* 活动时间（优先显示，如果没有则显示创建时间） */}
-            {eventDate ? (
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">{formatDateTime(eventDate)}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">{formatDate(album.created_at)}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {/* 使用 suppressHydrationWarning 忽略服务端和客户端的时间格式差异 */}
+              <span className="text-sm" suppressHydrationWarning>
+                {mounted 
+                  ? (eventDate ? formatDateTime(eventDate) : formatDate(album.created_at))
+                  : (eventDate ? formatDateTime(eventDate) : formatDate(album.created_at)) // 保持初始渲染内容一致
+                }
+              </span>
+            </div>
 
             {/* 活动地点 */}
             {location && (

@@ -6,6 +6,7 @@ import { Grid, LayoutGrid, ArrowUpDown, Filter, Heart, ArrowLeft } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'
+import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import type { Album } from '@/types/database'
 
 interface AlbumStickyNavProps {
@@ -90,6 +91,7 @@ export function AlbumStickyNav({
 
                 {/* 桌面端直接显示 */}
                 <div className="hidden md:flex items-center gap-2">
+                  <LanguageSwitcher />
                   <LayoutToggle currentLayout={currentLayout} />
                   <SortToggle currentSort={currentSort} />
                 </div>
@@ -106,6 +108,7 @@ export function AlbumStickyNav({
                   className="md:hidden overflow-hidden border-t border-border"
                 >
                   <div className="flex items-center justify-center gap-4 py-3">
+                    <LanguageSwitcher />
                     <LayoutToggle currentLayout={currentLayout} />
                     <SortToggle currentSort={currentSort} />
                   </div>

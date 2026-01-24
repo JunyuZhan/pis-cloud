@@ -7,7 +7,7 @@
 
 set -e
 
-SSH_HOST=${1:-"192.168.50.10"}
+SSH_HOST=${1:-"your-server-ip"}
 SSH_USER=${SSH_USER:-"root"}
 
 echo "🚀 PIS 独立部署脚本"

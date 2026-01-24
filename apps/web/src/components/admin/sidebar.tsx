@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Camera, Images, Settings, LogOut, Home } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import { cn } from '@/lib/utils'
 import type { User } from '@supabase/supabase-js'
 
@@ -84,6 +85,13 @@ export function SidebarContent({ user }: { user: User }) {
           )
         })}
       </nav>
+
+      {/* 语言切换器 */}
+      <div className="px-4 py-2 border-t border-border">
+        <div className="flex justify-center">
+          <LanguageSwitcher />
+        </div>
+      </div>
 
       {/* 用户信息 */}
       <div className="p-4 border-t border-border">

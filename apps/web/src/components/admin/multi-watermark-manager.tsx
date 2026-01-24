@@ -39,10 +39,11 @@ export function MultiWatermarkManager({ watermarks, onChange }: MultiWatermarkMa
       return
     }
 
+    const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
     const newWatermark: WatermarkItem = {
       id: `watermark-${Date.now()}`,
       type: 'text',
-      text: '© PIS Photography',
+      text: `© ${photographerName}`,
       opacity: 0.5,
       position: 'center',
       enabled: true,

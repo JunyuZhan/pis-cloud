@@ -1,16 +1,24 @@
 import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
+
+const withNextIntl = createNextIntlPlugin()
 
 const nextConfig: NextConfig = {
+  // 生成唯一的构建 ID，用于缓存破坏
+  generateBuildId: async () => {
+    // 使用时间戳或 Git commit SHA（Vercel 会自动设置）
+    return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`
+  },
   images: {
     remotePatterns: [
       {
         protocol: 'http',
-        hostname: 'media.albertzhan.top',
+        hostname: 'media.example.com',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'media.albertzhan.top',
+        hostname: 'media.example.com',
         pathname: '/**',
       },
       {
@@ -25,6 +33,9 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60,
+    // Next.js 16+ 要求：配置允许的 quality 值
+    // 确保包含项目中使用的所有 quality 值 (如 85)
+    qualities: [75, 85, 100],
   },
   experimental: {
     serverActions: {
@@ -98,11 +109,14 @@ const nextConfig: NextConfig = {
       },
       {
         // 静态资源缓存优化
+        // 注意：icon.svg 使用较短的缓存时间，方便更新 logo
         source: '/icons/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: process.env.NODE_ENV === 'production' 
+              ? 'public, max-age=86400, must-revalidate' // 生产环境：1天，允许重新验证
+              : 'public, max-age=0, must-revalidate', // 开发环境：不缓存，确保更新立即生效
           },
         ],
       },
@@ -120,8 +134,6 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
-// trigger deploy Thu Jan 22 23:17:45 CST 2026
-//junyuzhan
+export default withNextIntl(nextConfig)
 
 

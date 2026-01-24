@@ -1,3 +1,10 @@
+/**
+ * PIS Web Application - Root Layout
+ * 
+ * @author junyuzhan <junyuzhan@outlook.com>
+ * @license MIT
+ */
+
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -37,13 +44,16 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Get locale from cookie (handled by middleware)
+  const locale = 'zh-CN' // Default, will be updated by middleware/cookie
+  
   return (
-    <html lang="zh-CN" className="dark">
+    <html lang={locale} className="dark" data-scroll-behavior="smooth">
       <head>
         {/* PWA Apple 特定 meta */}
         <meta name="apple-mobile-web-app-capable" content="yes" />

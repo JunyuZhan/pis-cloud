@@ -1,6 +1,7 @@
 'use client'
 
 import { Camera, Heart } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Album } from '@/types/database'
 
 interface AlbumFooterProps {
@@ -8,6 +9,7 @@ interface AlbumFooterProps {
 }
 
 export function AlbumFooter({ album }: AlbumFooterProps) {
+  const t = useTranslations('footer')
   const currentYear = new Date().getFullYear()
 
   return (
@@ -22,13 +24,13 @@ export function AlbumFooter({ album }: AlbumFooterProps) {
             </div>
             <div>
               <p className="font-serif font-bold text-lg">PIS</p>
-              <p className="text-xs text-text-muted">私有化即时摄影分享系统</p>
+              <p className="text-xs text-text-muted">{t('description')}</p>
             </div>
           </div>
 
           {/* 感谢语 */}
           <div className="flex items-center gap-2 text-text-secondary text-sm">
-            <span>感谢选择我们的摄影服务</span>
+            <span>{t('thankYou')}</span>
             <Heart className="w-4 h-4 text-red-400 fill-current" />
           </div>
         </div>
@@ -36,14 +38,14 @@ export function AlbumFooter({ album }: AlbumFooterProps) {
         {/* 下部分：版权信息 */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-6 text-text-muted text-xs">
           <div className="flex flex-wrap items-center gap-4">
-            <span>© {currentYear} PIS Photography. All rights reserved.</span>
+            <span>© {currentYear} {process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'}. All rights reserved.</span>
             <span className="hidden md:inline">|</span>
-            <a href="#" className="hover:text-accent transition-colors">隐私政策</a>
-            <a href="#" className="hover:text-accent transition-colors">使用条款</a>
+            <a href="#" className="hover:text-accent transition-colors">{t('privacyPolicy')}</a>
+            <a href="#" className="hover:text-accent transition-colors">{t('termsOfService')}</a>
           </div>
 
           <div className="flex items-center gap-1">
-            <span>Powered by</span>
+            <span>{t('poweredBy')}</span>
             <a 
               href="https://github.com/JunyuZhan/PIS" 
               target="_blank" 

@@ -1,5 +1,5 @@
 import archiver from 'archiver';
-import { downloadFile } from './lib/minio.js';
+import { downloadFile } from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
 
 export interface PackageOptions {

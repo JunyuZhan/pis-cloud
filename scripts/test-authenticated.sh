@@ -13,9 +13,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-BASE_URL="${PIS_BASE_URL:-https://pic.albertzhan.top}"
-ADMIN_EMAIL="${PIS_ADMIN_EMAIL:-junyuzhan@outlook.com}"
-ADMIN_PASSWORD="${PIS_ADMIN_PASSWORD:-Zjy-1314}"
+BASE_URL="${PIS_BASE_URL:-http://localhost:3000}"
+ADMIN_EMAIL="${PIS_ADMIN_EMAIL:-admin@example.com}"
+ADMIN_PASSWORD="${PIS_ADMIN_PASSWORD:-test-password-123}"
 
 # Cookie 文件
 COOKIE_FILE=$(mktemp)

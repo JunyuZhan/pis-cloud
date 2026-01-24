@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-BASE_URL="${PIS_BASE_URL:-https://pic.albertzhan.top}"
+BASE_URL="${PIS_BASE_URL:-http://localhost:3000}"
 ADMIN_EMAIL="${PIS_ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${PIS_ADMIN_PASSWORD:-}"
 

@@ -1,3 +1,10 @@
+/**
+ * PIS Worker - Image Processing Service
+ * 
+ * @author junyuzhan <junyuzhan@outlook.com>
+ * @license MIT
+ */
+
 import 'dotenv/config';
 import http from 'http';
 import { Worker, Job, Queue } from 'bullmq';
@@ -6,14 +13,15 @@ import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
 import { 
   downloadFile, 
   uploadFile, 
-  getMinioClient, 
   uploadBuffer,
   initMultipartUpload,
   uploadPart,
   completeMultipartUpload,
   abortMultipartUpload,
-  getPresignedGetUrl
-} from './lib/minio.js';
+  getPresignedGetUrl,
+  getPresignedPutUrl,
+  bucketName
+} from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
 
@@ -59,7 +67,7 @@ const worker = new Worker<PhotoJobData>(
         .update({ status: 'processing' })
         .eq('id', photoId);
 
-      // 2. 从 MinIO 下载原图
+      // 2. 从存储下载原图
       console.time(`[${job.id}] Download`);
       const originalBuffer = await downloadFile(originalKey);
       console.timeEnd(`[${job.id}] Download`);
@@ -91,7 +99,7 @@ const worker = new Worker<PhotoJobData>(
       const result = await processor.process(watermarkConfig);
       console.timeEnd(`[${job.id}] Process`);
 
-      // 5. 上传处理后的图片到 MinIO
+      // 5. 上传处理后的图片到存储
       const thumbKey = `processed/thumbs/${albumId}/${photoId}.jpg`;
       const previewKey = `processed/previews/${albumId}/${photoId}.jpg`;
 
@@ -223,7 +231,7 @@ const packageWorker = new Worker<PackageJobData>(
       });
       console.timeEnd(`[Package ${job.id}] Create ZIP`);
 
-      // 5. 上传 ZIP 到 MinIO
+      // 5. 上传 ZIP 到存储
       const zipKey = `packages/${albumId}/${packageId}.zip`;
       const albumTitle = (album as any)?.title || 'photos';
       console.time(`[Package ${job.id}] Upload ZIP`);
@@ -279,7 +287,6 @@ console.log(`✅ Package worker listening on queue: package-downloads`);
 // ============================================
 // HTTP API 服务器 (用于接收上传请求)
 // ============================================
-import { getPresignedPutUrl, bucketName } from './lib/minio.js';
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3001');
 
@@ -299,8 +306,51 @@ const server = http.createServer(async (req, res) => {
 
   // 健康检查
   if (url.pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok' }));
+    const health: any = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      services: {}
+    };
+
+    // 检查 Redis 连接（通过队列测试）
+    try {
+      const testQueue = new Queue('health-check', { connection });
+      await testQueue.getWaitingCount(); // 轻量级操作测试连接
+      await testQueue.close();
+      health.services.redis = { status: 'ok' };
+    } catch (err: any) {
+      health.services.redis = { status: 'error', error: err.message };
+      health.status = 'degraded';
+    }
+
+    // 检查 Supabase 连接
+    try {
+      const { error } = await supabase.from('albums').select('id').limit(1);
+      if (error) throw error;
+      health.services.supabase = { status: 'ok' };
+    } catch (err: any) {
+      health.services.supabase = { status: 'error', error: err.message };
+      health.status = 'degraded';
+    }
+
+    // 检查存储连接
+    try {
+      const storageModule = await import('./lib/storage/index.js');
+      const testKey = `health-check-${Date.now()}.txt`;
+      // 尝试列出 bucket（轻量级操作）
+      health.services.storage = { 
+        status: 'ok', 
+        bucket: storageModule.bucketName,
+        type: process.env.STORAGE_TYPE || 'minio'
+      };
+    } catch (err: any) {
+      health.services.storage = { status: 'error', error: err.message };
+      health.status = 'degraded';
+    }
+
+    const statusCode = health.status === 'ok' ? 200 : 503;
+    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(health));
     return;
   }
 
@@ -347,7 +397,7 @@ const server = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
-        console.log(`[Upload] Uploading ${buffer.length} bytes to MinIO: ${key}`);
+        console.log(`[Upload] Uploading ${buffer.length} bytes to storage: ${key}`);
         await uploadFile(key, buffer, { 'Content-Type': contentType });
         console.log(`[Upload] Successfully uploaded: ${key}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });

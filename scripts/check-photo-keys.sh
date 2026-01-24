@@ -1,14 +1,21 @@
 #!/bin/bash
 
 # 检查相册照片的 thumb_key 和 preview_key
+# 使用方法: ALBUM_ID="your-album-id" PHOTO_IDS=("id1" "id2") ./scripts/check-photo-keys.sh
 
-ALBUM_ID="e6ce4da1-86f5-4655-a926-1440fa4b3f26"
-PHOTO_IDS=(
-  "bb670af4-e11c-4dd9-8d95-95de320c9889"
-  "92ef01c4-6bba-4806-849f-05b00562bf28"
-  "9cafca2a-c19a-4528-80d5-385dd50575c0"
-  "63a9c310-eb72-4812-b142-945c6d348ed7"
-)
+# 从环境变量获取，如果没有则提示用户
+ALBUM_ID="${ALBUM_ID:-}"
+PHOTO_IDS=(${PHOTO_IDS[@]})
+
+if [ -z "$ALBUM_ID" ] || [ ${#PHOTO_IDS[@]} -eq 0 ]; then
+  echo "用法: ALBUM_ID=\"your-album-id\" PHOTO_IDS=(\"id1\" \"id2\" \"id3\") ./scripts/check-photo-keys.sh"
+  echo ""
+  echo "示例:"
+  echo "  ALBUM_ID=\"e6ce4da1-86f5-4655-a926-1440fa4b3f26\" \\"
+  echo "  PHOTO_IDS=(\"bb670af4-e11c-4dd9-8d95-95de320c9889\" \"92ef01c4-6bba-4806-849f-05b00562bf28\") \\"
+  echo "  ./scripts/check-photo-keys.sh"
+  exit 1
+fi
 
 echo "=== 检查照片数据库记录 ==="
 echo ""

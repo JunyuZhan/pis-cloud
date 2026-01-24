@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Album, Photo } from '@/types/database'
 
 interface HomeHeroProps {
@@ -12,6 +13,7 @@ interface HomeHeroProps {
 }
 
 export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
+  const t = useTranslations('home.hero')
   const [isLoaded, setIsLoaded] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
@@ -57,7 +59,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
           <div className="absolute inset-0 w-full h-[130%]">
             <Image
               src={coverUrl}
-              alt={featuredAlbum?.title || 'PIS Photography'}
+              alt={featuredAlbum?.title || process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'}
               fill
               priority
               className={`object-cover transition-all duration-1000 ${
@@ -100,9 +102,9 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
             transition={{ duration: 0.7, delay: 0.1, ease: 'easeOut' }}
             className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white drop-shadow-2xl leading-tight px-2"
           >
-            专业摄影
+            {t('title')}
             <br />
-            <span className="text-accent">作品集</span>
+            <span className="text-accent">{t('subtitle')}</span>
           </motion.h1>
 
           {/* 副标题 */}
@@ -112,7 +114,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
             transition={{ duration: 0.7, delay: 0.2, ease: 'easeOut' }}
             className="text-sm sm:text-base md:text-lg lg:text-xl text-white/90 font-light tracking-wide max-w-2xl mx-auto px-2"
           >
-            捕捉每一个精彩瞬间，让光影诉说故事
+            {t('tagline')}
           </motion.p>
 
           {/* 特色相册信息 */}
@@ -124,7 +126,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
               className="pt-2 sm:pt-4"
             >
               <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
-                <span className="text-[10px] sm:text-xs text-white/80">最新作品</span>
+                <span className="text-[10px] sm:text-xs text-white/80">{t('latest')}</span>
                 <span className="w-1 h-1 bg-accent rounded-full" />
                 <span className="text-xs sm:text-sm text-white font-medium line-clamp-1 max-w-[200px] sm:max-w-none">
                   {featuredAlbum.title}
@@ -143,7 +145,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
         transition={{ delay: 1.2, duration: 0.5 }}
         className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/70 cursor-pointer hover:text-white transition-colors touch-manipulation"
       >
-        <span className="text-[10px] sm:text-xs mb-1 sm:mb-2 tracking-wider uppercase">探索作品</span>
+        <span className="text-[10px] sm:text-xs mb-1 sm:mb-2 tracking-wider uppercase">{t('explore')}</span>
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ 

@@ -1,8 +1,17 @@
 {
   "name": "pis",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
   "description": "专业级私有化即时摄影分享系统 (Private Instant photo Sharing)",
+  "author": {
+    "name": "junyuzhan",
+    "email": "junyuzhan@outlook.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/junyuzhan/pis.git"
+  },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",

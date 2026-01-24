@@ -6,7 +6,7 @@
 # 使用方法: ./scripts/check-deployment.sh [SSH_HOST]
 # ============================================
 
-SSH_HOST=${1:-"192.168.50.10"}
+SSH_HOST=${1:-"your-server-ip"}
 SSH_USER=${SSH_USER:-"root"}
 
 echo "🔍 PIS 部署状态检查"

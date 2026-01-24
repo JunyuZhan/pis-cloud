@@ -1,7 +1,8 @@
 // PIS Service Worker
-const CACHE_NAME = 'pis-cache-v1';
-const STATIC_CACHE = 'pis-static-v1';
-const IMAGE_CACHE = 'pis-images-v1';
+// 更新版本号以清除旧缓存（当更新 logo 或其他静态资源时，请更新此版本号）
+const CACHE_NAME = 'pis-cache-v3';
+const STATIC_CACHE = 'pis-static-v3';
+const IMAGE_CACHE = 'pis-images-v3';
 
 // 静态资源缓存列表
 const STATIC_ASSETS = [
@@ -102,6 +103,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 其他静态资源：网络优先（确保 logo 等资源能及时更新）
+  // 特别处理图标文件，使用网络优先策略
+  if (url.pathname.startsWith('/icons/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // 网络失败时使用缓存
+          return caches.match(request);
+        })
+    );
+    return;
+  }
+
   // 其他静态资源：缓存优先
   event.respondWith(
     caches.match(request).then((cached) => {
@@ -137,7 +160,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body,
     icon: '/icons/icon-192x192.png',
-    badge: '/icons/badge-72x72.png',
+    badge: '/icons/icon-72x72.png', // 使用主图标作为 badge
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/',

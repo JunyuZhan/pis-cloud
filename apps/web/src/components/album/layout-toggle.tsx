@@ -21,30 +21,30 @@ export function LayoutToggle({ currentLayout }: LayoutToggleProps) {
   }
 
   return (
-    <div className="flex items-center bg-surface-elevated rounded-lg p-1 border border-border">
+    <div className="flex items-center bg-surface-elevated rounded-md p-0.5 border border-border h-7">
       <button
         onClick={() => handleLayoutChange('masonry')}
         className={cn(
-          'p-1.5 rounded-md transition-colors',
+          'p-0.5 rounded transition-colors flex items-center justify-center',
           currentLayout === 'masonry'
             ? 'bg-surface shadow-sm text-accent'
             : 'text-text-secondary hover:text-text-primary'
         )}
         title="瀑布流布局"
       >
-        <LayoutGrid className="w-4 h-4" />
+        <LayoutGrid className="w-3.5 h-3.5" />
       </button>
       <button
         onClick={() => handleLayoutChange('grid')}
         className={cn(
-          'p-1.5 rounded-md transition-colors',
+          'p-0.5 rounded transition-colors flex items-center justify-center',
           currentLayout === 'grid'
             ? 'bg-surface shadow-sm text-accent'
             : 'text-text-secondary hover:text-text-primary'
         )}
         title="网格布局"
       >
-        <Grid className="w-4 h-4" />
+        <Grid className="w-3.5 h-3.5" />
       </button>
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { cn, formatFileSize } from '@/lib/utils'
@@ -45,6 +45,37 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
   const router = useRouter()
   const [files, setFiles] = useState<UploadFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const completedTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // 自动移除已完成的上传项（延迟2秒后移除，让用户看到成功反馈）
+  useEffect(() => {
+    files.forEach((file) => {
+      if (file.status === 'completed') {
+        // 如果还没有设置定时器，则设置一个
+        if (!completedTimersRef.current.has(file.id)) {
+          const timer = setTimeout(() => {
+            setFiles((prev) => prev.filter((f) => f.id !== file.id))
+            completedTimersRef.current.delete(file.id)
+          }, 2000) // 2秒后移除
+          completedTimersRef.current.set(file.id, timer)
+        }
+      } else {
+        // 如果文件状态不再是 completed，清理对应的定时器
+        if (completedTimersRef.current.has(file.id)) {
+          clearTimeout(completedTimersRef.current.get(file.id)!)
+          completedTimersRef.current.delete(file.id)
+        }
+      }
+    })
+  }, [files])
+
+  // 组件卸载时清理所有定时器
+  useEffect(() => {
+    return () => {
+      completedTimersRef.current.forEach((timer) => clearTimeout(timer))
+      completedTimersRef.current.clear()
+    }
+  }, [])
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)

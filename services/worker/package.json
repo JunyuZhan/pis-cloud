@@ -1,8 +1,13 @@
 {
   "name": "@pis/worker",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
   "type": "module",
+  "author": {
+    "name": "junyuzhan",
+    "email": "junyuzhan@outlook.com"
+  },
+  "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",

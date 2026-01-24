@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-BASE_URL="${PIS_BASE_URL:-https://pic.albertzhan.top}"
+BASE_URL="${PIS_BASE_URL:-http://localhost:3000}"
 ADMIN_EMAIL="${PIS_ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${PIS_ADMIN_PASSWORD:-}"
 
@@ -209,7 +209,8 @@ test_ssl() {
     print_test_header "测试 7: SSL/HTTPS"
     
     if echo "$BASE_URL" | grep -q "^https://"; then
-        local ssl_info=$(echo | openssl s_client -connect pic.albertzhan.top:443 -servername pic.albertzhan.top 2>/dev/null | grep -A 5 "Certificate chain" || echo "")
+        local hostname=$(echo "$BASE_URL" | sed 's|https://||' | sed 's|/.*||')
+        local ssl_info=$(echo | openssl s_client -connect "${hostname}:443" -servername "$hostname" 2>/dev/null | grep -A 5 "Certificate chain" || echo "")
         
         if [ -n "$ssl_info" ]; then
             print_test_result "SSL证书" "PASS" "HTTPS 连接正常"

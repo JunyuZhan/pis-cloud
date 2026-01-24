@@ -4,7 +4,7 @@
 # PIS 更新配置并启动服务脚本
 # ============================================
 
-SSH_HOST=${1:-"192.168.50.10"}
+SSH_HOST=${1:-"your-server-ip"}
 SSH_USER=${SSH_USER:-"root"}
 
 echo "🚀 PIS 更新配置并启动服务"
@@ -147,4 +147,4 @@ echo ""
 echo "💡 下一步:"
 echo "  1. 更新 FRP 配置: 将 pis-media 的 localPort 改为 19000"
 echo "  2. 重启 FRP: systemctl restart frpc (或 docker restart frpc)"
-echo "  3. 验证外部访问: curl https://media.albertzhan.top/minio/health/live"
+echo "  3. 验证外部访问: curl \${NEXT_PUBLIC_MEDIA_URL:-https://media.example.com}/minio/health/live"

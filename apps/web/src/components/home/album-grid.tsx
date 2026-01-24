@@ -30,7 +30,7 @@ function AlbumCard({ album, coverUrl, index }: { album: AlbumWithCover; coverUrl
         delay: Math.min(index * 0.03, 0.2),
         ease: 'easeOut'
       }}
-      className="break-inside-avoid mb-2 md:mb-3 group cursor-pointer touch-manipulation"
+      className="break-inside-avoid mb-1 group cursor-pointer touch-manipulation"
     >
       <Link href={`/album/${album.slug}?from=home`} className="block relative w-full overflow-hidden rounded-md bg-surface active:opacity-90 transition-opacity">
         {coverUrl && !imageError ? (
@@ -73,7 +73,7 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
   return (
     <div className="w-full">
       {/* Instagram/Pinterest风格的无缝网格 */}
-      <div className="columns-2 sm:columns-3 md:columns-4 gap-2 md:gap-3">
+      <div className="columns-2 sm:columns-3 md:columns-4" style={{ columnGap: '0.25rem' }}> {/* 列间距 4px，与垂直间距一致 */}
         {albums.map((album, index) => {
           const albumWithCover = album as AlbumWithCover
           // 使用封面照片的 key（优先 preview_key，其次 thumb_key）

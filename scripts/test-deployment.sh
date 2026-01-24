@@ -5,7 +5,7 @@
 # 用途: 全面测试系统功能
 # ============================================
 
-SSH_HOST=${1:-"192.168.50.10"}
+SSH_HOST=${1:-"your-server-ip"}
 SSH_USER=${SSH_USER:-"root"}
 
 echo "🧪 PIS 系统功能测试"
@@ -110,7 +110,7 @@ echo ""
 echo -e "${BLUE}8️⃣  外部访问测试${NC}"
 echo "-------------------"
 
-test_check "外部 MinIO 访问" "curl -s --max-time 5 https://media.albertzhan.top/minio/health/live | grep -q 'OK' && echo '外部访问正常'"
+test_check "外部 MinIO 访问" "curl -s --max-time 5 \${NEXT_PUBLIC_MEDIA_URL:-https://media.example.com}/minio/health/live | grep -q 'OK' && echo '外部访问正常'"
 
 echo ""
 echo "===================="

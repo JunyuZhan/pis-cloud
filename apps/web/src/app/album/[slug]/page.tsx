@@ -223,34 +223,28 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
 
       {/* 照片网格 - 移动端优化 */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        {/* 分组筛选器和布局切换 - 放在同一区域 */}
-        <div className="mb-4 sm:mb-6 space-y-4">
-          {/* 第一行：分组筛选器（如果有）和布局切换 */}
-          <div className="flex items-center justify-between gap-4">
-            {/* 分组筛选器 */}
-            {groups.length > 0 ? (
-              <div className="flex-1">
-                <PhotoGroupFilter
-                  albumId={album.id}
-                  albumSlug={album.slug}
-                  selectedGroupId={group || null}
-                />
-              </div>
-            ) : null}
-            
-            {/* 布局切换和排序切换 - 始终显示 */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <LayoutToggle currentLayout={currentLayout} />
-              <SortToggle currentSort={currentSort} />
-            </div>
+        {/* 分组筛选器 */}
+        {groups.length > 0 && (
+          <div className="mb-4 sm:mb-6">
+            <PhotoGroupFilter
+              albumId={album.id}
+              albumSlug={album.slug}
+              selectedGroupId={group || null}
+            />
           </div>
-        </div>
+        )}
 
-        {/* 照片统计栏 - 移动端优化 */}
+        {/* 照片统计栏和布局切换 - 同一行 */}
         <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-border">
           <h2 className="text-base sm:text-lg font-medium">
             {group ? '分组照片' : '全部照片'} <span className="text-text-muted text-sm sm:text-base">({album.photo_count})</span>
           </h2>
+          
+          {/* 布局切换和排序切换 - 始终显示在右侧 */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <LayoutToggle currentLayout={currentLayout} />
+            <SortToggle currentSort={currentSort} />
+          </div>
         </div>
 
         {/* 照片列表 */}

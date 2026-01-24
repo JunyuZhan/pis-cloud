@@ -158,15 +158,15 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
     <>
       {/* 浮动操作按钮组 - 只在客户端挂载后显示 */}
       {mounted && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {/* 展开的按钮列表 */}
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-50 flex flex-col items-end gap-3 p-4 md:p-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
+        {/* 展开的按钮列表 - 只在展开时渲染 */}
         <AnimatePresence>
           {isExpanded && (
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               className="flex flex-col gap-2 mb-2"
             >
               {/* 排序按钮 */}
@@ -250,16 +250,16 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
           )}
         </AnimatePresence>
 
-        {/* 主按钮 - 展开/收起 */}
+          {/* 主按钮 - 展开/收起 */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'w-14 h-14 rounded-full shadow-lg flex items-center justify-center',
+            'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
             'bg-accent hover:bg-accent/90 text-background',
             'transition-all backdrop-blur-sm',
-            'min-h-[56px] min-w-[56px]' // 移动端最小触摸目标
+            'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
           )}
           aria-label={isExpanded ? '收起菜单' : '展开菜单'}
         >
@@ -268,28 +268,29 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
             transition={{ duration: 0.2 }}
           >
             {isExpanded ? (
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             ) : (
-              <ChevronUp className="w-6 h-6" />
+              <ChevronUp className="w-5 h-5" />
             )}
           </motion.div>
         </motion.button>
 
-        {/* 回到顶部按钮（仅在滚动后显示） */}
+        {/* 回到顶部按钮（独立显示在主按钮左侧） */}
         <AnimatePresence>
-          {showBackToTop && !isExpanded && (
+          {showBackToTop && (
             <motion.button
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0 }}
+              initial={{ opacity: 0, scale: 0, x: 20 }}
+              animate={{ opacity: 1, scale: 1, x: -60 }}
+              exit={{ opacity: 0, scale: 0, x: 20 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleBackToTop}
               className={cn(
-                'w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
+                'absolute bottom-4 right-4 w-12 h-12 rounded-full shadow-lg flex items-center justify-center',
                 'bg-surface border border-border hover:bg-surface-elevated',
                 'text-text-primary transition-all backdrop-blur-sm',
-                'min-h-[48px] min-w-[48px]' // 移动端最小触摸目标
+                'min-h-[48px] min-w-[48px]', // 移动端最小触摸目标
+                'md:bottom-0 md:right-0' // 桌面端位置调整
               )}
               aria-label="回到顶部"
               title="回到顶部"
@@ -298,9 +299,6 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
             </motion.button>
           )}
         </AnimatePresence>
-
-          {/* 移动端底部安全区域占位 */}
-          <div className="h-20 md:h-0" />
         </div>
       )}
     </>

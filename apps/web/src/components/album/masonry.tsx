@@ -125,9 +125,10 @@ export function MasonryGrid({
       <div
         className={cn(
           layout === 'masonry'
-            ? 'columns-2 sm:columns-3 md:columns-3 lg:columns-4 gap-0 space-y-0' // 响应式列数
-            : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-0' // 响应式网格
+            ? 'columns-2 sm:columns-3 md:columns-3 lg:columns-4' // 响应式列数
+            : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-1' // 响应式网格，间距 4px
         )}
+        style={layout === 'masonry' ? { columnGap: '0.25rem' } : undefined} // 列间距 4px，与垂直间距一致
       >
         {photos.map((photo, index) => (
           <PhotoCard
@@ -276,8 +277,8 @@ function PhotoCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: (index % 10) * 0.05 }}
       className={cn(
-        'group relative', // 添加 relative
-        layout === 'masonry' ? 'break-inside-avoid mb-0' : '' // 移除 margin-bottom
+        'group relative',
+        layout === 'masonry' ? 'break-inside-avoid mb-1' : '' // 添加底部间距 4px，与列间距保持一致
       )}
     >
       {/* 照片卡片 - 移除圆角和阴影，实现无缝效果 */}

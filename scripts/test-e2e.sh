@@ -14,7 +14,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # 配置
-BASE_URL="${PIS_BASE_URL:-https://pic.albertzhan.top}"
+BASE_URL="${PIS_BASE_URL:-http://localhost:3000}"
 
 # 测试结果统计
 TOTAL_TESTS=0

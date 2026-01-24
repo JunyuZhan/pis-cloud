@@ -33,15 +33,21 @@ export function AlbumInfoBar({ album }: AlbumInfoBarProps) {
 
             <div>
               <p className="text-sm text-text-muted">摄影师</p>
-              <p className="font-medium text-text-primary">PIS Photography</p>
-              <p className="text-xs text-text-muted mt-0.5">专业活动摄影</p>
+              <p className="font-medium text-text-primary">
+                {process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'}
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">
+                {process.env.NEXT_PUBLIC_PHOTOGRAPHER_TAGLINE || '专业活动摄影'}
+              </p>
             </div>
           </div>
 
           {/* 右侧：操作按钮 */}
           <div className="flex items-center gap-2">
             {album.allow_download && (
-              <button className="btn-secondary text-sm">
+              <button 
+                className="btn-secondary text-sm !min-h-[32px] md:!min-h-[44px] !px-2 md:!px-4 !py-1 md:!py-2"
+              >
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">下载全部</span>
               </button>

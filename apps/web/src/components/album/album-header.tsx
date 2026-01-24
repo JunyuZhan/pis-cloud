@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Download, Heart, Loader2 } from 'lucide-react'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'
+import { LanguageSwitcher } from '@/components/ui/language-switcher'
 import { handleApiError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 
@@ -102,6 +103,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
               <span className="text-text-secondary text-xs md:text-sm whitespace-nowrap hidden sm:inline">
                 {album.photo_count} 张
               </span>
+              <LanguageSwitcher />
               <LayoutToggle currentLayout={currentLayout} />
               <SortToggle currentSort={currentSort} />
             </div>

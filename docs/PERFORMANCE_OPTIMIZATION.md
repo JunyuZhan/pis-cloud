@@ -239,10 +239,10 @@ gcTime: 10 * 60 * 1000,   // 10分钟垃圾回收
 3. **验证优化**
    ```bash
    # 检查页面响应时间
-   curl -w "@-" -o /dev/null -s "https://pic.albertzhan.top"
+   curl -w "@-" -o /dev/null -s "https://yourdomain.com"
    
    # 检查API缓存头
-   curl -I "https://pic.albertzhan.top/api/public/albums/test"
+   curl -I "https://yourdomain.com/api/public/albums/test"
    ```
 
 ---
