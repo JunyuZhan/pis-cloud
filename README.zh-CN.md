@@ -536,7 +536,14 @@ MIT License © 2026 junyuzhan
 - 📚 完善文档
 - 🎨 提升用户体验
 
-感谢您的支持！🙏
+<p align="center">
+  <img src="https://github.com/junyuzhan/pis/assets/support/wechat-pay.png" alt="微信支付" width="200" />
+  <img src="https://github.com/junyuzhan/pis/assets/support/alipay.png" alt="支付宝" width="200" />
+</p>
+
+<p align="center">
+  <strong>请我喝杯茶 ☕</strong>
+</p>
 
 ## 🤝 贡献
 

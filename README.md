@@ -78,8 +78,6 @@
 - 🖼️ **Smart Watermarking** - Support text/Logo watermarks to protect copyright
 - 🌍 **Multi-language Support** - Built-in i18n support (English, Chinese)
 - 🔌 **Flexible Extension** - Support multiple storage and databases for different deployment needs
-  - Storage: MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
-  - Database: Supabase, PostgreSQL, MySQL
 
 ---
 
@@ -528,7 +526,14 @@ If you find this project helpful, consider supporting the project! Your support 
 - 📚 Improve documentation
 - 🎨 Enhance user experience
 
-Thank you for your support! 🙏
+<p align="center">
+  <img src="https://github.com/junyuzhan/pis/assets/support/wechat-pay.png" alt="WeChat Pay" width="200" />
+  <img src="https://github.com/junyuzhan/pis/assets/support/alipay.png" alt="Alipay" width="200" />
+</p>
+
+<p align="center">
+  <strong>请我喝杯茶 ☕</strong>
+</p>
 
 ## 🤝 Contributing
 
