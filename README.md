@@ -527,8 +527,8 @@ If you find this project helpful, consider supporting the project! Your support 
 - 🎨 Enhance user experience
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/junyuzhan/pis/main/assets/support/wechat-pay.jpg" alt="微信支付" width="200" />
-  <img src="https://raw.githubusercontent.com/junyuzhan/pis/main/assets/support/alipay.jpg" alt="支付宝" width="200" />
+  <img src="./assets/support/wechat-pay.jpg" alt="微信支付" width="200" />
+  <img src="./assets/support/alipay.jpg" alt="支付宝" width="200" />
 </p>
 
 <p align="center">
