@@ -1,4 +1,4 @@
-name = "private-instant-photo-sharing"
+name = "pis"
 compatibility_date = "2024-01-01"
 
 # Cloudflare Pages 配置
