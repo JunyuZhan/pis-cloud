@@ -3,7 +3,7 @@ compatibility_date = "2024-01-01"
 
 # Cloudflare Pages 配置
 # 注意：只部署前端，Worker 服务保留在本地服务器
-pages_build_output_dir = "apps/web/.next"
+pages_build_output_dir = "apps/web/out"
 
 # 环境变量应在 Cloudflare Dashboard 中设置，不要在这里硬编码
 # [vars]
