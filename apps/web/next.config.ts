@@ -100,6 +100,24 @@ const nextConfig: NextConfig = {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'
     const isDev = process.env.NODE_ENV === 'development'
     
+    // 从环境变量获取媒体服务器域名，用于 CSP connect-src
+    let mediaOrigin = ''
+    if (process.env.NEXT_PUBLIC_MEDIA_URL) {
+      try {
+        const mediaUrl = new URL(process.env.NEXT_PUBLIC_MEDIA_URL)
+        mediaOrigin = `${mediaUrl.protocol}//${mediaUrl.hostname}`
+      } catch {
+        // 忽略解析错误
+      }
+    }
+    
+    // 构建 CSP connect-src，包含媒体服务器
+    const connectSrc = [
+      "'self'",
+      'https:',
+      ...(mediaOrigin ? [mediaOrigin] : [])
+    ].join(' ')
+    
     return [
       {
         // 应用到所有 API 路由
@@ -169,7 +187,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: isDev ? '' : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
+            value: isDev ? '' : `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src ${connectSrc}; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';`,
           },
         ].filter(header => header.value !== ''), // 过滤空值
       },
