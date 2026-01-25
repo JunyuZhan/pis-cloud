@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
   // 压缩配置（Next.js 15 默认启用）
   compress: true,
   // 输出模式：Cloudflare Pages 需要 'export'，Vercel 使用默认的 'standalone'
+  // 注意：静态导出不支持 API 路由，API 路由需要通过 Cloudflare Pages Functions 处理
   output: process.env.CF_PAGES ? 'export' : 'standalone',
   // 优化生产构建
   productionBrowserSourceMaps: process.env.NODE_ENV === 'development', // 仅开发环境生成 source maps

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = "force-dynamic"
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 interface RouteParams {

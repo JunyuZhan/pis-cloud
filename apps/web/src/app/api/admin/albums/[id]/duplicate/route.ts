@@ -8,6 +8,9 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+// 静态导出模式下跳过此路由
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/albums/[id]/duplicate - 复制相册
  * 复制相册的所有配置，但不复制照片

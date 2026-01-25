@@ -1,4 +1,5 @@
 /**
+export const dynamic = "force-dynamic"
  * Worker API 代理
  * 
  * 将所有请求转发到 Worker 服务，避免 CORS 问题
