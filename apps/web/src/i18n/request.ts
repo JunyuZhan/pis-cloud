@@ -21,7 +21,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
       if (localeCookie && locales.includes(localeCookie as Locale)) {
         locale = localeCookie as Locale
       }
-    } catch (error) {
+    } catch {
       // During static generation, cookies() may not be available
       // Fall back to default locale
     }
