@@ -36,9 +36,16 @@ export async function PUT(request: NextRequest) {
     const workerUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     const uploadUrl = `${workerUrl}/api/upload?key=${encodeURIComponent(key)}`
 
-    // 使用 AbortController 设置超时（2 分钟）
+    // 使用 AbortController 设置超时（根据文件大小动态计算，最大30分钟）
+    // 基础超时：10分钟，每MB增加5秒
+    const fileSizeMb = body.byteLength / (1024 * 1024)
+    const baseTimeout = 10 * 60 * 1000 // 10分钟
+    const perMbTimeout = 5 * 1000 // 每MB 5秒
+    const maxTimeout = 30 * 60 * 1000 // 30分钟
+    const timeout = Math.min(baseTimeout + fileSizeMb * perMbTimeout, maxTimeout)
+    
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 120000)
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
       const workerResponse = await fetch(uploadUrl, {

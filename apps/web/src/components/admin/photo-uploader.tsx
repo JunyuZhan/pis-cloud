@@ -10,6 +10,17 @@ const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 // MAX_RETRIES removed as it's not used
 
+// 根据文件大小计算超时时间（毫秒）
+// 基础超时：10分钟，每MB增加5秒，最大30分钟
+function calculateTimeout(fileSize: number): number {
+  const baseTimeout = 10 * 60 * 1000 // 10分钟
+  const perMbTimeout = 5 * 1000 // 每MB 5秒
+  const maxTimeout = 30 * 60 * 1000 // 30分钟
+  const fileSizeMb = fileSize / (1024 * 1024)
+  const timeout = baseTimeout + fileSizeMb * perMbTimeout
+  return Math.min(timeout, maxTimeout)
+}
+
 // 格式化网速
 function formatSpeed(bytesPerSecond: number): string {
   if (bytesPerSecond >= 1024 * 1024) {
@@ -139,10 +150,15 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   ) => {
     let lastLoaded = 0
     let lastTime = Date.now()
+    let uploadStartTime = Date.now()
 
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
+      
+      // 设置超时时间（根据文件大小动态计算）
+      const timeout = calculateTimeout(uploadFile.file.size)
+      xhr.timeout = timeout
       
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -173,13 +189,25 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve()
         } else {
-          reject(new Error(`上传失败: HTTP ${xhr.status}`))
+          const errorText = xhr.responseText || ''
+          let errorMessage = `上传失败: HTTP ${xhr.status}`
+          try {
+            const errorData = JSON.parse(errorText)
+            if (errorData.error) {
+              errorMessage = errorData.error.message || errorData.error || errorMessage
+            }
+          } catch {
+            // 忽略解析错误，使用默认消息
+          }
+          reject(new Error(errorMessage))
         }
       }
 
       xhr.onerror = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        reject(new Error('网络错误，请检查 Worker 服务'))
+        const elapsed = (Date.now() - uploadStartTime) / 1000
+        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`))
       }
       
       xhr.onabort = () => {
@@ -189,20 +217,27 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       xhr.ontimeout = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        reject(new Error('上传超时，请重试'))
+        const elapsed = (Date.now() - uploadStartTime) / 1000
+        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+        const timeoutMinutes = Math.round(timeout / 60000)
+        reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
       }
 
       const workerDirectUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://worker.albertzhan.top'
       xhr.open('PUT', `${workerDirectUrl}/api/upload?key=${encodeURIComponent(originalKey)}`)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
+      uploadStartTime = Date.now()
       xhr.send(uploadFile.file)
     })
 
-    // 触发处理
-    await fetch('/api/admin/photos/process', {
+    // 触发处理（不阻塞，异步执行）
+    fetch('/api/admin/photos/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
+    }).catch((err) => {
+      console.error('Failed to trigger photo processing:', err)
+      // 不阻断流程，Worker 可以通过定时任务补偿
     })
   }
 
@@ -216,10 +251,15 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   ) => {
     let lastLoaded = 0
     let lastTime = Date.now()
+    let uploadStartTime = Date.now()
 
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
+      
+      // 设置超时时间（根据文件大小动态计算）
+      const timeout = calculateTimeout(uploadFile.file.size)
+      xhr.timeout = timeout
       
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -250,13 +290,25 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve()
         } else {
-          reject(new Error(`上传失败: HTTP ${xhr.status}`))
+          const errorText = xhr.responseText || ''
+          let errorMessage = `上传失败: HTTP ${xhr.status}`
+          try {
+            const errorData = JSON.parse(errorText)
+            if (errorData.error) {
+              errorMessage = errorData.error.message || errorData.error || errorMessage
+            }
+          } catch {
+            // 忽略解析错误，使用默认消息
+          }
+          reject(new Error(errorMessage))
         }
       }
 
       xhr.onerror = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        reject(new Error('网络错误，请检查网络连接'))
+        const elapsed = (Date.now() - uploadStartTime) / 1000
+        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接`))
       }
       
       xhr.onabort = () => {
@@ -266,19 +318,26 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       xhr.ontimeout = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        reject(new Error('上传超时，请重试'))
+        const elapsed = (Date.now() - uploadStartTime) / 1000
+        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+        const timeoutMinutes = Math.round(timeout / 60000)
+        reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
       }
 
       xhr.open('PUT', uploadUrl)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
+      uploadStartTime = Date.now()
       xhr.send(uploadFile.file)
     })
 
-    // 触发处理
-    await fetch('/api/admin/photos/process', {
+    // 触发处理（不阻塞，异步执行）
+    fetch('/api/admin/photos/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
+    }).catch((err) => {
+      console.error('Failed to trigger photo processing:', err)
+      // 不阻断流程，Worker 可以通过定时任务补偿
     })
   }
 
