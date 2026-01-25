@@ -99,13 +99,22 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount
 
       if (availableSlots > 0 && uploadQueueRef.current.length > 0) {
-        const toStart = uploadQueueRef.current.splice(0, availableSlots)
-        toStart.forEach(fileId => {
+        // 过滤队列：移除已完成、失败或暂停的文件，只保留 pending 状态的文件
+        uploadQueueRef.current = uploadQueueRef.current.filter(fileId => {
           const file = currentFiles.find(f => f.id === fileId)
-          if (file && file.status === 'pending') {
-            uploadSingleFile(file)
-          }
+          // 保留 pending 状态的文件，移除其他状态的文件
+          return file && file.status === 'pending'
         })
+
+        if (uploadQueueRef.current.length > 0 && availableSlots > 0) {
+          const toStart = uploadQueueRef.current.splice(0, availableSlots)
+          toStart.forEach(fileId => {
+            const file = currentFiles.find(f => f.id === fileId)
+            if (file && file.status === 'pending') {
+              uploadSingleFile(file)
+            }
+          })
+        }
       }
 
       isProcessingQueueRef.current = false
@@ -365,9 +374,12 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
     const xhr = xhrMapRef.current.get(fileId)
     if (xhr) {
       xhr.abort()
+      xhrMapRef.current.delete(fileId)
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
       ))
+      // 从队列中移除暂停的文件
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== fileId)
     }
   }
 
@@ -433,6 +445,9 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
             : f
         )
       )
+      
+      // 从队列中移除已完成的文件
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
 
       // 刷新页面数据
       router.refresh()
@@ -467,6 +482,9 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
             : f
         )
       )
+      
+      // 从队列中移除失败的文件
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
     } finally {
       // 上传完成（无论成功失败），处理队列中的下一个文件
       setTimeout(processQueue, 100)
@@ -482,10 +500,24 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
           : f
       )
     )
-    uploadSingleFile(uploadFile)
+    // 将文件重新加入队列（如果不在队列中）
+    if (!uploadQueueRef.current.includes(uploadFile.id)) {
+      uploadQueueRef.current.push(uploadFile.id)
+    }
+    // 触发队列处理
+    setTimeout(processQueue, 0)
   }
 
   const removeFile = (id: string) => {
+    // 取消正在进行的上传
+    const xhr = xhrMapRef.current.get(id)
+    if (xhr) {
+      xhr.abort()
+      xhrMapRef.current.delete(id)
+    }
+    // 从队列中移除
+    uploadQueueRef.current = uploadQueueRef.current.filter(fileId => fileId !== id)
+    // 从文件列表中移除
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }
 
