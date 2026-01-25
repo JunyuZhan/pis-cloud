@@ -42,13 +42,17 @@ export class MinIOAdapter implements StorageAdapter {
 
     // 用于生成 presigned URL 的客户端
     // 如果配置了 publicUrl，使用公网地址生成签名，避免签名不匹配问题
+    // 注意：即使 publicUrl 是 HTTPS，presignClient 也使用 HTTP 连接（因为服务器可能没有 SSL 证书）
+    // 生成的 URL 会在 toPublicUrl 中转换为 HTTPS（如果 publicUrl 是 HTTPS）
     if (this.publicUrl) {
       try {
         const publicUrlObj = new URL(this.publicUrl);
+        // 始终使用 HTTP 连接（服务器可能没有 SSL 证书）
+        // 但使用公网域名生成签名，确保签名匹配
         this.presignClient = new Minio.Client({
           endPoint: publicUrlObj.hostname,
-          port: publicUrlObj.port ? parseInt(publicUrlObj.port) : (publicUrlObj.protocol === 'https:' ? 443 : 80),
-          useSSL: publicUrlObj.protocol === 'https:',
+          port: publicUrlObj.port ? parseInt(publicUrlObj.port) : 80,
+          useSSL: false, // 强制使用 HTTP，因为服务器可能没有 SSL 证书
           accessKey: this.accessKey,
           secretKey: this.secretKey,
           region: this.region,
@@ -293,17 +297,24 @@ export class MinIOAdapter implements StorageAdapter {
   private toPublicUrl(url: string): string {
     if (!this.publicUrl) return url;
     
-    // 如果 presignClient 已经使用公网地址，URL 应该已经是公网地址了
-    // 但为了确保兼容性，仍然检查并替换（以防配置不一致）
+    const publicUrlObj = new URL(this.publicUrl);
+    const publicProtocol = publicUrlObj.protocol; // http: 或 https:
+    const publicHost = publicUrlObj.port ? `${publicUrlObj.protocol}//${publicUrlObj.hostname}:${publicUrlObj.port}` : `${publicUrlObj.protocol}//${publicUrlObj.hostname}`;
+    
+    // 匹配 URL 中的协议和主机部分
     const match = url.match(/https?:\/\/([^\/]+)/);
     if (match) {
       const currentHost = match[0];
-      // 如果当前 URL 已经是公网地址，不需要替换
-      if (currentHost.includes(new URL(this.publicUrl).hostname)) {
+      // 如果当前 URL 已经是公网地址，只需要确保协议匹配（HTTP -> HTTPS）
+      if (currentHost.includes(publicUrlObj.hostname)) {
+        // 如果 publicUrl 是 HTTPS，但生成的 URL 是 HTTP，转换为 HTTPS
+        if (publicProtocol === 'https:' && url.startsWith('http://')) {
+          return url.replace('http://', 'https://');
+        }
         return url;
       }
-      // 否则替换内网地址为公网地址
-      return url.replace(currentHost, this.publicUrl);
+      // 否则替换内网地址为公网地址（使用 publicUrl 的协议）
+      return url.replace(currentHost, publicHost);
     }
     return url;
   }

@@ -87,10 +87,8 @@ function AlbumCard({ album, coverUrl, index }: {
   )
 }
 
-import { getMediaUrl } from '@/lib/utils'
-
 export function AlbumGrid({ albums }: AlbumGridProps) {
-  const mediaUrl = getMediaUrl()
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
 
   return (
     <div className="w-full">

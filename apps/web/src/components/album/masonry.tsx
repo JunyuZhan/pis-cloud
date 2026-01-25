@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import { Heart, Download, Share2, Expand, Loader2, ImageIcon } from 'lucide-react'
 import type { Photo, Album } from '@/types/database'
-import { cn, getMediaUrl } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { getBlurDataURL } from '@/lib/blurhash'
 import { handleApiError } from '@/lib/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -241,7 +241,10 @@ function PhotoCard({
   const aspectRatio =
     photo.width && photo.height ? photo.height / photo.width : 1
 
-  const safeMediaUrl = getMediaUrl()
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  
+  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
+  const safeMediaUrl = mediaUrl
 
   // 前 6 张图片优先加载（首屏可见区域）
   // 其他图片通过 Intersection Observer 在进入视口时加载

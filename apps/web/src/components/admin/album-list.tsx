@@ -12,7 +12,7 @@ import { PullToRefresh } from '@/components/ui/pull-to-refresh'
 import { LongPressMenu } from '@/components/ui/long-press-menu'
 import { showSuccess, handleApiError } from '@/lib/toast'
 import type { Album } from '@/types/database'
-import { cn, getMediaUrl } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 export type AlbumWithCover = Album & {
   cover_thumb_key?: string | null
@@ -308,7 +308,9 @@ function AlbumCard({
     setIsMounted(true)
   }, [])
   
-  const safeMediaUrl = getMediaUrl()
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
+  const safeMediaUrl = mediaUrl
   
   // 构建封面图URL
   // 优先使用 cover_thumb_key（完整路径，如 processed/thumbs/albumId/photoId.jpg）
