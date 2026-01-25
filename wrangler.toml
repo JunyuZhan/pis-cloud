@@ -2,6 +2,7 @@ name = "private-instant-photo-sharing"
 main = "services/worker/src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compatible"]
+pages_build_output_dir = "apps/web/.next/static"
 
 # Cloudflare Pages 配置
 [site]
