@@ -1,15 +1,28 @@
 FROM node:20-alpine
 
-# 安装必要的系统依赖 (Sharp + HEIC 支持)
+# 配置 Alpine 镜像源（使用阿里云镜像，提高国内下载速度）
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories || \
+    echo "https://mirrors.aliyun.com/alpine/v$(cat /etc/alpine-release | cut -d'.' -f1,2)/main" > /etc/apk/repositories && \
+    echo "https://mirrors.aliyun.com/alpine/v$(cat /etc/alpine-release | cut -d'.' -f1,2)/community" >> /etc/apk/repositories
+
+# 更新包索引并安装必要的系统依赖 (Sharp + HEIC 支持)
 # libheif-dev: 用于处理 HEIC/HEIF 格式的 iPhone 照片
 # vips-dev: 高性能图像处理库
 # build-base: 编译工具链（用于从源码编译 Sharp）
-RUN apk add --no-cache \
+RUN apk update && apk add --no-cache \
     libc6-compat \
     vips-dev \
     libheif-dev \
     build-base \
-    python3
+    python3 \
+    || (echo "Failed to install packages, trying default repositories..." && \
+        sed -i 's/mirrors.aliyun.com/dl-cdn.alpinelinux.org/g' /etc/apk/repositories && \
+        apk update && apk add --no-cache \
+        libc6-compat \
+        vips-dev \
+        libheif-dev \
+        build-base \
+        python3)
 
 WORKDIR /app
 
