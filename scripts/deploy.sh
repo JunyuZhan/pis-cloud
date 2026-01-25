@@ -515,6 +515,9 @@ EOF
     
     cd ${DEPLOY_DIR}/docker
     
+    # 复制 .env 文件到 docker 目录（docker-compose 需要在这里读取）
+    cp ${DEPLOY_DIR}/.env .env
+    
     # 使用对应的 docker-compose 文件
     if [ -f "docker-compose.yml.active" ]; then
         cp docker-compose.yml.active docker-compose.yml
