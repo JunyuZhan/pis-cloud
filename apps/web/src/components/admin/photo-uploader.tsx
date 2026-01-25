@@ -223,7 +223,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
       }
 
-      const workerDirectUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://worker.albertzhan.top'
+      const workerDirectUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
       xhr.open('PUT', `${workerDirectUrl}/api/upload?key=${encodeURIComponent(originalKey)}`)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
       uploadStartTime = Date.now()

@@ -534,7 +534,7 @@ bucket/
 brew install minio-mc
 
 # 配置连接
-mc alias set pis http://media.albertzhan.top minioadmin minioadmin
+mc alias set pis http://media.yourdomain.com minioadmin minioadmin
 
 # 上传单个文件
 mc cp photo.jpg pis/pis-photos/sync/{album_id}/

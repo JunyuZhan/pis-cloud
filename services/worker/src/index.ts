@@ -731,8 +731,105 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
+// ============================================
+// 启动时恢复卡住的 processing 状态
+// ============================================
+async function recoverStuckProcessingPhotos() {
+  try {
+    console.log('🔍 Checking for stuck processing photos...');
+    
+    // 1. 查询所有状态为 processing 的照片
+    const { data: stuckPhotos, error } = await supabase
+      .from('photos')
+      .select('id, album_id, original_key, thumb_key, preview_key, status, updated_at')
+      .eq('status', 'processing');
+    
+    if (error) {
+      console.error('❌ Failed to query stuck photos:', error);
+      return;
+    }
+    
+    if (!stuckPhotos || stuckPhotos.length === 0) {
+      console.log('✅ No stuck processing photos found');
+      return;
+    }
+    
+    console.log(`📋 Found ${stuckPhotos.length} photos stuck in processing state`);
+    
+    // 2. 检查队列中是否有对应的任务
+    const waitingJobs = await photoQueue.getWaiting();
+    const activeJobs = await photoQueue.getActive();
+    const waitingPhotoIds = new Set(
+      [...waitingJobs, ...activeJobs].map(job => job.data.photoId)
+    );
+    
+    let recoveredCount = 0;
+    let alreadyCompletedCount = 0;
+    let requeuedCount = 0;
+    
+    // 3. 处理每个卡住的照片
+    for (const photo of stuckPhotos) {
+      // 如果队列中有对应任务，跳过（说明任务还在处理中）
+      if (waitingPhotoIds.has(photo.id)) {
+        continue;
+      }
+      
+      // 检查照片是否已经处理完成（有 thumb_key 和 preview_key）
+      if (photo.thumb_key && photo.preview_key) {
+        // 照片已经处理完成，但状态没有更新，修复状态
+        const { error: updateError } = await supabase
+          .from('photos')
+          .update({ status: 'completed' })
+          .eq('id', photo.id);
+        
+        if (updateError) {
+          console.error(`❌ Failed to update photo ${photo.id}:`, updateError);
+        } else {
+          console.log(`✅ Recovered completed photo: ${photo.id}`);
+          alreadyCompletedCount++;
+        }
+      } else {
+        // 照片未处理完成，重置为 pending 并重新加入队列
+        const { error: updateError } = await supabase
+          .from('photos')
+          .update({ status: 'pending' })
+          .eq('id', photo.id);
+        
+        if (updateError) {
+          console.error(`❌ Failed to reset photo ${photo.id}:`, updateError);
+        } else {
+          // 重新加入队列
+          try {
+            await photoQueue.add('process-photo', {
+              photoId: photo.id,
+              albumId: photo.album_id,
+              originalKey: photo.original_key,
+            });
+            console.log(`🔄 Requeued photo: ${photo.id}`);
+            requeuedCount++;
+          } catch (queueError) {
+            console.error(`❌ Failed to requeue photo ${photo.id}:`, queueError);
+          }
+        }
+      }
+      recoveredCount++;
+    }
+    
+    console.log(`✅ Recovery completed: ${recoveredCount} photos processed`);
+    console.log(`   - ${alreadyCompletedCount} photos marked as completed`);
+    console.log(`   - ${requeuedCount} photos requeued`);
+  } catch (err: any) {
+    console.error('❌ Error during recovery:', err);
+  }
+}
+
 server.listen(HTTP_PORT, () => {
   console.log(`🌐 HTTP API listening on port ${HTTP_PORT}`);
+  
+  // 启动后延迟5秒执行恢复（等待服务完全启动）
+  setTimeout(() => {
+    recoverStuckProcessingPhotos();
+  }, 5000);
 });
 
 // 优雅退出

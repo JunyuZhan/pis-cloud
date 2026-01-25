@@ -52,11 +52,11 @@ mc ls pis
 #### 方式 B：连接到公网 MinIO（通过 FRP 代理）
 
 ```bash
-# 如果 MinIO 通过 FRP 代理到公网（如 media.albertzhan.top）
-mc alias set pis http://media.albertzhan.top minioadmin minioadmin
+# 如果 MinIO 通过 FRP 代理到公网（如 media.yourdomain.com）
+mc alias set pis http://media.yourdomain.com minioadmin minioadmin
 
 # 或使用 HTTPS（如果配置了 SSL）
-mc alias set pis https://media.albertzhan.top minioadmin minioadmin
+mc alias set pis https://media.yourdomain.com minioadmin minioadmin
 ```
 
 ### 上传图片到扫描目录
