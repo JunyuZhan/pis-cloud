@@ -1,0 +1,18 @@
+name = "private-instant-photo-sharing"
+main = "services/worker/src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compatible"]
+
+# Cloudflare Pages 配置
+[site]
+bucket = "apps/web/.next"
+
+# 环境变量（在 Cloudflare Dashboard 中设置）
+[vars]
+NEXT_PUBLIC_SUPABASE_URL = ""
+NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
+
+# R2 存储桶配置
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "{your-bucket-name}"

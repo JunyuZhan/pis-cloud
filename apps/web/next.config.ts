@@ -11,15 +11,22 @@ const withNextIntl = createNextIntlPlugin()
 const nextConfig: NextConfig = {
   // 生成唯一的构建 ID，用于缓存破坏
   generateBuildId: async () => {
-    // 使用时间戳或 Git commit SHA（Vercel 会自动设置）
-    return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`
+    // 使用 Git commit SHA 或时间戳
+    return process.env.VERCEL_GIT_COMMIT_SHA || 
+           process.env.CF_PAGES_COMMIT_SHA || 
+           `build-${Date.now()}`
   },
   // 压缩配置（Next.js 15 默认启用）
   compress: true,
+  // 输出模式：Cloudflare Pages 需要 'export'，Vercel 使用默认的 'standalone'
+  output: process.env.CF_PAGES ? 'export' : 'standalone',
   // 优化生产构建
-  productionBrowserSourceMaps: false, // 生产环境不生成 source maps，减少构建时间
+  productionBrowserSourceMaps: process.env.NODE_ENV === 'development', // 仅开发环境生成 source maps
   // 优化图片加载
+  // 图片优化配置
   images: {
+    // 在 Cloudflare Pages 上禁用图片优化（需要企业计划）
+    unoptimized: !!process.env.CF_PAGES,
     remotePatterns: [
       // 本地开发环境
       {
