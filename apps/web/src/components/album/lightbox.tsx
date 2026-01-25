@@ -8,7 +8,7 @@ import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
 import { Download, Heart } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getMediaUrl } from '@/lib/utils'
 import { handleApiError } from '@/lib/toast'
 import type { Photo } from '@/types/database'
 
@@ -31,10 +31,7 @@ export function PhotoLightbox({
   onSelectChange,
   onIndexChange,
 }: PhotoLightboxProps) {
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
-  
-  // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
-  const safeMediaUrl = mediaUrl
+  const safeMediaUrl = getMediaUrl()
   
   // 开发环境警告
   if (typeof window !== 'undefined' && !safeMediaUrl) {

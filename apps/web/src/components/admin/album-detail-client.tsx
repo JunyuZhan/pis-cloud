@@ -9,7 +9,7 @@ import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
 import type { Album, Photo } from '@/types/database'
-import { cn } from '@/lib/utils'
+import { cn, getMediaUrl } from '@/lib/utils'
 
 // 动态导入大型组件（按需加载，减少初始 bundle）
 const PhotoUploader = dynamic(() => import('./photo-uploader').then(mod => ({ default: mod.PhotoUploader })), {
@@ -134,7 +134,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     }
   }, [processingCount, router])
 
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = getMediaUrl()
 
   // toggleSelection removed as it's not used
 

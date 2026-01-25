@@ -20,6 +20,15 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * 获取媒体服务器 URL，强制使用 HTTP（如果服务器不支持 HTTPS）
+ */
+export function getMediaUrl(): string {
+  const url = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+  // 如果配置了 HTTPS 但服务器不支持，强制转换为 HTTP
+  return url.replace(/^https:/, 'http:')
+}
+
+/**
  * 格式化日期 - 使用固定格式避免 hydration 不匹配
  */
 export function formatDate(date: string | Date): string {

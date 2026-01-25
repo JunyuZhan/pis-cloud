@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import { ChevronDown, Aperture } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Album, Photo } from '@/types/database'
+import { getMediaUrl } from '@/lib/utils'
 
 interface HomeHeroProps {
   featuredAlbum?: Album | null
@@ -16,7 +17,7 @@ export function HomeHero({ featuredAlbum, coverPhoto }: HomeHeroProps) {
   const t = useTranslations('home.hero')
   const [isLoaded, setIsLoaded] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+  const mediaUrl = getMediaUrl()
   const { scrollY } = useScroll()
 
   // 检测用户是否偏好减少动画
