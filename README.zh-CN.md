@@ -195,29 +195,30 @@ pnpm dev
 
 ## 🌐 生产环境部署
 
-### 一键部署到公网服务器（推荐）
+### 一键部署到服务器（推荐）
 
-**无需本地克隆代码，直接从 GitHub 部署！**
+**SSH 登录到服务器，运行一条命令：**
 
 ```bash
-# 方式一：直接从 GitHub 拉取脚本部署（最简单）
-bash <(curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy-to-server.sh)
-
-# 方式二：本地运行（如果已克隆项目）
-bash scripts/deploy-to-server.sh
-
-# 方式三：命令行参数
-bash scripts/deploy-to-server.sh <服务器IP> <SSH用户名> [GitHub仓库] [分支]
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
 ```
 
-脚本会自动完成：
-- ✅ 从 GitHub 克隆最新代码（或本地上传）
-- ✅ 检查并安装 Docker、Docker Compose 和 Git
-- ✅ 配置环境变量
-- ✅ 构建并启动所有服务
-- ✅ 可选配置 Nginx 反向代理和 SSL
+脚本会引导你完成：
+- ✅ 安装 Docker、Docker Compose 和 Git
+- ✅ 从 GitHub 克隆最新代码
+- ✅ 选择数据库类型（Supabase/PostgreSQL/MySQL）
+- ✅ 选择网络模式（公网/内网）
+- ✅ 配置并启动所有服务
 
-> 📖 **一键部署详细指南**: [docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md)
+**或者：从本地远程部署**
+
+```bash
+git clone https://github.com/junyuzhan/pis.git
+cd pis
+bash scripts/deploy.sh 192.168.1.100 root
+```
+
+> 📖 **部署指南**: [docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md)
 
 ### 手动部署
 
@@ -300,6 +301,7 @@ MIT License © 2026 junyuzhan
 ## 📚 更多文档
 
 ### 快速开始
+- [一键部署](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md) - 一条命令部署到服务器
 - [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) - 详细的部署步骤
 - [存储配置](docs/i18n/zh-CN/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 配置指南
 - [数据库配置](docs/i18n/zh-CN/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL 配置指南

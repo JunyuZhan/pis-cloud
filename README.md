@@ -195,29 +195,30 @@ pnpm dev
 
 ## 🌐 Production Deployment
 
-### One-Click Deployment to Public Server (Recommended)
+### One-Click Server Deployment (Recommended)
 
-**Deploy directly from GitHub - no need to clone code locally!**
+**SSH into your server and run one command:**
 
 ```bash
-# Method 1: Pull script directly from GitHub (Simplest)
-bash <(curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy-to-server.sh)
-
-# Method 2: Run locally (if project is already cloned)
-bash scripts/deploy-to-server.sh
-
-# Method 3: Command line arguments
-bash scripts/deploy-to-server.sh <server-ip> <ssh-user> [github-repo] [branch]
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
 ```
 
-The script will automatically:
-- ✅ Clone latest code from GitHub (or upload locally)
-- ✅ Check and install Docker, Docker Compose, and Git
-- ✅ Configure environment variables
-- ✅ Build and start all services
-- ✅ Optionally configure Nginx reverse proxy and SSL
+The script will guide you through:
+- ✅ Install Docker, Docker Compose, and Git
+- ✅ Clone latest code from GitHub
+- ✅ Choose database (Supabase/PostgreSQL/MySQL)
+- ✅ Choose network mode (Public/Internal)
+- ✅ Configure and start all services
 
-> 📖 **One-click deployment guide**: [docs/i18n/en/ONE_CLICK_DEPLOY.md](docs/i18n/en/ONE_CLICK_DEPLOY.md)
+**Alternative: Deploy from local machine**
+
+```bash
+git clone https://github.com/junyuzhan/pis.git
+cd pis
+bash scripts/deploy.sh 192.168.1.100 root
+```
+
+> 📖 **Deployment guide**: [docs/i18n/en/ONE_CLICK_DEPLOY.md](docs/i18n/en/ONE_CLICK_DEPLOY.md)
 
 ### Manual Deployment
 
@@ -300,7 +301,7 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 ## 📚 Documentation
 
 ### Getting Started
-- [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy directly from GitHub to your server
+- [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy with one command on your server
 - [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps
 - [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
 - [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration
