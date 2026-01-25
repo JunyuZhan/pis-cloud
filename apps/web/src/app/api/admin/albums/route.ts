@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil((count || 0) / limit),
       },
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
     let body: CreateAlbumRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
       is_public: data.is_public,
       shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/album/${data.slug}`,
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

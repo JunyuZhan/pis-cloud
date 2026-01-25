@@ -65,7 +65,7 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
   useEffect(() => {
     const ids = new Set(initialPhotos.map(p => p.id))
     knownPhotoIdsRef.current = ids
-  }, []) // 只在首次渲染时初始化
+  }, [initialPhotos])
 
   const {
     data,

@@ -2,13 +2,7 @@
 
 import { Camera, Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import type { Album } from '@/types/database'
-
-interface AlbumFooterProps {
-  album: Album
-}
-
-export function AlbumFooter({ album }: AlbumFooterProps) {
+export function AlbumFooter() {
   const t = useTranslations('footer')
   const currentYear = new Date().getFullYear()
 

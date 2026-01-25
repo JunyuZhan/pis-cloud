@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(data)
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -87,8 +87,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     let body: UpdateTemplateRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(data)
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -165,7 +165,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({ success: true, message: '模板已删除' })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

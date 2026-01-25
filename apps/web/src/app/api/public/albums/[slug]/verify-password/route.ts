@@ -20,8 +20,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let body: VerifyPasswordRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       )
     }
-  } catch (err) {
-    console.error('Verify password API error:', err)
+  } catch {
+    console.error('Verify password API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

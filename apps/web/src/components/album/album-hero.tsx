@@ -51,8 +51,8 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
           console.warn('View count API failed:', data)
         }
       })
-      .catch((err) => {
-        console.error('Failed to increment view count:', err)
+      .catch(() => {
+        console.error('Failed to increment view count')
         // API 失败时乐观更新
         setViewCount((prev: number) => prev + 1)
       })

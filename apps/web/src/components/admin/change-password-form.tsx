@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export function ChangePasswordForm() {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -63,7 +61,7 @@ export function ChangePasswordForm() {
       setTimeout(() => {
         setSuccess(false)
       }, 3000)
-    } catch (err) {
+    } catch {
       setError('密码修改失败，请重试')
     } finally {
       setLoading(false)

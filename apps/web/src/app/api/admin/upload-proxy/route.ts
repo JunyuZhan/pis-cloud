@@ -79,8 +79,8 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-  } catch (err) {
-    console.error('Upload proxy error:', err)
+  } catch {
+    console.error('Upload proxy error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

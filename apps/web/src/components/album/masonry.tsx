@@ -111,7 +111,7 @@ export function MasonryGrid({
           setSelectedMap((prev) => ({ ...prev, [photoId]: currentSelected }))
           onSelectChange?.(photoId, currentSelected)
         }
-      } catch (error) {
+      } catch {
         // 回滚
         setSelectedMap((prev) => ({ ...prev, [photoId]: currentSelected }))
         onSelectChange?.(photoId, currentSelected)
@@ -235,7 +235,6 @@ function PhotoCard({
   layout = 'masonry',
 }: PhotoCardProps) {
   const [showCopied, setShowCopied] = useState(false)
-  const [imageError, setImageError] = useState(false)
   const [blurDataURL, setBlurDataURL] = useState<string | undefined>(undefined)
   
   // 计算图片高度比例 (Masonry 模式使用)
@@ -300,7 +299,7 @@ function PhotoCard({
           title: '分享照片',
           url: shareUrl,
         })
-      } catch (err) {
+      } catch {
         // 用户取消分享
       }
     } else {
@@ -351,7 +350,6 @@ function PhotoCard({
               priority={isPriority}
               blurDataURL={blurDataURL}
               aspectRatio={layout !== 'grid' ? aspectRatio : undefined}
-              onError={() => setImageError(true)}
               unoptimized // 缩略图已优化(400px)，跳过 Vercel 处理，直接从 Cloudflare CDN 加载
             />
           ) : (
@@ -383,7 +381,7 @@ function PhotoCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  onSelect && onSelect(e)
+                  onSelect?.(e)
                 }}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-md',

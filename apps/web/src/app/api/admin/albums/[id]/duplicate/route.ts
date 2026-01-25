@@ -91,8 +91,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/album/${newAlbum.slug}`,
       message: '相册已复制',
     })
-  } catch (err) {
-    console.error('Duplicate album error:', err)
+  } catch {
+    console.error('Duplicate album error')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

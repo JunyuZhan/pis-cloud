@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, Edit2, Trash2, Loader2, Folder, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError, showInfo } from '@/lib/toast'
@@ -36,7 +36,7 @@ export function PhotoGroupManager({
   } | null>(null)
 
   // 加载分组列表
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/albums/${albumId}/groups`)
       if (response.ok) {
@@ -48,11 +48,11 @@ export function PhotoGroupManager({
     } finally {
       setLoading(false)
     }
-  }
+  }, [albumId])
 
   useEffect(() => {
     loadGroups()
-  }, [albumId])
+  }, [loadGroups])
 
   // 创建分组
   const handleCreate = async (name: string, description?: string) => {

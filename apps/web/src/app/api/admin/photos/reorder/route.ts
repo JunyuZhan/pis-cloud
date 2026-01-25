@@ -29,8 +29,8 @@ export async function PATCH(request: NextRequest) {
     let body: ReorderRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -151,7 +151,7 @@ export async function PATCH(request: NextRequest) {
       updatedCount: orders.length,
       message: `已更新 ${orders.length} 张照片的排序`,
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

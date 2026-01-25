@@ -10,7 +10,7 @@ import {
   X
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SortToggle, type SortRule } from './sort-toggle'
+import type { SortRule } from './sort-toggle'
 import { showInfo, showError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 import { cn } from '@/lib/utils'

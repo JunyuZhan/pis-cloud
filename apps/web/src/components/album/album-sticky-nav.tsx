@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Grid, LayoutGrid, ArrowUpDown, Filter, Heart, ArrowLeft } from 'lucide-react'
+import { Filter, Heart, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SortToggle, type SortRule } from './sort-toggle'
 import { LayoutToggle, type LayoutMode } from './layout-toggle'

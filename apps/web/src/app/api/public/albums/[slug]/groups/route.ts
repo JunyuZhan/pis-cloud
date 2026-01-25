@@ -92,8 +92,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const groupsWithPhotos = groupsWithCounts.filter((g) => g.photo_count > 0)
 
     return NextResponse.json({ groups: groupsWithPhotos })
-  } catch (err) {
-    console.error('Public groups API error:', err)
+  } catch {
+    console.error('Public groups API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

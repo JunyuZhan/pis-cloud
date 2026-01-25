@@ -90,7 +90,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // 获取照片列表
     const offset = (page - 1) * limit
-    const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
 
     // 根据排序参数构建不同的查询
     let query = supabase
@@ -173,7 +172,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
       { headers: cacheHeaders }
     )
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

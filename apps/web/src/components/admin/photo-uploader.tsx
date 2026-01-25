@@ -8,7 +8,7 @@ import { cn, formatFileSize } from '@/lib/utils'
 // 上传配置
 const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
-const MAX_RETRIES = 3 // 上传最多重试 3 次
+// MAX_RETRIES removed as it's not used
 
 // 格式化网速
 function formatSpeed(bytesPerSecond: number): string {
@@ -38,7 +38,7 @@ interface UploadFile {
   respAlbumId?: string
 }
 
-export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
+export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   const router = useRouter()
   const [files, setFiles] = useState<UploadFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -71,9 +71,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
   // 组件卸载时清理所有定时器
   useEffect(() => {
+    const timers = completedTimersRef.current
     return () => {
-      completedTimersRef.current.forEach((timer) => clearTimeout(timer))
-      completedTimersRef.current.clear()
+      timers.forEach((timer) => clearTimeout(timer))
+      timers.clear()
     }
   }, [])
 
@@ -99,6 +100,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       isProcessingQueueRef.current = false
       return currentFiles
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
@@ -126,8 +128,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     setTimeout(processQueue, 0)
   }, [processQueue])
 
-  // 获取 Worker API URL (使用代理路由)
-  const getWorkerUrl = () => '/api/worker'
+  // getWorkerUrl removed as it's not used
 
   // 大文件直接上传到 Worker（Worker 没有大小限制）
   const uploadToWorkerDirectly = async (
@@ -355,13 +356,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
       
       // 更新状态为失败
+      const errorMessage = err instanceof Error ? err.message : '上传失败'
       setFiles((prev) =>
         prev.map((f) =>
           f.id === uploadFile.id
             ? {
                 ...f,
                 status: 'failed' as const,
-                error: err instanceof Error ? err.message : '上传失败',
+                error: errorMessage,
               }
             : f
         )

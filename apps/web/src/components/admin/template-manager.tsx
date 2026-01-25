@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+// useRouter removed as it's not used
 import { Plus, Trash2, Edit2, Loader2, FileText } from 'lucide-react'
 import type { AlbumTemplate } from '@/types/database'
 import {
@@ -16,7 +16,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError, showInfo } from '@/lib/toast'
 
 export function TemplateManager() {
-  const router = useRouter()
   const [templates, setTemplates] = useState<AlbumTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -301,6 +300,25 @@ export function TemplateManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConfirmDialog(null)
+            }
+          }}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant={confirmDialog.variant}
+          onConfirm={async () => {
+            await confirmDialog.onConfirm()
+            setConfirmDialog(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -81,8 +81,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const photoIds = (assignments || []).map((a) => a.photo_id)
 
     return NextResponse.json({ photo_ids: photoIds })
-  } catch (err) {
-    console.error('Get group photos API error:', err)
+  } catch {
+    console.error('Get group photos API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -146,8 +146,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let body: PostRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -198,8 +198,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       success: true,
       assigned_count: photo_ids.length,
     })
-  } catch (err) {
-    console.error('Assign photos API error:', err)
+  } catch {
+    console.error('Assign photos API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -263,8 +263,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     let body: DeleteRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -298,8 +298,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       success: true,
       removed_count: photo_ids.length,
     })
-  } catch (err) {
-    console.error('Remove photos API error:', err)
+  } catch {
+    console.error('Remove photos API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

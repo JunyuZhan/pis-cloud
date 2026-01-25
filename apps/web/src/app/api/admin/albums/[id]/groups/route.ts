@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { PhotoGroupInsert, PhotoGroupUpdate } from '@/types/database'
+import type { PhotoGroupInsert } from '@/types/database'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -77,8 +77,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     )
 
     return NextResponse.json({ groups: groupsWithCounts })
-  } catch (err) {
-    console.error('Groups API error:', err)
+  } catch {
+    console.error('Groups API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let body: CreateRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -188,8 +188,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         photo_count: 0,
       },
     })
-  } catch (err) {
-    console.error('Create group API error:', err)
+  } catch {
+    console.error('Create group API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

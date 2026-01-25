@@ -41,8 +41,8 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
       setTimeout(() => setCopied(false), 2000)
       // 关闭对话框，提供更好的反馈
       setTimeout(() => setOpen(false), 1500)
-    } catch (err) {
-      console.error('复制失败:', err)
+    } catch {
+      console.error('复制失败:')
       // 降级方案：使用传统复制方法
       const textArea = document.createElement('textarea')
       textArea.value = url

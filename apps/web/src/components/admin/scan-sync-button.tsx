@@ -45,7 +45,7 @@ export function ScanSyncButton({ albumId, onComplete }: ScanSyncButtonProps) {
       if (data.added > 0) {
         onComplete?.()
       }
-    } catch (err) {
+    } catch {
       setResult({
         success: false,
         message: '网络错误，请重试',

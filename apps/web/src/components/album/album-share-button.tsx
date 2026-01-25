@@ -1,7 +1,6 @@
 'use client'
 
 import { ShareLinkButton } from '@/components/admin/share-link-button'
-import { Share2 } from 'lucide-react'
 
 interface AlbumShareButtonProps {
   albumSlug: string

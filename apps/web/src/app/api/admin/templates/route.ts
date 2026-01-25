@@ -9,7 +9,7 @@ import type { AlbumTemplateInsert, Json } from '@/types/database'
  */
 
 // GET /api/admin/templates - 获取模板列表
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ templates: data || [] })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
     let body: CreateTemplateRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data)
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

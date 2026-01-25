@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download, Radio } from 'lucide-react'
 import type { Database } from '@/types/database'
@@ -99,12 +99,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleWatermarkConfigChange = (field: string, value: unknown) => {
-    setFormData((prev) => ({
-      ...prev,
-      watermark_config: { ...prev.watermark_config, [field]: value },
-    }))
-  }
+  // handleWatermarkConfigChange removed as it's not used
 
   const handleWatermarksChange = (watermarks: WatermarkItem[]) => {
     setFormData((prev) => ({

@@ -36,8 +36,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     let body: RotateRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -99,8 +99,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single()
 
     if (photoStatus?.original_key) {
-      const previousStatus = photoStatus.status
-
       // 触发重新处理
       try {
         const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
@@ -124,8 +122,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           console.error('Worker process error:', await processRes.text())
           // Worker 调用失败，保持原状态，旋转角度已保存，下次处理时会应用
         }
-      } catch (err) {
-        console.error('Failed to trigger reprocessing:', err)
+      } catch {
+        console.error('Failed to trigger reprocessing:')
         // Worker 不可用时，保持原状态，旋转角度已保存
         // 可以通过手动重新处理或定时任务来应用旋转
       }

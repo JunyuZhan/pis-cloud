@@ -61,8 +61,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const result = await workerResponse.json()
     return NextResponse.json(result)
-  } catch (err) {
-    console.error('Scan API error:', err)
+  } catch {
+    console.error('Scan API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

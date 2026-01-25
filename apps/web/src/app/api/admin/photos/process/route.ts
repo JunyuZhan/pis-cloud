@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     let body: ProcessRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -60,14 +60,14 @@ export async function POST(request: NextRequest) {
         console.error('Worker process error:', await processRes.text())
         // 不阻断流程，Worker 可以通过定时任务补偿
       }
-    } catch (err) {
-      console.error('Failed to call worker:', err)
+    } catch {
+      console.error('Failed to call worker:')
       // 不阻断流程
     }
 
     return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('Process API error:', err)
+  } catch {
+    console.error('Process API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

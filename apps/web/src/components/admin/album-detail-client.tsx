@@ -134,15 +134,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
 
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
 
-  const toggleSelection = (photoId: string) => {
-    const newSelected = new Set(selectedPhotos)
-    if (newSelected.has(photoId)) {
-      newSelected.delete(photoId)
-    } else {
-      newSelected.add(photoId)
-    }
-    setSelectedPhotos(newSelected)
-  }
+  // toggleSelection removed as it's not used
 
   const clearSelection = () => {
     setSelectedPhotos(new Set())

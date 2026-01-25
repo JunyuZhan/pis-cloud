@@ -2,34 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
 import { checkRateLimit } from '@/middleware-rate-limit'
-import { Client as MinioClient } from 'minio'
 
 interface RouteParams {
   params: Promise<{ id: string }>
 }
 
 // MinIO 客户端（懒初始化）
-let minioClient: MinioClient | null = null
-
-function getMinioClient(): MinioClient {
-  if (!minioClient) {
-    // 优先使用新的环境变量名，兼容旧的
-    const endpoint = process.env.STORAGE_ENDPOINT || process.env.MINIO_ENDPOINT_HOST || 'localhost'
-    const port = parseInt(process.env.STORAGE_PORT || process.env.MINIO_ENDPOINT_PORT || '9000')
-    const useSSL = process.env.STORAGE_USE_SSL === 'true' || process.env.MINIO_USE_SSL === 'true'
-    const accessKey = process.env.STORAGE_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || ''
-    const secretKey = process.env.STORAGE_SECRET_KEY || process.env.MINIO_SECRET_KEY || ''
-    
-    minioClient = new MinioClient({
-      endPoint: endpoint,
-      port,
-      useSSL,
-      accessKey,
-      secretKey,
-    })
-  }
-  return minioClient
-}
+// Note: getMinioClient function removed as it's not currently used
 
 /**
  * 获取上传凭证 API
@@ -101,8 +80,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let body: UploadRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -171,8 +150,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       originalKey,
       albumId,
     })
-  } catch (err) {
-    console.error('Upload API error:', err)
+  } catch {
+    console.error('Upload API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

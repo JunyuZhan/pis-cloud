@@ -66,8 +66,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({ success: true, view_count: newViewCount })
-  } catch (err) {
-    console.error('View count increment error:', err)
+  } catch {
+    console.error('View count increment error:')
     // 即使出错，也尝试查询当前的 view_count 返回
     try {
       const { slug } = await params
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         view_count: album?.view_count || 0,
         error: 'Failed to increment view count'
       })
-    } catch (queryErr) {
+    } catch {
       return NextResponse.json({ 
         success: false, 
         view_count: 0,

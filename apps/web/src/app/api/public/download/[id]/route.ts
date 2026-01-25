@@ -100,8 +100,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       filename: photo.filename,
       expiresIn: 300, // 5 分钟
     })
-  } catch (err) {
-    console.error('Download API error:', err)
+  } catch {
+    console.error('Download API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

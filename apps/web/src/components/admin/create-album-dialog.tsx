@@ -106,7 +106,7 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
       }
 
       setCreated(data)
-    } catch (err) {
+    } catch {
       setError('创建失败，请重试')
     } finally {
       setLoading(false)

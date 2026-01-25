@@ -74,8 +74,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         photo_count: count || 0,
       },
     })
-  } catch (err) {
-    console.error('Get group API error:', err)
+  } catch {
+    console.error('Get group API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -141,8 +141,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     let body: UpdateRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
         { status: 400 }
@@ -213,8 +213,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         photo_count: count || 0,
       },
     })
-  } catch (err) {
-    console.error('Update group API error:', err)
+  } catch {
+    console.error('Update group API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -285,8 +285,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('Delete group API error:', err)
+  } catch {
+    console.error('Delete group API error:')
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

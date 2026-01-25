@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(album)
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }
@@ -99,8 +99,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     let body: UpdateAlbumRequestBody
     try {
       body = await request.json()
-    } catch (err) {
-      console.error('Failed to parse request body:', err)
+    } catch {
+      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误' } },
         { status: 400 }
@@ -320,7 +320,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       success: true,
       message: `相册「${album.title}」已删除`,
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

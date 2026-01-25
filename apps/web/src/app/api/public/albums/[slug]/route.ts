@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
       { headers: cacheHeaders }
     )
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
       { status: 500 }

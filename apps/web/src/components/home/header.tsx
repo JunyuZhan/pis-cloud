@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Settings } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { LanguageSwitcher } from '@/components/ui/language-switcher'
@@ -19,17 +20,14 @@ export function HomeHeader() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border safe-area-top">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 md:py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 sm:gap-3 cursor-pointer group touch-manipulation">
-          {/* Logo - 使用img避免hydration问题 */}
-          <img
+          {/* Logo */}
+          <Image
             src={logoUrl}
             alt="PIS Logo"
+            width={40}
+            height={40}
             className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 flex-shrink-0 transition-transform group-hover:scale-110"
-            onError={(e) => {
-              // 如果自定义 logo 加载失败，回退到默认 logo
-              if (logoPath !== '/icons/icon-192x192.png') {
-                e.currentTarget.src = '/icons/icon-192x192.png'
-              }
-            }}
+            unoptimized
           />
           {/* 品牌名称和说明 */}
           <div className="flex flex-col">

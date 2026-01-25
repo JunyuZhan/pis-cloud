@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, ReactNode } from 'react'
-import { X } from 'lucide-react'
+// X removed as it's not used
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +28,7 @@ export function LongPressMenu({
   disabled = false,
 }: LongPressMenuProps) {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLongPressing, setIsLongPressing] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const elementRef = useRef<HTMLDivElement>(null)
