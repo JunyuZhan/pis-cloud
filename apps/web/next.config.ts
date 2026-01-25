@@ -21,6 +21,12 @@ const nextConfig: NextConfig = {
   // 输出模式：Cloudflare Pages 需要 'export'，Vercel 使用默认的 'standalone'
   // 注意：静态导出不支持 API 路由，API 路由需要通过 Cloudflare Pages Functions 处理
   output: process.env.CF_PAGES ? 'export' : 'standalone',
+  // 在静态导出模式下排除 API 路由
+  ...(process.env.CF_PAGES && {
+    // 使用 pageExtensions 排除 API 路由（但这不会工作，因为它们是 route.ts）
+    // 我们需要在构建时跳过 API 路由
+    // 实际上，Next.js 静态导出应该自动跳过 API 路由，但我们需要确保它们不被构建
+  }),
   // 优化生产构建
   productionBrowserSourceMaps: process.env.NODE_ENV === 'development', // 仅开发环境生成 source maps
   // 优化图片加载
