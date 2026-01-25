@@ -226,9 +226,10 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 1. **Configure Supabase** - Create project and run migrations
 2. **Deploy Server** - Run Docker Compose on your server
-3. **Deploy Frontend** - Deploy to Vercel or your hosting
+3. **Deploy Frontend** - Deploy to Vercel, Cloudflare Pages, or your hosting
 
-> 📖 **Detailed deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)
+> 📖 **Detailed deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)  
+> 📖 **Cloudflare Pages deployment**: [docs/i18n/en/CLOUDFLARE_DEPLOY.md](docs/i18n/en/CLOUDFLARE_DEPLOY.md)
 
 ---
 
@@ -304,7 +305,8 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 
 ### Getting Started
 - [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy with one command on your server
-- [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps
+- [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps (Vercel)
+- [Cloudflare Deployment](docs/i18n/en/CLOUDFLARE_DEPLOY.md) - Deploy frontend to Cloudflare Pages
 - [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
 - [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration
 - [Multi-Storage & Database Support](docs/i18n/en/MULTI_STORAGE_DATABASE.md) - Feature guide and migration

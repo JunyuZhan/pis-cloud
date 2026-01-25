@@ -401,6 +401,24 @@ NEXT_PUBLIC_MEDIA_URL=https://media.yourdomain.com/pis-photos
 
 ---
 
+### Cloudflare Pages 部署
+
+> 📖 **完整指南**: 查看 [Cloudflare 部署指南](../CLOUDFLARE_DEPLOY.md)
+
+**快速开始:**
+
+1. 在 Cloudflare Dashboard → Pages 中**连接 GitHub 仓库**
+2. **配置构建设置:**
+   - Build command: `CF_PAGES=1 pnpm install && pnpm build`
+   - Build output directory: `apps/web/.next`
+   - Root directory: `/`
+3. **设置环境变量**（与 Vercel 相同）
+4. **部署**
+
+**注意:** Cloudflare Pages 部署会将 Worker 服务保留在独立服务器上（通过 FRP 代理）。
+
+---
+
 ## 环境变量配置
 
 ### 前端 (Vercel / apps/web/.env.local)
