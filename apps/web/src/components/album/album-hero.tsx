@@ -17,7 +17,7 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
   // 确保正确读取初始浏览次数
-  const initialViewCount = (album as any).view_count ?? (album as any).viewCount ?? 0
+  const initialViewCount = album.view_count ?? 0
   const [viewCount, setViewCount] = useState(initialViewCount)
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
 
@@ -94,9 +94,9 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
     return `${year}年${month}月${day}日` 
   }
 
-  const eventDate = (album as any).event_date
-  const location = (album as any).location
-  const selectedCount = (album as any).selected_count || 0
+  const eventDate = album.event_date
+  const location = album.location
+  const selectedCount = album.selected_count || 0
 
   return (
     <div className="relative w-full h-[40vh] md:h-[55vh] lg:h-[65vh] min-h-[280px] md:min-h-[400px] overflow-hidden">
@@ -149,7 +149,7 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
             className="flex flex-wrap items-center gap-2 mb-2 md:mb-4"
           >
             {/* 直播状态指示器 */}
-            {(album as any).is_live ? (
+            {album.is_live ? (
               <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 bg-accent/90 backdrop-blur-sm rounded-full">
                 <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>

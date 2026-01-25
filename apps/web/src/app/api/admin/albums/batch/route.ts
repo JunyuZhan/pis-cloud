@@ -23,7 +23,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 解析请求体
-    let body: any
+    interface DeleteBatchRequestBody {
+      albumIds: string[]
+    }
+    let body: DeleteBatchRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -119,7 +122,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 解析请求体
-    let body: any
+    interface UpdateBatchRequestBody {
+      albumIds: string[]
+      updates: {
+        is_public?: boolean
+        layout?: 'masonry' | 'grid' | 'carousel'
+        sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+        allow_download?: boolean
+        show_exif?: boolean
+      }
+    }
+    let body: UpdateBatchRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -156,7 +169,7 @@ export async function PATCH(request: NextRequest) {
 
     // 构建更新数据（只允许更新特定字段）
     const allowedFields = ['is_public', 'layout', 'sort_rule', 'allow_download', 'show_exif']
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, boolean | string> = {}
     
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {

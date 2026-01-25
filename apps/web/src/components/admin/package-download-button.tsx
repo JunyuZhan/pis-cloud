@@ -61,8 +61,9 @@ export function PackageDownloadButton({
       
       // 开始轮询状态
       pollPackageStatus(data.packageId)
-    } catch (error: any) {
-      showError(error.message || '创建打包任务失败')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '创建打包任务失败'
+      showError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -135,7 +136,7 @@ export function PackageDownloadButton({
                   </label>
                   <select
                     value={photoSelection}
-                    onChange={(e) => setPhotoSelection(e.target.value as any)}
+                    onChange={(e) => setPhotoSelection(e.target.value as 'all' | 'selected' | 'custom')}
                     className="input"
                   >
                     <option value="selected">已选照片 ({selectedCount} 张)</option>

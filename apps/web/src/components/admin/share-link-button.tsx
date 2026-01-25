@@ -133,9 +133,9 @@ export function ShareLinkButton({ url, albumTitle = '相册' }: ShareLinkButtonP
           url: url,
         })
         setOpen(false)
-      } catch (err: any) {
+      } catch (err) {
         // 用户取消分享
-        if (err.name !== 'AbortError') {
+        if (err instanceof Error && err.name !== 'AbortError') {
           showError('分享失败，请重试')
         }
       }

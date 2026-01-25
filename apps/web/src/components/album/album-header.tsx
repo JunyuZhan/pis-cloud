@@ -19,8 +19,8 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
   const [downloading, setDownloading] = useState(false)
   
   const shouldTruncate = album.description && album.description.length > 60
-  const selectedCount = (album as any).selected_count || 0
-  const allowBatchDownload = (album as any).allow_batch_download !== false && album.allow_download
+  const selectedCount = album.selected_count || 0
+  const allowBatchDownload = album.allow_batch_download !== false && album.allow_download
 
   // 批量下载已选照片
   const handleBatchDownload = async () => {

@@ -30,7 +30,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface PackageRequestBody {
+      photoIds?: string[]
+      photoSelection?: 'all' | 'selected' | 'custom'
+      includeWatermarked?: boolean
+      includeOriginal?: boolean
+    }
+    let body: PackageRequestBody
     try {
       body = await request.json()
     } catch (err) {

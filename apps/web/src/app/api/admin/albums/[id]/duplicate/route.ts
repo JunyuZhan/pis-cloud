@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { AlbumInsert } from '@/types/database'
+import type { AlbumInsert, Database } from '@/types/database'
+
+type Album = Database['public']['Tables']['albums']['Row']
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -43,23 +45,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 构建新相册数据（复制所有配置，但不复制照片）
+    const album = originalAlbum as Album
     const newAlbumData: AlbumInsert = {
-      title: `${originalAlbum.title} (副本)`,
-      description: originalAlbum.description,
-      is_public: originalAlbum.is_public,
-      layout: originalAlbum.layout,
-      sort_rule: originalAlbum.sort_rule,
-      allow_download: originalAlbum.allow_download,
-      allow_batch_download: originalAlbum.allow_batch_download,
-      show_exif: originalAlbum.show_exif,
-      password: (originalAlbum as any).password || null,
-      expires_at: (originalAlbum as any).expires_at || null,
-      watermark_enabled: originalAlbum.watermark_enabled,
-      watermark_type: originalAlbum.watermark_type,
-      watermark_config: originalAlbum.watermark_config,
-      share_title: (originalAlbum as any).share_title || null,
-      share_description: (originalAlbum as any).share_description || null,
-      share_image_url: (originalAlbum as any).share_image_url || null,
+      title: `${album.title} (副本)`,
+      description: album.description,
+      is_public: album.is_public,
+      layout: album.layout,
+      sort_rule: album.sort_rule,
+      allow_download: album.allow_download,
+      allow_batch_download: album.allow_batch_download,
+      show_exif: album.show_exif,
+      password: album.password || null,
+      expires_at: album.expires_at || null,
+      watermark_enabled: album.watermark_enabled,
+      watermark_type: album.watermark_type,
+      watermark_config: album.watermark_config,
+      share_title: album.share_title || null,
+      share_description: album.share_description || null,
+      share_image_url: album.share_image_url || null,
       // 不复制封面和照片
       cover_photo_id: null,
       photo_count: 0,

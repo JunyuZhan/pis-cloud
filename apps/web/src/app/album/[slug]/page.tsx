@@ -5,7 +5,6 @@ import { AlbumClient } from '@/components/album/album-client'
 import { AlbumHero } from '@/components/album/album-hero'
 import { AlbumInfoBar } from '@/components/album/album-info-bar'
 import { AlbumStickyNav } from '@/components/album/album-sticky-nav'
-import { AlbumShareButton } from '@/components/album/album-share-button'
 import { PhotoGroupFilter } from '@/components/album/photo-group-filter'
 import { FloatingActions } from '@/components/album/floating-actions'
 import { SortToggle, type SortRule } from '@/components/album/sort-toggle'
@@ -44,11 +43,11 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || 'http://localhost:9000/pis-photos'
   
   // 使用自定义分享配置，如果没有则使用默认值
-  const shareTitle = (album as any).share_title || album.title
-  const shareDescription = (album as any).share_description || album.description || `查看 ${album.title} 的精彩照片`
+  const shareTitle = album.share_title || album.title
+  const shareDescription = album.share_description || album.description || `查看 ${album.title} 的精彩照片`
   
   // 获取分享图片（优先使用自定义图片，否则使用封面图）
-  let shareImage = (album as any).share_image_url
+  let shareImage = album.share_image_url
   if (!shareImage && album.cover_photo_id) {
     const { data: coverPhoto } = await supabase
       .from('photos')
@@ -186,7 +185,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   const photos = (photosData || []) as Photo[]
 
   // 获取照片分组关联（如果相册有分组）
-  let photoGroupMap: Map<string, string[]> = new Map()
+  const photoGroupMap: Map<string, string[]> = new Map()
   if (groups.length > 0) {
     for (const group of groups) {
       const { data: assignments } = await supabase

@@ -28,7 +28,7 @@ export function AlbumStickyNav({
   const [showFilters, setShowFilters] = useState(false)
   const [mounted, setMounted] = useState(false)
   
-  const selectedCount = (album as any).selected_count || 0
+  const selectedCount = album.selected_count || 0
 
   // 确保只在客户端挂载后显示返回按钮，避免 hydration 错误
   useEffect(() => {

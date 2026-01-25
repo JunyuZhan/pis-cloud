@@ -74,7 +74,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface UpdateAlbumRequestBody {
+      title?: string
+      description?: string | null
+      cover_photo_id?: string | null
+      is_public?: boolean
+      is_live?: boolean
+      layout?: 'masonry' | 'grid' | 'carousel'
+      sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+      allow_download?: boolean
+      allow_batch_download?: boolean
+      show_exif?: boolean
+      watermark_enabled?: boolean
+      watermark_type?: 'text' | 'logo' | null
+      watermark_config?: Record<string, unknown> | null
+      password?: string | null
+      expires_at?: string | null
+      share_title?: string | null
+      share_description?: string | null
+      share_image_url?: string | null
+      event_date?: string | null
+      location?: string | null
+    }
+    let body: UpdateAlbumRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -194,8 +216,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // 注意：水印配置变更后，只对新上传的照片生效
     // 已上传的照片不会被重新处理，避免数据库错误和性能问题
     // 水印配置会在照片上传时由 Worker 读取并应用
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: album, error } = await (supabase as any)
+    const { data: album, error } = await supabase
       .from('albums')
       .update(updateData)
       .eq('id', id)
@@ -271,8 +292,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // 软删除：设置 deleted_at 时间戳
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: album, error } = await (supabase as any)
+    const { data: album, error } = await supabase
       .from('albums')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)

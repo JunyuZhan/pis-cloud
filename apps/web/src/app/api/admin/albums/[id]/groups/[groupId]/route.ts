@@ -133,7 +133,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface UpdateRequestBody {
+      name?: string
+      description?: string | null
+      sort_order?: number
+    }
+    let body: UpdateRequestBody
     try {
       body = await request.json()
     } catch (err) {

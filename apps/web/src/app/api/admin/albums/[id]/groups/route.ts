@@ -121,7 +121,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface CreateRequestBody {
+      name: string
+      description?: string | null
+      sort_order?: number
+    }
+    let body: CreateRequestBody
     try {
       body = await request.json()
     } catch (err) {

@@ -14,7 +14,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { slug } = await params
     
     // 解析请求体
-    let body: any
+    interface VerifyPasswordRequestBody {
+      password: string
+    }
+    let body: VerifyPasswordRequestBody
     try {
       body = await request.json()
     } catch (err) {

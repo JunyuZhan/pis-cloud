@@ -25,6 +25,7 @@ export function getBlurDataURL(
 
   try {
     // 动态导入 blurhash，避免服务端打包问题
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { decode } = require('blurhash')
     const pixels = decode(blurHash, width, height)
     const canvas = document.createElement('canvas')

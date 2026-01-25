@@ -22,7 +22,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 解析请求体
-    let body: any
+    interface ReorderRequestBody {
+      albumId: string
+      orders: Array<{ photoId: string; sortOrder: number }>
+    }
+    let body: ReorderRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -85,7 +89,7 @@ export async function PATCH(request: NextRequest) {
 
     // 批量更新排序
     // 使用事务确保原子性
-    const photoIds = orders.map((o: { photoId: string }) => o.photoId)
+    const photoIds = orders.map((o) => o.photoId)
 
     // 先验证所有照片都属于该相册
     const { data: photos, error: checkError } = await supabase
@@ -101,8 +105,8 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const validPhotoIds = new Set(photos?.map((p: { id: string }) => p.id) || [])
-    const invalidIds = photoIds.filter((id: string) => !validPhotoIds.has(id))
+    const validPhotoIds = new Set(photos?.map((p) => p.id) || [])
+    const invalidIds = photoIds.filter((id) => !validPhotoIds.has(id))
 
     if (invalidIds.length > 0) {
       return NextResponse.json(
@@ -117,7 +121,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 执行批量更新
-    const updatePromises = orders.map((item: { photoId: string; sortOrder: number }) =>
+    const updatePromises = orders.map((item) =>
       supabase
         .from('photos')
         .update({ sort_order: item.sortOrder })
@@ -128,7 +132,7 @@ export async function PATCH(request: NextRequest) {
     const results = await Promise.all(updatePromises)
 
     // 检查是否有失败
-    const errors = results.filter((r: { error: unknown }) => r.error)
+    const errors = results.filter((r) => r.error)
     if (errors.length > 0) {
       return NextResponse.json(
         { error: { code: 'DB_ERROR', message: '部分更新失败' } },

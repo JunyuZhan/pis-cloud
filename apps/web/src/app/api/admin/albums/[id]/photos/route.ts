@@ -185,7 +185,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface DeletePhotosRequestBody {
+      photoIds: string[]
+    }
+    let body: DeletePhotosRequestBody
     try {
       body = await request.json()
     } catch (err) {

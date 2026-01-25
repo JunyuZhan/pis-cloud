@@ -499,9 +499,9 @@ function AlbumCard({
             <p className="text-text-secondary text-sm">
               {album.photo_count} 张照片
             </p>
-            {(album as any).event_date && (() => {
+            {album.event_date && (() => {
               try {
-                const date = new Date((album as any).event_date)
+                const date = new Date(album.event_date)
                 if (isNaN(date.getTime())) return null
                 const year = date.getFullYear()
                 const month = date.getMonth() + 1
@@ -518,9 +518,9 @@ function AlbumCard({
                 return null
               }
             })()}
-            {(album as any).location && (
+            {album.location && (
               <p className="text-text-muted text-xs">
-                地点：{(album as any).location}
+                地点：{album.location}
               </p>
             )}
           </div>

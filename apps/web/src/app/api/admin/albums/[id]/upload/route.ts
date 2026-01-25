@@ -93,7 +93,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface UploadRequestBody {
+      filename: string
+      contentType: string
+      fileSize?: number
+    }
+    let body: UploadRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -137,8 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 创建照片记录 (状态为 pending)
     const adminClient = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (adminClient as any)
+    const { error: insertError } = await adminClient
       .from('photos')
       .insert({
         id: photoId,

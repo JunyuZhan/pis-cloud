@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析请求体
-    let body: any
+    interface ProcessRequestBody {
+      photoId: string
+      albumId: string
+      originalKey: string
+    }
+    let body: ProcessRequestBody
     try {
       body = await request.json()
     } catch (err) {

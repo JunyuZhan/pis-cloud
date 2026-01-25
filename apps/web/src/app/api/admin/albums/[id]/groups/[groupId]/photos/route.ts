@@ -140,7 +140,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface PostRequestBody {
+      photo_ids: string[]
+    }
+    let body: PostRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -254,7 +257,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface DeleteRequestBody {
+      photo_ids: string[]
+    }
+    let body: DeleteRequestBody
     try {
       body = await request.json()
     } catch (err) {

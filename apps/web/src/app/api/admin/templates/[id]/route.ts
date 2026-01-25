@@ -69,7 +69,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface UpdateTemplateRequestBody {
+      name?: string
+      description?: string | null
+      is_public?: boolean
+      layout?: 'masonry' | 'grid' | 'carousel'
+      sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+      allow_download?: boolean
+      allow_batch_download?: boolean
+      show_exif?: boolean
+      password?: string | null
+      expires_at?: string | null
+      watermark_enabled?: boolean
+      watermark_type?: 'text' | 'logo' | null
+      watermark_config?: Record<string, unknown> | null
+    }
+    let body: UpdateTemplateRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -80,7 +95,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
     
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, string | boolean | number | Record<string, unknown> | null> = {}
 
     // 只更新提供的字段
     if (body.name !== undefined) updateData.name = body.name.trim()

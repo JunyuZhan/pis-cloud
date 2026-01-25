@@ -234,7 +234,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     if (!photo) return
     
     // 计算新的旋转角度
-    const currentRotation = (photo as any).rotation ?? 0
+    const currentRotation = photo.rotation ?? 0
     let nextRotation = (currentRotation + angle) % 360
     
     // 确保角度在 0-360 范围内
@@ -635,13 +635,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
             >
               {photo.thumb_key ? (
                 <Image
-                  src={`${mediaUrl}/${photo.thumb_key}?r=${(photo as any).rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
+                  src={`${mediaUrl}/${photo.thumb_key}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
                   alt=""
                   fill
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                   priority={index < 6}
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  key={`${photo.id}-${(photo as any).rotation ?? 'auto'}-${photo.updated_at || Date.now()}`}
+                  key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || Date.now()}`}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">

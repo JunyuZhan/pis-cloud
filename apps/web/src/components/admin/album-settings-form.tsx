@@ -18,7 +18,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   // 解析水印配置（兼容旧格式和新格式）
-  const parseWatermarkConfig = (config: any) => {
+  const parseWatermarkConfig = (config: Database['public']['Tables']['albums']['Row']['watermark_config']) => {
     if (!config) {
       const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
       return {
@@ -34,68 +34,72 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     }
 
     // 新格式：包含 watermarks 数组
-    if (config.watermarks && Array.isArray(config.watermarks)) {
+    if (config && typeof config === 'object' && 'watermarks' in config && Array.isArray(config.watermarks)) {
       return {
-        watermarks: config.watermarks.map((w: any, index: number) => ({
-          id: w.id || `watermark-${index + 1}`,
-          type: w.type || 'text',
-          text: w.text,
-          logoUrl: w.logoUrl,
-          opacity: w.opacity ?? 0.5,
-          position: w.position || 'center',
-          size: w.size,
-          enabled: w.enabled !== false,
-        })),
+        watermarks: config.watermarks.map((w: unknown, index: number) => {
+          const watermark = w as Record<string, unknown>
+          return {
+            id: (watermark.id as string) || `watermark-${index + 1}`,
+            type: (watermark.type as 'text' | 'logo') || 'text',
+            text: watermark.text as string,
+            logoUrl: watermark.logoUrl as string | undefined,
+            opacity: (watermark.opacity as number) ?? 0.5,
+            position: (watermark.position as string) || 'center',
+            size: watermark.size as number | undefined,
+            enabled: (watermark.enabled as boolean) !== false,
+          }
+        }),
       }
     }
 
     // 旧格式：单个水印配置
+    const oldConfig = config as Record<string, unknown>
     return {
       watermarks: [{
         id: 'watermark-1',
-        type: config.type || 'text',
-        text: config.text,
-        logoUrl: config.logoUrl,
-        opacity: config.opacity ?? 0.5,
-        position: config.position || 'center',
+        type: (oldConfig.type as 'text' | 'logo') || 'text',
+        text: oldConfig.text as string,
+        logoUrl: oldConfig.logoUrl as string | undefined,
+        opacity: (oldConfig.opacity as number) ?? 0.5,
+        position: (oldConfig.position as string) || 'center',
         enabled: true,
       }],
     }
   }
 
-  const initialWatermarkConfig = parseWatermarkConfig((album.watermark_config as any))
+  const initialWatermarkConfig = parseWatermarkConfig(album.watermark_config)
 
   const [formData, setFormData] = useState({
     title: album.title,
     description: album.description || '',
-    event_date: (album as any).event_date ? new Date((album as any).event_date).toISOString().slice(0, 16) : '',
-    location: (album as any).location || '',
+    event_date: album.event_date ? new Date(album.event_date).toISOString().slice(0, 16) : '',
+    location: album.location || '',
     is_public: album.is_public ?? false,
-    is_live: (album as any).is_live ?? false,
+    is_live: album.is_live ?? false,
     // 访问控制
-    password: (album as any).password || '',
-    expires_at: (album as any).expires_at ? new Date((album as any).expires_at).toISOString().slice(0, 16) : '',
+    password: album.password || '',
+    expires_at: album.expires_at ? new Date(album.expires_at).toISOString().slice(0, 16) : '',
     // 布局设置
     layout: album.layout || 'masonry',
     sort_rule: album.sort_rule || 'capture_desc',
     // 功能开关
     allow_download: album.allow_download ?? false,
-    allow_batch_download: (album as any).allow_batch_download ?? true,
+    allow_batch_download: album.allow_batch_download ?? true,
     show_exif: album.show_exif ?? true,
     // 水印设置
     watermark_enabled: album.watermark_enabled ?? false,
     watermark_config: initialWatermarkConfig,
     // 分享配置
-    share_title: (album as any).share_title || '',
-    share_description: (album as any).share_description || '',
-    share_image_url: (album as any).share_image_url || '',
+    share_title: album.share_title || '',
+    share_description: album.share_description || '',
+    share_image_url: album.share_image_url || '',
   })
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | boolean | number | Record<string, unknown>) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleWatermarkConfigChange = (field: string, value: any) => {
+  const handleWatermarkConfigChange = (field: string, value: unknown) => {
     setFormData((prev) => ({
       ...prev,
       watermark_config: { ...prev.watermark_config, [field]: value },

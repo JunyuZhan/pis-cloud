@@ -20,7 +20,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = await createClient()
 
     // 解析请求体
-    let body: any
+    interface SelectPhotoRequestBody {
+      isSelected: boolean
+    }
+    let body: SelectPhotoRequestBody
     try {
       body = await request.json()
     } catch (err) {

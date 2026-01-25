@@ -30,7 +30,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 解析请求体
-    let body: any
+    interface RotateRequestBody {
+      rotation: number | null
+    }
+    let body: RotateRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -132,10 +135,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       success: true,
       data: updatedPhoto,
     })
-  } catch (err: any) {
+  } catch (err) {
     console.error('Photo rotation API error:', err)
+    const errorMessage = err instanceof Error ? err.message : '未知错误'
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: '服务器错误：' + err.message } },
+      { error: { code: 'INTERNAL_ERROR', message: '服务器错误：' + errorMessage } },
       { status: 500 }
     )
   }

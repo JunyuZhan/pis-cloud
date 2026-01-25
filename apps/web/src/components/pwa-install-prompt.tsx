@@ -16,8 +16,14 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     // 检查是否已经安装
+    interface NavigatorStandalone extends Navigator {
+      standalone?: boolean
+    }
+    interface WindowMSStream extends Window {
+      MSStream?: unknown
+    }
     const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as any).standalone === true
+      || (window.navigator as NavigatorStandalone).standalone === true
     setIsStandalone(standalone)
 
     if (standalone) return
@@ -30,7 +36,7 @@ export function PWAInstallPrompt() {
     }
 
     // 检查是否是 iOS
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as WindowMSStream).MSStream
     setIsIOS(iOS)
 
     // 监听 beforeinstallprompt 事件
@@ -110,7 +116,7 @@ export function PWAInstallPrompt() {
                 </p>
                 <p className="flex items-center gap-1">
                   <span className="bg-surface px-1.5 py-0.5 rounded">2</span>
-                  选择 <Plus className="w-3.5 h-3.5 inline" /> "添加到主屏幕"
+                  选择 <Plus className="w-3.5 h-3.5 inline" /> &quot;添加到主屏幕&quot;
                 </p>
               </div>
             ) : (
