@@ -98,6 +98,7 @@ const nextConfig: NextConfig = {
   // 安全头配置
   async headers() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'
+    const isDev = process.env.NODE_ENV === 'development'
     
     return [
       {
@@ -106,7 +107,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: appUrl, // 限制为你的域名，不要使用 '*'
+            value: isDev ? '*' : appUrl, // 开发环境允许所有来源，生产环境限制为指定域名
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -132,7 +133,11 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
-        ],
+          {
+            key: 'Strict-Transport-Security',
+            value: isDev ? '' : 'max-age=31536000; includeSubDomains; preload',
+          },
+        ].filter(header => header.value !== ''), // 过滤空值
       },
       {
         // 应用到所有页面
@@ -156,9 +161,17 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(), microphone=(), geolocation=(), payment=()',
           },
-        ],
+          {
+            key: 'Strict-Transport-Security',
+            value: isDev ? '' : 'max-age=31536000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: isDev ? '' : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
+          },
+        ].filter(header => header.value !== ''), // 过滤空值
       },
       {
         // 静态资源缓存优化

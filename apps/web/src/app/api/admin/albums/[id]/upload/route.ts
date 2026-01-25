@@ -145,7 +145,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 上传后，调用 /api/admin/photos/process 触发 Worker 处理
     
     // 通过 Worker API 代理获取 presigned URL（避免 CORS）
-    const presignResponse = await fetch(`/api/worker/presign`, {
+    const presignUrl = new URL('/api/worker/presign', request.url)
+    const presignResponse = await fetch(presignUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: originalKey }),
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         statusText: presignResponse.statusText,
         error: errorData,
       })
+      await adminClient.from('photos').delete().eq('id', photoId)
       return NextResponse.json(
         { 
           error: { 
@@ -181,6 +183,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     if (!presignedUrl) {
       console.error('Presigned URL is missing in response:', presignData)
+      await adminClient.from('photos').delete().eq('id', photoId)
       return NextResponse.json(
         { error: { code: 'INVALID_RESPONSE', message: '服务器返回格式错误' } },
         { status: 500 }

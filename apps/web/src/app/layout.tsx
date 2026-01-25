@@ -7,6 +7,8 @@
 
 import type { Metadata, Viewport } from 'next'
 import { Inter, Noto_Serif_SC, Playfair_Display } from 'next/font/google'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt'
@@ -71,8 +73,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Get locale from cookie (handled by middleware)
-  const locale = 'zh-CN' // Default, will be updated by middleware/cookie
+  const locale = await getLocale()
+  const messages = await getMessages()
   
   // 获取媒体服务器域名用于预连接
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
@@ -105,11 +107,13 @@ export default async function RootLayout({
         <link rel="apple-touch-startup-image" href="/splash/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
       </head>
       <body className={inter.className}>
-        <Providers>
-          {children}
-          <SiteFooter />
-          <PWAInstallPrompt />
-        </Providers>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Providers>
+            {children}
+            <SiteFooter />
+            <PWAInstallPrompt />
+          </Providers>
+        </NextIntlClientProvider>
         <ServiceWorkerRegistration />
       </body>
     </html>

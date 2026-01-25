@@ -56,8 +56,21 @@ else
 fi
 echo ""
 
+# 4. 检查 Supabase 项目 URL 和密钥
+echo "4️⃣  检查 Supabase 配置..."
+SUPABASE_URLS=$(grep -r "https://[a-z0-9]\{20\}\.supabase\.co" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" . 2>/dev/null || true)
+
+if [ -n "$SUPABASE_URLS" ]; then
+    echo -e "${RED}❌ 发现硬编码的 Supabase URL：${NC}"
+    echo "$SUPABASE_URLS" | head -3
+    ERRORS=$((ERRORS + 1))
+else
+    echo -e "${GREEN}✅ 没有发现硬编码的 Supabase URL${NC}"
+fi
+echo ""
+
 # 4. 检查 AWS Access Keys
-echo "4️⃣  检查 AWS Access Keys..."
+echo "5️⃣  检查 AWS Access Keys..."
 AWS_KEYS=$(grep -r "AKIA[0-9A-Z]\{16\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" . 2>/dev/null || true)
 
 if [ -n "$AWS_KEYS" ]; then
@@ -70,8 +83,12 @@ fi
 echo ""
 
 # 5. 检查硬编码的密码（排除测试脚本中的默认值和 UI 代码）
-echo "5️⃣  检查硬编码的密码..."
-PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env.local" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" . 2>/dev/null | grep -v "password123" | grep -v "minioadmin" | grep -v "your-" | grep -v "PIS_ADMIN_PASSWORD" | grep -v "test-password" | grep -v "show.*Password" | grep -v "showConfirmPassword" | grep -v "type.*password" | grep -v "input.*password" | grep -v "Eye" || true)
+echo "6️⃣  检查硬编码的密码..."
+PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env.local" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" --exclude="check-security.sh" . 2>/dev/null | \
+    grep -v "password123" | grep -v "minioadmin" | grep -v "your-" | grep -v "PIS_ADMIN_PASSWORD" | grep -v "test-password" | \
+    grep -v "show.*Password" | grep -v "showConfirmPassword" | grep -v "type.*password" | grep -v "input.*password" | grep -v "Eye" | \
+    grep -v "MSG_.*PASSWORD" | grep -v "Password:" | grep -v "password:" | \
+    grep -v "passwordValue" | grep -v "PASSWORDS=" || true)
 
 if [ -n "$PASSWORDS" ]; then
     echo -e "${YELLOW}⚠️  警告：发现可能的硬编码密码：${NC}"
@@ -83,7 +100,7 @@ fi
 echo ""
 
 # 6. 检查 .env.example 文件是否包含真实密钥
-echo "6️⃣  检查 .env.example 文件..."
+echo "7️⃣  检查 .env.example 文件..."
 if [ -f ".env.example" ]; then
     REAL_KEYS=$(grep -E "(hapkufkiavhrxxcuzptm|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS)" .env.example 2>/dev/null || true)
     if [ -n "$REAL_KEYS" ]; then
@@ -98,8 +115,37 @@ else
 fi
 echo ""
 
-# 7. 检查 .gitignore 配置
-echo "7️⃣  检查 .gitignore 配置..."
+# 7. 检查硬编码的私人域名
+echo "8️⃣  检查硬编码的私人域名..."
+# 排除示例域名、公共 CDN、镜像站和常见占位符
+EXCLUDE_DOMAINS="yourdomain\.com|example\.com|localhost|127\.0\.0\.1|0\.0\.0\.0|test\.com|demo\.com|placeholder\.com"
+# 公共域名白名单（这些是公开的，不是私人域名）
+PUBLIC_DOMAINS="github\.com|npmjs\.com|npm\.com|vercel\.app|netlify\.app|supabase\.co|amazonaws\.com|aliyuncs\.com|myqcloud\.com|googleapis\.com|cloudflare\.com|jsdelivr\.net|unpkg\.com|cdnjs\.com|eslint\.org|turbo\.build|mirrors\.aliyun\.com|mirrors\.tuna\.tsinghua\.edu\.cn|dl-cdn\.alpinelinux\.org|registry\.npmjs\.org|registry\.yarnpkg\.com|nodejs\.org|docs\.docker\.com|w3\.org|dl\.min\.io|raw\.githubusercontent\.com|get\.docker\.com|fonts\.gstatic\.com|fonts\.googleapis\.com|ko-fi\.com|patreon\.com|nextjs\.org|yourname"
+# 查找可能的真实域名（排除示例域名和公共域名）
+# 匹配 http:// 或 https:// 开头的 URL，但排除示例域名和公共域名
+# 排除二进制文件（jpg, png, jpeg, gif, svg, ico, pdf 等）
+PRIVATE_DOMAINS=$(grep -rE "https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared \
+    --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" --exclude="*.test.*" --exclude="*.spec.*" \
+    --exclude="pnpm-lock.yaml" --exclude="package-lock.json" --exclude="yarn.lock" \
+    --exclude="*.jpg" --exclude="*.jpeg" --exclude="*.png" --exclude="*.gif" --exclude="*.svg" --exclude="*.ico" --exclude="*.pdf" \
+    --exclude="*.d.ts" . 2>/dev/null | \
+    grep -vE "$EXCLUDE_DOMAINS" | \
+    grep -vE "$PUBLIC_DOMAINS" | \
+    grep -vE "\.example\.|example\.|your-|placeholder|schema\.json|yourname" || true)
+
+if [ -n "$PRIVATE_DOMAINS" ]; then
+    echo -e "${RED}❌ 发现可能的硬编码私人域名：${NC}"
+    echo "$PRIVATE_DOMAINS" | head -10
+    echo ""
+    echo -e "${YELLOW}提示：请确保这些域名是示例域名，如果是私人域名，请使用环境变量。${NC}"
+    ERRORS=$((ERRORS + 1))
+else
+    echo -e "${GREEN}✅ 没有发现硬编码的私人域名${NC}"
+fi
+echo ""
+
+# 8. 检查 .gitignore 配置
+echo "9️⃣  检查 .gitignore 配置..."
 if [ -f ".gitignore" ]; then
     if grep -q "\.env" .gitignore && grep -q "\.env\.local" .gitignore; then
         echo -e "${GREEN}✅ .gitignore 正确配置了环境变量文件${NC}"

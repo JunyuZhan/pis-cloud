@@ -14,7 +14,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
   let locale = await requestLocale
 
   // If not in route, get from cookie
-  if (!locale) {
+  if (!locale && process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NEXT_PHASE !== 'phase-production-export') {
     try {
       const cookieStore = await cookies()
       const localeCookie = cookieStore.get('NEXT_LOCALE')?.value

@@ -100,6 +100,65 @@ configure_env() {
         return 1
     fi
     
+    # 验证环境变量
+    validate_env_vars
+}
+
+# 验证环境变量
+validate_env_vars() {
+    step "验证环境变量"
+    
+    local env_file=".env.local"
+    local errors=0
+    
+    if [ ! -f "$env_file" ]; then
+        error "未找到 $env_file 文件"
+        return 1
+    fi
+    
+    # 检查必需的环境变量
+    local required_vars=(
+        "NEXT_PUBLIC_SUPABASE_URL"
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+        "SUPABASE_SERVICE_ROLE_KEY"
+        "STORAGE_TYPE"
+        "STORAGE_ENDPOINT"
+        "STORAGE_ACCESS_KEY"
+        "STORAGE_SECRET_KEY"
+        "STORAGE_BUCKET"
+    )
+    
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "^$var=" "$env_file" || grep -q "^$var=.*your-.*" "$env_file" || grep -q "^$var=\"\"" "$env_file"; then
+            error "环境变量 $var 未正确配置"
+            errors=$((errors + 1))
+        else
+            success "环境变量 $var 已配置"
+        fi
+    done
+    
+    # 检查 Supabase URL 格式
+    if grep -q "NEXT_PUBLIC_SUPABASE_URL=.*supabase\.co" "$env_file"; then
+        success "Supabase URL 格式正确"
+    else
+        error "Supabase URL 格式不正确"
+        errors=$((errors + 1))
+    fi
+    
+    # 检查是否使用了示例密钥
+    if grep -q "minioadmin" "$env_file" && [ "$STORAGE_TYPE" != "minio" ] || [ "$NODE_ENV" = "production" ]; then
+        warn "检测到默认密钥，生产环境请更换为安全密钥"
+    fi
+    
+    if [ $errors -eq 0 ]; then
+        success "环境变量验证通过"
+        return 0
+    else
+        error "发现 $errors 个环境变量配置问题"
+        return 1
+    fi
+    fi
+    
     echo ""
     read -p "Supabase Project URL: " SUPABASE_URL
     read -p "Supabase Anon Key: " SUPABASE_ANON_KEY

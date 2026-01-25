@@ -5,6 +5,7 @@ import { HomeHeader } from '@/components/home/header'
 import { HomeHero } from '@/components/home/home-hero'
 import { AlbumGrid } from '@/components/home/album-grid'
 import type { Database } from '@/types/database'
+import { defaultLocale } from '@/i18n/config'
 
 type Album = Database['public']['Tables']['albums']['Row']
 type Photo = Database['public']['Tables']['photos']['Row']
@@ -14,7 +15,7 @@ type Photo = Database['public']['Tables']['photos']['Row']
  * 静态导出模式：完全静态化，不支持 ISR
  */
 export default async function HomePage() {
-  const t = await getTranslations('home')
+  const t = await getTranslations({ locale: defaultLocale, namespace: 'home' })
   const supabase = await createClient()
 
   // 获取公开相册列表

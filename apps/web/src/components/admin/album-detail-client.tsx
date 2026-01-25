@@ -54,10 +54,12 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   // 当 initialPhotos 更新时（例如 router.refresh() 后），同步更新本地 state
   useEffect(() => {
     setPhotos(initialPhotos)
-    // 检查是否有处理中的照片
-    const pending = initialPhotos.filter(p => p.status === 'pending' || p.status === 'processing')
-    setProcessingCount(pending.length)
   }, [initialPhotos])
+
+  useEffect(() => {
+    const pending = photos.filter(p => p.status === 'pending' || p.status === 'processing')
+    setProcessingCount(pending.length)
+  }, [photos])
 
   // 加载照片分组映射
   useEffect(() => {
@@ -192,6 +194,9 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       
       // 更新本地状态
       setPhotos((prev) => prev.filter((p) => !photoIds.includes(p.id)))
+      if (coverPhotoId && photoIds.includes(coverPhotoId)) {
+        setCoverPhotoId(null)
+      }
       if (photoIds.length === selectedPhotos.size) {
         clearSelection()
       }

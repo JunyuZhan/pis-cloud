@@ -216,6 +216,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    const { data: albumData, error: albumError } = await supabase
+      .from('albums')
+      .select('id, cover_photo_id')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single()
+
+    if (albumError || !albumData) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: '相册不存在' } },
+        { status: 404 }
+      )
+    }
+
     // 验证照片属于该相册
     const { data: photosData, error: checkError } = await supabase
       .from('photos')
@@ -251,6 +265,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { error: { code: 'DB_ERROR', message: deleteError.message } },
         { status: 500 }
       )
+    }
+
+    if (albumData.cover_photo_id && validPhotoIds.includes(albumData.cover_photo_id)) {
+      await supabase
+        .from('albums')
+        .update({ cover_photo_id: null })
+        .eq('id', id)
     }
 
     // 更新相册的照片计数（重新统计 completed 状态的照片）

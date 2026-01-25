@@ -2,7 +2,39 @@
 
 > 本文档说明 PIS 系统的安全措施和部署建议
 
-**最后更新**: 2026-01-24
+**最后更新**: 2026-01-25
+
+---
+
+## 🔒 安全检查清单
+
+### 部署前必检项目
+
+- [ ] 运行安全检查脚本: `bash scripts/check-security.sh`
+- [ ] 验证环境变量配置: `bash scripts/setup.sh` (选项 3)
+- [ ] 确保 `.env.local` 不包含真实密钥
+- [ ] 检查 `.gitignore` 正确配置敏感文件
+- [ ] 生产环境启用 HTTPS
+- [ ] 配置强密码和安全密钥
+- [ ] 启用 Redis 密码认证
+- [ ] 配置防火墙规则
+- [ ] 设置备份策略
+
+### 环境变量安全
+
+**❌ 危险配置**:
+```bash
+# 不要在代码中硬编码真实密钥
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+STORAGE_ACCESS_KEY="minioadmin"  # 生产环境不要使用默认密钥
+```
+
+**✅ 安全配置**:
+```bash
+# 使用占位符或环境变量注入
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key-here"
+STORAGE_ACCESS_KEY="${MINIO_ACCESS_KEY}"  # 从环境变量获取
+```
 
 ---
 

@@ -18,11 +18,14 @@
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "setup": "bash scripts/setup.sh",
+    "security-check": "bash scripts/check-security.sh",
+    "validate-env": "bash scripts/setup.sh",
     "docker:up": "cd docker && docker-compose up -d",
     "docker:down": "cd docker && docker-compose down",
     "docker:logs": "cd docker && docker-compose logs -f",
     "db:migrate": "cd database && pnpm migrate",
-    "db:types": "cd apps/web && pnpm supabase:types"
+    "db:types": "cd apps/web && pnpm supabase:types",
+    "pre-commit": "pnpm security-check && pnpm lint"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

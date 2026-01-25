@@ -117,11 +117,13 @@ const worker = new Worker<PhotoJobData>(
         
         if (isFileNotFound) {
           console.log(`[${job.id}] File not found during download, cleaning up database record`);
-          await supabase
-            .from('photos')
-            .delete()
-            .eq('id', photoId)
-            .catch(() => {}); // 忽略删除错误（记录可能已被清理）
+          try {
+            await supabase
+              .from('photos')
+              .delete()
+              .eq('id', photoId);
+          } catch {
+          }
           return; // 不抛出错误，避免重试
         }
         throw downloadErr; // 其他错误继续抛出

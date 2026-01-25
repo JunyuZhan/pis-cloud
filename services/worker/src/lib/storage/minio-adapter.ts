@@ -9,6 +9,7 @@ import type { StorageAdapter, StorageConfig, UploadResult, StorageObject } from 
 
 export class MinIOAdapter implements StorageAdapter {
   private client: Minio.Client;
+  private presignClient: Minio.Client; // 专门用于生成 presigned URL 的客户端
   private s3Client: S3Client;
   private bucket: string;
   private publicUrl?: string;
@@ -29,7 +30,7 @@ export class MinIOAdapter implements StorageAdapter {
     this.secretKey = config.secretKey;
     this.region = config.region;
 
-    // MinIO 客户端用于常规操作
+    // MinIO 客户端用于常规操作（使用内网地址以提高性能）
     this.client = new Minio.Client({
       endPoint: this.endpoint,
       port: this.port,
@@ -38,6 +39,28 @@ export class MinIOAdapter implements StorageAdapter {
       secretKey: this.secretKey,
       region: this.region,
     });
+
+    // 用于生成 presigned URL 的客户端
+    // 如果配置了 publicUrl，使用公网地址生成签名，避免签名不匹配问题
+    if (this.publicUrl) {
+      try {
+        const publicUrlObj = new URL(this.publicUrl);
+        this.presignClient = new Minio.Client({
+          endPoint: publicUrlObj.hostname,
+          port: publicUrlObj.port ? parseInt(publicUrlObj.port) : (publicUrlObj.protocol === 'https:' ? 443 : 80),
+          useSSL: publicUrlObj.protocol === 'https:',
+          accessKey: this.accessKey,
+          secretKey: this.secretKey,
+          region: this.region,
+        });
+      } catch (e) {
+        console.warn('[MinIO] Failed to create presign client with public URL, falling back to internal client:', e);
+        this.presignClient = this.client;
+      }
+    } else {
+      // 如果没有配置 publicUrl，使用内网客户端
+      this.presignClient = this.client;
+    }
 
     // AWS S3 客户端用于分片上传（MinIO 兼容 S3）
     const s3Endpoint = this.useSSL 
@@ -88,11 +111,14 @@ export class MinIOAdapter implements StorageAdapter {
     key: string,
     expirySeconds = 3600
   ): Promise<string> {
-    const url = await this.client.presignedPutObject(
+    // 使用 presignClient 生成 URL（如果配置了 publicUrl，签名会基于公网地址）
+    const url = await this.presignClient.presignedPutObject(
       this.bucket,
       key,
       expirySeconds
     );
+    // 如果 presignClient 已经使用公网地址，就不需要再替换了
+    // 但为了兼容性，仍然检查是否需要替换
     return this.toPublicUrl(url);
   }
 
@@ -100,11 +126,14 @@ export class MinIOAdapter implements StorageAdapter {
     key: string,
     expirySeconds = 3600
   ): Promise<string> {
-    const url = await this.client.presignedGetObject(
+    // 使用 presignClient 生成 URL（如果配置了 publicUrl，签名会基于公网地址）
+    const url = await this.presignClient.presignedGetObject(
       this.bucket,
       key,
       expirySeconds
     );
+    // 如果 presignClient 已经使用公网地址，就不需要再替换了
+    // 但为了兼容性，仍然检查是否需要替换
     return this.toPublicUrl(url);
   }
 
@@ -263,10 +292,18 @@ export class MinIOAdapter implements StorageAdapter {
 
   private toPublicUrl(url: string): string {
     if (!this.publicUrl) return url;
-    // 替换内网地址为公网地址
+    
+    // 如果 presignClient 已经使用公网地址，URL 应该已经是公网地址了
+    // 但为了确保兼容性，仍然检查并替换（以防配置不一致）
     const match = url.match(/https?:\/\/([^\/]+)/);
     if (match) {
-      return url.replace(match[0], this.publicUrl);
+      const currentHost = match[0];
+      // 如果当前 URL 已经是公网地址，不需要替换
+      if (currentHost.includes(new URL(this.publicUrl).hostname)) {
+        return url;
+      }
+      // 否则替换内网地址为公网地址
+      return url.replace(currentHost, this.publicUrl);
     }
     return url;
   }
