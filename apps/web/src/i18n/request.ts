@@ -15,10 +15,15 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   // If not in route, get from cookie
   if (!locale) {
-    const cookieStore = await cookies()
-    const localeCookie = cookieStore.get('NEXT_LOCALE')?.value
-    if (localeCookie && locales.includes(localeCookie as Locale)) {
-      locale = localeCookie as Locale
+    try {
+      const cookieStore = await cookies()
+      const localeCookie = cookieStore.get('NEXT_LOCALE')?.value
+      if (localeCookie && locales.includes(localeCookie as Locale)) {
+        locale = localeCookie as Locale
+      }
+    } catch (error) {
+      // During static generation, cookies() may not be available
+      // Fall back to default locale
     }
   }
 

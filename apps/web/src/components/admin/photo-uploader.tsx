@@ -217,7 +217,6 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       xhr.ontimeout = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        const elapsed = (Date.now() - uploadStartTime) / 1000
         const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
         const timeoutMinutes = Math.round(timeout / 60000)
         reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
@@ -318,7 +317,6 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       xhr.ontimeout = () => {
         xhrMapRef.current.delete(uploadFile.id)
-        const elapsed = (Date.now() - uploadStartTime) / 1000
         const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
         const timeoutMinutes = Math.round(timeout / 60000)
         reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
