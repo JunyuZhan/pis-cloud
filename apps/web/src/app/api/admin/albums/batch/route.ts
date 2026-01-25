@@ -168,12 +168,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 构建更新数据（只允许更新特定字段）
-    const allowedFields = ['is_public', 'layout', 'sort_rule', 'allow_download', 'show_exif']
+    const allowedFields = ['is_public', 'layout', 'sort_rule', 'allow_download', 'show_exif'] as const
     const updateData: Record<string, boolean | string> = {}
     
     for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        updateData[field] = updates[field]
+      const fieldValue = (updates as Record<string, unknown>)[field]
+      if (fieldValue !== undefined) {
+        updateData[field] = fieldValue as boolean | string
       }
     }
 

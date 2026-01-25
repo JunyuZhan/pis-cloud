@@ -134,13 +134,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // 过滤只保留允许的字段
     const updateData: AlbumUpdate = {}
     for (const field of allowedFields) {
-      if (body[field] !== undefined) {
+      if ((body as Record<string, unknown>)[field] !== undefined) {
         // 密码字段：如果为空字符串，设置为 null；否则保持原值
         if (field === 'password') {
-          ;(updateData as Record<string, unknown>)[field] = body[field] === '' ? null : body[field]
+          const passwordValue = (body as Record<string, unknown>)[field]
+          ;(updateData as Record<string, unknown>)[field] = passwordValue === '' ? null : passwordValue
         } else if (field === 'event_date' || field === 'expires_at') {
           // 时间戳字段：如果为空字符串或无效值，设置为 null
-          const value = body[field]
+          const value = (body as Record<string, unknown>)[field] as string | undefined
           if (!value || value === '' || value.trim() === '') {
             ;(updateData as Record<string, unknown>)[field] = null
           } else {
@@ -163,16 +164,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           }
         } else if (field === 'watermark_config') {
           // 确保 watermark_config 是有效的 JSON 对象
-          if (body[field] !== null && typeof body[field] !== 'object') {
-            console.error('Invalid watermark_config format:', body[field])
+          const watermarkConfigValue = (body as Record<string, unknown>)[field]
+          if (watermarkConfigValue !== null && typeof watermarkConfigValue !== 'object') {
+            console.error('Invalid watermark_config format:', watermarkConfigValue)
             return NextResponse.json(
               { error: { code: 'VALIDATION_ERROR', message: '水印配置格式错误' } },
               { status: 400 }
             )
           }
-          ;(updateData as Record<string, unknown>)[field] = body[field]
+          ;(updateData as Record<string, unknown>)[field] = watermarkConfigValue
         } else {
-          ;(updateData as Record<string, unknown>)[field] = body[field]
+          ;(updateData as Record<string, unknown>)[field] = (body as Record<string, unknown>)[field]
         }
       }
     }

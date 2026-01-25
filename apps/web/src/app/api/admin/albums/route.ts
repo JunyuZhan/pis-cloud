@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { AlbumInsert } from '@/types/database'
+import type { AlbumInsert, Json } from '@/types/database'
 
 /**
  * 相册列表 API
@@ -93,7 +93,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析请求体
-    let body: any
+    interface CreateAlbumRequestBody {
+      title: string
+      description?: string | null
+      event_date?: string | null
+      location?: string | null
+      is_public?: boolean
+      layout?: 'masonry' | 'grid' | 'carousel'
+      sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
+      allow_download?: boolean
+      show_exif?: boolean
+      watermark_enabled?: boolean
+      watermark_type?: 'text' | 'logo' | null
+      watermark_config?: Json
+    }
+    let body: CreateAlbumRequestBody
     try {
       body = await request.json()
     } catch (err) {
@@ -172,7 +186,7 @@ export async function POST(request: NextRequest) {
       show_exif: show_exif ?? true,
       watermark_enabled: watermark_enabled ?? false,
       watermark_type: watermark_type || null,
-      watermark_config: watermark_config || {},
+      watermark_config: (watermark_config || {}) as Json,
     }
 
     // 创建相册

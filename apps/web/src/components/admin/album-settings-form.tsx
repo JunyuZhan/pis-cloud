@@ -109,7 +109,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const handleWatermarksChange = (watermarks: WatermarkItem[]) => {
     setFormData((prev) => ({
       ...prev,
-      watermark_config: { watermarks },
+      watermark_config: { watermarks } as typeof prev.watermark_config,
     }))
   }
 

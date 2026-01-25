@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { AlbumTemplateInsert } from '@/types/database'
+import type { AlbumTemplateInsert, Json } from '@/types/database'
 
 /**
  * 模板管理 API
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       expires_at?: string | null
       watermark_enabled?: boolean
       watermark_type?: 'text' | 'logo' | null
-      watermark_config?: Record<string, unknown>
+      watermark_config?: Json
     }
     let body: CreateTemplateRequestBody
     try {
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       expires_at: expires_at || null,
       watermark_enabled: watermark_enabled ?? false,
       watermark_type: watermark_type || null,
-      watermark_config: watermark_config || {},
+      watermark_config: (watermark_config || {}) as Json,
     }
 
     const { data, error } = await supabase
