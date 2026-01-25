@@ -581,10 +581,27 @@ with open('$DOCKER_DAEMON_JSON', 'w') as f:
     if grep -q "build:" docker-compose.yml; then
         # 备份原文件
         cp docker-compose.yml docker-compose.yml.build.bak
-        # 替换 build 为 image
-        sed -i 's|build:|image: pis-worker:latest # build:|' docker-compose.yml
-        sed -i 's|context: ..||' docker-compose.yml
-        sed -i 's|dockerfile: docker/worker.Dockerfile||' docker-compose.yml
+        
+        # 使用 Python 或 sed 替换 build 配置为 image
+        python3 << 'PYEOF' 2>/dev/null || {
+import re
+
+with open('docker-compose.yml', 'r') as f:
+    content = f.read()
+
+# 替换 build 块为 image
+pattern = r'(\s+)build:\s*\n\s+context:.*?\n\s+dockerfile:.*?\n'
+replacement = r'\1image: pis-worker:latest\n'
+content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+with open('docker-compose.yml', 'w') as f:
+    f.write(content)
+PYEOF
+            # Python 失败，使用 sed（简单替换）
+            sed -i '/build:/,/dockerfile:/d' docker-compose.yml
+            sed -i '/worker:/a\    image: pis-worker:latest' docker-compose.yml
+        }
+        
         success "已更新 docker-compose.yml 使用预构建镜像"
     fi
     
