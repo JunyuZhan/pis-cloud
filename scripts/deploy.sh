@@ -526,7 +526,54 @@ EOF
     docker-compose down 2>/dev/null || true
     
     info "$MSG_BUILDING_WORKER"
-    docker-compose build worker
+    
+    # 检查并配置 Docker DNS（解决 DNS 解析问题）
+    info "配置 Docker DNS..."
+    DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
+    if [ ! -f "$DOCKER_DAEMON_JSON" ] || ! grep -q '"dns"' "$DOCKER_DAEMON_JSON" 2>/dev/null; then
+        # 备份现有配置
+        [ -f "$DOCKER_DAEMON_JSON" ] && cp "$DOCKER_DAEMON_JSON" "${DOCKER_DAEMON_JSON}.bak" 2>/dev/null || true
+        
+        # 创建或更新 Docker daemon 配置
+        if [ -f "$DOCKER_DAEMON_JSON" ]; then
+            # 如果文件存在，尝试合并配置
+            python3 -c "
+import json
+import sys
+try:
+    with open('$DOCKER_DAEMON_JSON', 'r') as f:
+        config = json.load(f)
+except:
+    config = {}
+config['dns'] = ['8.8.8.8', '8.8.4.4', '114.114.114.114', '1.1.1.1']
+with open('$DOCKER_DAEMON_JSON', 'w') as f:
+    json.dump(config, f, indent=2)
+" 2>/dev/null || echo '{"dns": ["8.8.8.8", "8.8.4.4", "114.114.114.114", "1.1.1.1"]}' > "$DOCKER_DAEMON_JSON"
+        else
+            echo '{"dns": ["8.8.8.8", "8.8.4.4", "114.114.114.114", "1.1.1.1"]}' > "$DOCKER_DAEMON_JSON"
+        fi
+        
+        # 重启 Docker（如果可能）
+        if systemctl is-active docker >/dev/null 2>&1; then
+            warn "重启 Docker 以应用 DNS 配置..."
+            systemctl restart docker 2>/dev/null || true
+            sleep 3
+        fi
+    fi
+    
+    # 构建 Worker
+    info "开始构建 Worker 镜像..."
+    docker-compose build worker || {
+        warn "docker-compose build 失败，尝试使用 docker build..."
+        DOCKER_BUILDKIT=1 docker build \
+            --network=host \
+            -f worker.Dockerfile \
+            -t pis-worker:latest \
+            .. || {
+            error "构建失败，请检查网络连接和 DNS 配置"
+            exit 1
+        }
+    }
     
     info "$MSG_STARTING_SERVICES"
     docker-compose up -d
