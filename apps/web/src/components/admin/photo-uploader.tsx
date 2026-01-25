@@ -371,15 +371,84 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   }
 
   // 暂停上传
-  const pauseUpload = (fileId: string) => {
+  const pauseUpload = async (fileId: string) => {
     const xhr = xhrMapRef.current.get(fileId)
+    const currentFile = files.find(f => f.id === fileId)
+    
     if (xhr) {
-      xhr.abort()
-      xhrMapRef.current.delete(fileId)
+      // 检查上传是否已经完成（readyState === 4 表示请求已完成）
+      const isUploadCompleted = xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300
+      
+      // 如果上传已经完成，应该清理数据库记录而不是暂停
+      if (isUploadCompleted && currentFile?.photoId) {
+        // 上传已完成但用户暂停了，清理数据库记录
+        try {
+          const cleanupRes = await fetch(`/api/admin/photos/${currentFile.photoId}/cleanup`, {
+            method: 'DELETE',
+          })
+          
+          if (cleanupRes.ok) {
+            console.log(`[Upload] Cleaned up paused upload (already completed): ${currentFile.photoId}`)
+            // 标记为失败（因为用户取消了）
+            setFiles(prev => prev.map(f => 
+              f.id === fileId ? { ...f, status: 'failed' as const, error: '已取消上传' } : f
+            ))
+          } else {
+            // 清理失败，仍然标记为暂停（可能 Worker 已经在处理）
+            setFiles(prev => prev.map(f => 
+              f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+            ))
+          }
+        } catch (cleanupErr) {
+          console.error(`[Upload] Failed to cleanup paused upload:`, cleanupErr)
+          // 清理失败，仍然标记为暂停
+          setFiles(prev => prev.map(f => 
+            f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+          ))
+        }
+      } else {
+        // 上传未完成，正常暂停
+        xhr.abort()
+        xhrMapRef.current.delete(fileId)
+        setFiles(prev => prev.map(f => 
+          f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+        ))
+      }
+      
+      // 从队列中移除暂停的文件
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== fileId)
+    } else if (currentFile?.photoId && currentFile.progress >= 100) {
+      // 没有 XHR 引用但进度是 100%，说明上传已完成，清理数据库记录
+      try {
+        const cleanupRes = await fetch(`/api/admin/photos/${currentFile.photoId}/cleanup`, {
+          method: 'DELETE',
+        })
+        
+        if (cleanupRes.ok) {
+          console.log(`[Upload] Cleaned up paused upload (progress 100%): ${currentFile.photoId}`)
+          setFiles(prev => prev.map(f => 
+            f.id === fileId ? { ...f, status: 'failed' as const, error: '已取消上传' } : f
+          ))
+        } else {
+          setFiles(prev => prev.map(f => 
+            f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+          ))
+        }
+      } catch (cleanupErr) {
+        console.error(`[Upload] Failed to cleanup paused upload:`, cleanupErr)
+        setFiles(prev => prev.map(f => 
+          f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
+        ))
+      }
+      
+      // 从队列中移除
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== fileId)
+    } else {
+      // 正常暂停（上传未完成，没有 photoId 或进度未到 100%）
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, status: 'paused' as const, speed: undefined } : f
       ))
-      // 从队列中移除暂停的文件
+      // 从队列中移除
       uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== fileId)
     }
   }
