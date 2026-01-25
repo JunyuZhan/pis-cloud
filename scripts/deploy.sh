@@ -15,14 +15,6 @@
 
 set -e
 
-# 检测是否为交互式终端
-if [ -t 0 ]; then
-    INTERACTIVE=true
-else
-    INTERACTIVE=false
-    warn "检测到非交互式模式，将使用环境变量或默认值"
-fi
-
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -38,6 +30,194 @@ success() { echo -e "${GREEN}✓${NC} $1"; }
 warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 error() { echo -e "${RED}✗${NC} $1"; }
 
+# ============================================
+# 语言选择
+# ============================================
+select_language() {
+    # 检测是否为交互式终端
+    if [ -t 0 ]; then
+        INTERACTIVE=true
+    else
+        INTERACTIVE=false
+    fi
+    
+    # 如果设置了语言环境变量，直接使用
+    if [ -n "$DEPLOY_LANG" ]; then
+        LANG=$DEPLOY_LANG
+        return
+    fi
+    
+    # 检测系统语言
+    if [ -n "$LANG" ]; then
+        if [[ "$LANG" =~ ^zh ]]; then
+            LANG="zh"
+        else
+            LANG="en"
+        fi
+    else
+        LANG="en"
+    fi
+    
+    # 如果是交互式，让用户选择
+    if [ "$INTERACTIVE" = true ]; then
+        echo ""
+        echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║                                                           ║${NC}"
+        echo -e "${CYAN}║   📸 PIS - One-Click Deployment System                   ║${NC}"
+        echo -e "${CYAN}║                                                           ║${NC}"
+        echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo "Please select language / 请选择语言:"
+        echo ""
+        echo "  1) English"
+        echo "  2) 中文"
+        echo ""
+        
+        read -p "Select [1-2, default: ${LANG}]: " LANG_CHOICE
+        
+        case $LANG_CHOICE in
+            1) LANG="en" ;;
+            2) LANG="zh" ;;
+            *) LANG=${LANG:-"en"} ;;
+        esac
+    fi
+}
+
+# 加载语言文本
+load_language() {
+    if [ "$LANG" = "zh" ]; then
+        # 中文文本
+        MSG_NON_INTERACTIVE="检测到非交互式模式，将使用环境变量或默认值"
+        MSG_MODE_LOCAL="模式：在当前服务器上部署"
+        MSG_SUGGEST_ROOT="建议使用 root 用户运行，或使用 sudo"
+        MSG_STEP_1="第 1 步：安装环境"
+        MSG_STEP_2="第 2 步：获取代码"
+        MSG_STEP_3="第 3 步：选择数据库"
+        MSG_STEP_4="第 4 步：选择网络模式"
+        MSG_STEP_5="第 5 步：配置数据库"
+        MSG_STEP_6="第 6 步：启动服务"
+        MSG_STEP_7="第 7 步：验证服务"
+        MSG_DOCKER_INSTALLED="Docker 已安装"
+        MSG_DOCKER_INSTALLING="安装 Docker..."
+        MSG_DOCKER_INSTALLED_SUCCESS="Docker 安装完成"
+        MSG_COMPOSE_INSTALLED="Docker Compose 已安装"
+        MSG_COMPOSE_INSTALLING="安装 Docker Compose..."
+        MSG_COMPOSE_INSTALLED_SUCCESS="Docker Compose 安装完成"
+        MSG_GIT_INSTALLED="Git 已安装"
+        MSG_GIT_INSTALLING="安装 Git..."
+        MSG_GIT_INSTALLED_SUCCESS="Git 安装完成"
+        MSG_DIR_EXISTS="目录已存在"
+        MSG_BACKUP_RECLONE="是否备份并重新克隆? [y/N]:"
+        MSG_USE_EXISTING="使用现有代码"
+        MSG_CLONE_SUCCESS="代码克隆完成"
+        MSG_DB_SUPABASE="Supabase 云数据库"
+        MSG_DB_SUPABASE_REC="(推荐)"
+        MSG_DB_POSTGRESQL="PostgreSQL (本地 Docker)"
+        MSG_DB_MYSQL="MySQL (本地 Docker)"
+        MSG_SELECT_DB="请选择 [1-3，默认: 1]:"
+        MSG_NET_LOCAL="内网模式 - Worker 仅本地访问"
+        MSG_NET_PUBLIC="公网模式 (推荐) - Worker 可公网访问"
+        MSG_SELECT_NET="请选择 [1-2，默认: 2]:"
+        MSG_SUPABASE_CONFIG="请提供 Supabase 配置 (从 Dashboard → Settings → API 获取)："
+        MSG_SUPABASE_URL="Supabase Project URL:"
+        MSG_SUPABASE_KEY="Supabase Service Role Key:"
+        MSG_USE_ENV_VAR="使用环境变量"
+        MSG_NON_INTERACTIVE_REQUIRED="非交互式模式需要设置环境变量"
+        MSG_ENV_CREATED="环境变量文件已创建"
+        MSG_STARTING_SERVICES="启动服务..."
+        MSG_BUILDING_WORKER="构建 Worker 镜像..."
+        MSG_WAITING="等待服务启动..."
+        MSG_SERVICE_STATUS="服务状态:"
+        MSG_HEALTH_CHECK="健康检查:"
+        MSG_DEPLOY_SUCCESS="🎉 部署完成！"
+        MSG_MINIO_CONSOLE="MinIO Console:"
+        MSG_WORKER_API="Worker API:"
+        MSG_COMMON_COMMANDS="常用命令:"
+        MSG_VIEW_LOGS="查看日志:"
+        MSG_RESTART="重启服务:"
+        MSG_UPDATE_CODE="更新代码:"
+        MSG_TITLE="📸 PIS - 一键部署系统"
+        MSG_POSTGRESQL_PASSWORD="PostgreSQL 密码:"
+        MSG_MYSQL_PASSWORD="MySQL 密码:"
+        MSG_CONFIG_CREATED="配置文件已创建:"
+        MSG_USERNAME="用户名:"
+        MSG_PASSWORD="密码:"
+        MSG_LOCAL_ACCESS_ONLY="仅本地访问"
+        MSG_MINIO="MinIO:"
+        MSG_REDIS="Redis:"
+        MSG_WORKER="Worker:"
+    else
+        # English text
+        MSG_NON_INTERACTIVE="Non-interactive mode detected, using environment variables or defaults"
+        MSG_MODE_LOCAL="Mode: Deploy on current server"
+        MSG_SUGGEST_ROOT="Recommend running as root or using sudo"
+        MSG_STEP_1="Step 1: Install environment"
+        MSG_STEP_2="Step 2: Get code"
+        MSG_STEP_3="Step 3: Select database"
+        MSG_STEP_4="Step 4: Select network mode"
+        MSG_STEP_5="Step 5: Configure database"
+        MSG_STEP_6="Step 6: Start services"
+        MSG_STEP_7="Step 7: Verify services"
+        MSG_DOCKER_INSTALLED="Docker installed"
+        MSG_DOCKER_INSTALLING="Installing Docker..."
+        MSG_DOCKER_INSTALLED_SUCCESS="Docker installation completed"
+        MSG_COMPOSE_INSTALLED="Docker Compose installed"
+        MSG_COMPOSE_INSTALLING="Installing Docker Compose..."
+        MSG_COMPOSE_INSTALLED_SUCCESS="Docker Compose installation completed"
+        MSG_GIT_INSTALLED="Git installed"
+        MSG_GIT_INSTALLING="Installing Git..."
+        MSG_GIT_INSTALLED_SUCCESS="Git installation completed"
+        MSG_DIR_EXISTS="Directory already exists"
+        MSG_BACKUP_RECLONE="Backup and re-clone? [y/N]:"
+        MSG_USE_EXISTING="Using existing code"
+        MSG_CLONE_SUCCESS="Code cloned successfully"
+        MSG_DB_SUPABASE="Supabase Cloud Database"
+        MSG_DB_SUPABASE_REC="(Recommended)"
+        MSG_DB_POSTGRESQL="PostgreSQL (Local Docker)"
+        MSG_DB_MYSQL="MySQL (Local Docker)"
+        MSG_SELECT_DB="Select [1-3, default: 1]:"
+        MSG_NET_LOCAL="Internal mode - Worker local access only"
+        MSG_NET_PUBLIC="Public mode (Recommended) - Worker public access"
+        MSG_SELECT_NET="Select [1-2, default: 2]:"
+        MSG_SUPABASE_CONFIG="Please provide Supabase configuration (from Dashboard → Settings → API):"
+        MSG_SUPABASE_URL="Supabase Project URL:"
+        MSG_SUPABASE_KEY="Supabase Service Role Key:"
+        MSG_USE_ENV_VAR="Using environment variable"
+        MSG_NON_INTERACTIVE_REQUIRED="Non-interactive mode requires environment variables"
+        MSG_ENV_CREATED="Environment file created"
+        MSG_STARTING_SERVICES="Starting services..."
+        MSG_BUILDING_WORKER="Building Worker image..."
+        MSG_WAITING="Waiting for services to start..."
+        MSG_SERVICE_STATUS="Service status:"
+        MSG_HEALTH_CHECK="Health check:"
+        MSG_DEPLOY_SUCCESS="🎉 Deployment completed!"
+        MSG_MINIO_CONSOLE="MinIO Console:"
+        MSG_WORKER_API="Worker API:"
+        MSG_COMMON_COMMANDS="Common commands:"
+        MSG_VIEW_LOGS="View logs:"
+        MSG_RESTART="Restart services:"
+        MSG_UPDATE_CODE="Update code:"
+        MSG_TITLE="📸 PIS - One-Click Deployment System"
+        MSG_POSTGRESQL_PASSWORD="PostgreSQL password:"
+        MSG_MYSQL_PASSWORD="MySQL password:"
+        MSG_CONFIG_CREATED="Configuration file created:"
+        MSG_USERNAME="Username:"
+        MSG_PASSWORD="Password:"
+        MSG_LOCAL_ACCESS_ONLY="Local access only"
+        MSG_MINIO="MinIO:"
+        MSG_REDIS="Redis:"
+        MSG_WORKER="Worker:"
+    fi
+    
+    if [ "$INTERACTIVE" = false ]; then
+        warn "$MSG_NON_INTERACTIVE"
+    fi
+}
+
+# 初始化语言
+select_language
+load_language
+
 # 配置
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/pis}"
 GITHUB_REPO="${GITHUB_REPO:-https://github.com/junyuzhan/pis.git}"
@@ -48,7 +228,7 @@ print_header() {
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║                                                           ║"
-    echo "║   📸 PIS - 一键部署系统                                    ║"
+    echo "║   ${MSG_TITLE}                                    ║"
     echo "║                                                           ║"
     echo "╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -80,115 +260,115 @@ detect_mode() {
 # ============================================
 deploy_local() {
     print_header
-    echo -e "${BOLD}模式：在当前服务器上部署${NC}"
+    echo -e "${BOLD}${MSG_MODE_LOCAL}${NC}"
     echo ""
     
     # 检查是否是 root
     if [ "$EUID" -ne 0 ]; then
-        warn "建议使用 root 用户运行，或使用 sudo"
+        warn "$MSG_SUGGEST_ROOT"
     fi
     
     # ===== 安装 Docker =====
     echo ""
-    echo -e "${BOLD}第 1 步：安装环境${NC}"
+    echo -e "${BOLD}${MSG_STEP_1}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     if command -v docker &> /dev/null; then
-        success "Docker 已安装: $(docker --version)"
+        success "${MSG_DOCKER_INSTALLED}: $(docker --version)"
     else
-        info "安装 Docker..."
+        info "$MSG_DOCKER_INSTALLING"
         curl -fsSL https://get.docker.com | sh
         systemctl enable docker
         systemctl start docker
-        success "Docker 安装完成"
+        success "$MSG_DOCKER_INSTALLED_SUCCESS"
     fi
     
     if docker compose version &> /dev/null || command -v docker-compose &> /dev/null; then
-        success "Docker Compose 已安装"
+        success "$MSG_COMPOSE_INSTALLED"
     else
-        info "安装 Docker Compose..."
+        info "$MSG_COMPOSE_INSTALLING"
         COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
         curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         chmod +x /usr/local/bin/docker-compose
-        success "Docker Compose 安装完成"
+        success "$MSG_COMPOSE_INSTALLED_SUCCESS"
     fi
     
     if command -v git &> /dev/null; then
-        success "Git 已安装"
+        success "$MSG_GIT_INSTALLED"
     else
-        info "安装 Git..."
+        info "$MSG_GIT_INSTALLING"
         if command -v apt-get &> /dev/null; then
             apt-get update && apt-get install -y git
         elif command -v yum &> /dev/null; then
             yum install -y git
         fi
-        success "Git 安装完成"
+        success "$MSG_GIT_INSTALLED_SUCCESS"
     fi
     
     # ===== 克隆代码 =====
     echo ""
-    echo -e "${BOLD}第 2 步：获取代码${NC}"
+    echo -e "${BOLD}${MSG_STEP_2}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     if [ -d "${DEPLOY_DIR}" ]; then
-        warn "目录 ${DEPLOY_DIR} 已存在"
+        warn "${MSG_DIR_EXISTS}: ${DEPLOY_DIR}"
         if [ "$INTERACTIVE" = true ]; then
-            read -p "是否备份并重新克隆? [y/N]: " RECLONE
+            read -p "$MSG_BACKUP_RECLONE " RECLONE
         else
             RECLONE="N"  # 非交互式默认不重新克隆
         fi
         if [[ "$RECLONE" =~ ^[Yy]$ ]]; then
             mv ${DEPLOY_DIR} ${DEPLOY_DIR}.backup.$(date +%Y%m%d_%H%M%S)
             git clone -b ${GITHUB_BRANCH} ${GITHUB_REPO} ${DEPLOY_DIR}
-            success "代码克隆完成"
+            success "$MSG_CLONE_SUCCESS"
         else
-            info "使用现有代码"
+            info "$MSG_USE_EXISTING"
             cd ${DEPLOY_DIR} && git pull || true
         fi
     else
         git clone -b ${GITHUB_BRANCH} ${GITHUB_REPO} ${DEPLOY_DIR}
-        success "代码克隆完成"
+        success "$MSG_CLONE_SUCCESS"
     fi
     
     cd ${DEPLOY_DIR}
     
     # ===== 选择数据库 =====
     echo ""
-    echo -e "${BOLD}第 3 步：选择数据库${NC}"
+    echo -e "${BOLD}${MSG_STEP_3}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "  1) Supabase 云数据库 ${GREEN}(推荐)${NC}"
-    echo "  2) PostgreSQL (本地 Docker)"
-    echo "  3) MySQL (本地 Docker)"
+    echo "  1) ${MSG_DB_SUPABASE} ${GREEN}${MSG_DB_SUPABASE_REC}${NC}"
+    echo "  2) ${MSG_DB_POSTGRESQL}"
+    echo "  3) ${MSG_DB_MYSQL}"
     echo ""
     
     if [ "$INTERACTIVE" = true ]; then
-        read -p "请选择 [1-3，默认: 1]: " DB_CHOICE
+        read -p "$MSG_SELECT_DB " DB_CHOICE
     else
         DB_CHOICE=${DATABASE_TYPE:-1}
         [ "$DB_CHOICE" = "supabase" ] && DB_CHOICE=1
         [ "$DB_CHOICE" = "postgresql" ] && DB_CHOICE=2
         [ "$DB_CHOICE" = "mysql" ] && DB_CHOICE=3
-        echo "使用环境变量或默认值: $DB_CHOICE"
+        echo "Using environment variable or default: $DB_CHOICE"
     fi
     DB_CHOICE=${DB_CHOICE:-1}
     
     # ===== 选择网络模式 =====
     echo ""
-    echo -e "${BOLD}第 4 步：选择网络模式${NC}"
+    echo -e "${BOLD}${MSG_STEP_4}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "  1) 内网模式 - Worker 仅本地访问"
-    echo "  2) 公网模式 ${GREEN}(推荐)${NC} - Worker 可公网访问"
+    echo "  1) ${MSG_NET_LOCAL}"
+    echo "  2) ${MSG_NET_PUBLIC}"
     echo ""
     
     if [ "$INTERACTIVE" = true ]; then
-        read -p "请选择 [1-2，默认: 2]: " NET_CHOICE
+        read -p "$MSG_SELECT_NET " NET_CHOICE
     else
         NET_CHOICE=${NETWORK_MODE:-2}
         [ "$NET_CHOICE" = "local" ] && NET_CHOICE=1
         [ "$NET_CHOICE" = "public" ] && NET_CHOICE=2
-        echo "使用环境变量或默认值: $NET_CHOICE"
+        echo "Using environment variable or default: $NET_CHOICE"
     fi
     NET_CHOICE=${NET_CHOICE:-2}
     
@@ -197,7 +377,7 @@ deploy_local() {
     
     # ===== 配置数据库 =====
     echo ""
-    echo -e "${BOLD}第 5 步：配置数据库${NC}"
+    echo -e "${BOLD}${MSG_STEP_5}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # 生成 MinIO 密钥
@@ -208,29 +388,29 @@ deploy_local() {
         1)
             # Supabase
             echo ""
-            echo "请提供 Supabase 配置 (从 Dashboard → Settings → API 获取)："
+            echo "$MSG_SUPABASE_CONFIG"
             echo ""
             
             if [ -n "$SUPABASE_URL" ]; then
-                info "使用环境变量 SUPABASE_URL"
+                info "$MSG_USE_ENV_VAR SUPABASE_URL"
             elif [ "$INTERACTIVE" = true ]; then
-                read -p "Supabase Project URL: " SUPABASE_URL
+                read -p "$MSG_SUPABASE_URL " SUPABASE_URL
             else
-                error "非交互式模式需要设置 SUPABASE_URL 环境变量"
+                error "$MSG_NON_INTERACTIVE_REQUIRED SUPABASE_URL"
                 exit 1
             fi
             
             if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-                info "使用环境变量 SUPABASE_SERVICE_ROLE_KEY"
+                info "$MSG_USE_ENV_VAR SUPABASE_SERVICE_ROLE_KEY"
             elif [ "$INTERACTIVE" = true ]; then
-                read -p "Supabase Service Role Key: " SUPABASE_SERVICE_ROLE_KEY
+                read -p "$MSG_SUPABASE_KEY " SUPABASE_SERVICE_ROLE_KEY
             else
-                error "非交互式模式需要设置 SUPABASE_SERVICE_ROLE_KEY 环境变量"
+                error "$MSG_NON_INTERACTIVE_REQUIRED SUPABASE_SERVICE_ROLE_KEY"
                 exit 1
             fi
             
             if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-                error "Supabase 配置不能为空"
+                error "Supabase configuration cannot be empty"
                 exit 1
             fi
             
@@ -289,7 +469,7 @@ WORKER_BIND_HOST=${WORKER_BIND}
 EOF
             
             cp docker/docker-compose.postgresql.yml docker/docker-compose.yml.active
-            info "PostgreSQL 密码: ${DB_PASSWORD}"
+            info "${MSG_POSTGRESQL_PASSWORD} ${DB_PASSWORD}"
             ;;
             
         3)
@@ -322,15 +502,15 @@ WORKER_BIND_HOST=${WORKER_BIND}
 EOF
             
             cp docker/docker-compose.mysql.yml docker/docker-compose.yml.active
-            info "MySQL 密码: ${DB_PASSWORD}"
+            info "${MSG_MYSQL_PASSWORD} ${DB_PASSWORD}"
             ;;
     esac
     
-    success "配置文件已创建: ${DEPLOY_DIR}/.env"
+    success "${MSG_CONFIG_CREATED} ${DEPLOY_DIR}/.env"
     
     # ===== 启动服务 =====
     echo ""
-    echo -e "${BOLD}第 6 步：启动服务${NC}"
+    echo -e "${BOLD}${MSG_STEP_6}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     cd ${DEPLOY_DIR}/docker
@@ -342,56 +522,56 @@ EOF
     
     docker-compose down 2>/dev/null || true
     
-    info "构建 Worker 镜像..."
+    info "$MSG_BUILDING_WORKER"
     docker-compose build worker
     
-    info "启动服务..."
+    info "$MSG_STARTING_SERVICES"
     docker-compose up -d
     
     echo ""
-    info "等待服务启动..."
+    info "$MSG_WAITING"
     sleep 10
     
     # ===== 验证服务 =====
     echo ""
-    echo -e "${BOLD}第 7 步：验证服务${NC}"
+    echo -e "${BOLD}${MSG_STEP_7}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     echo ""
     docker-compose ps
     echo ""
     
-    echo "健康检查:"
-    echo -n "  MinIO: "
+    echo "$MSG_HEALTH_CHECK"
+    echo -n "  ${MSG_MINIO} "
     curl -s http://localhost:19000/minio/health/live && echo " ✓" || echo " ✗"
     
-    echo -n "  Redis: "
+    echo -n "  ${MSG_REDIS} "
     docker exec pis-redis redis-cli ping 2>/dev/null && echo " ✓" || echo " ✗"
     
-    echo -n "  Worker: "
+    echo -n "  ${MSG_WORKER} "
     curl -s http://localhost:3001/health && echo " ✓" || echo " ✗"
     
     # ===== 完成 =====
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${GREEN}${BOLD}🎉 部署完成！${NC}"
+    echo -e "${GREEN}${BOLD}${MSG_DEPLOY_SUCCESS}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "📦 MinIO Console: http://$(hostname -I | awk '{print $1}'):19001"
-    echo "   用户名: ${MINIO_ACCESS_KEY}"
-    echo "   密码: ${MINIO_SECRET_KEY}"
+    echo "📦 ${MSG_MINIO_CONSOLE} http://$(hostname -I | awk '{print $1}'):19001"
+    echo "   ${MSG_USERNAME} ${MINIO_ACCESS_KEY}"
+    echo "   ${MSG_PASSWORD} ${MINIO_SECRET_KEY}"
     echo ""
     
     if [ "$WORKER_BIND" = "0.0.0.0" ]; then
-        echo "🔧 Worker API: http://$(hostname -I | awk '{print $1}'):3001"
+        echo "🔧 ${MSG_WORKER_API} http://$(hostname -I | awk '{print $1}'):3001"
     else
-        echo "🔧 Worker API: http://127.0.0.1:3001 (仅本地访问)"
+        echo "🔧 ${MSG_WORKER_API} http://127.0.0.1:3001 (${MSG_LOCAL_ACCESS_ONLY})"
     fi
     echo ""
     
-    echo "📝 常用命令:"
-    echo "   查看日志: cd ${DEPLOY_DIR}/docker && docker-compose logs -f"
-    echo "   重启服务: cd ${DEPLOY_DIR}/docker && docker-compose restart"
+    echo "📝 ${MSG_COMMON_COMMANDS}"
+    echo "   ${MSG_VIEW_LOGS} cd ${DEPLOY_DIR}/docker && docker-compose logs -f"
+    echo "   ${MSG_RESTART} cd ${DEPLOY_DIR}/docker && docker-compose restart"
     echo ""
 }
 
