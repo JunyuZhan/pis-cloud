@@ -101,21 +101,27 @@ const nextConfig: NextConfig = {
     const isDev = process.env.NODE_ENV === 'development'
     
     // 从环境变量获取媒体服务器域名，用于 CSP connect-src
-    let mediaOrigin = ''
+    // 同时支持 HTTP 和 HTTPS，因为 presigned URL 可能使用不同协议
+    let mediaOrigins: string[] = []
     if (process.env.NEXT_PUBLIC_MEDIA_URL) {
       try {
         const mediaUrl = new URL(process.env.NEXT_PUBLIC_MEDIA_URL)
-        mediaOrigin = `${mediaUrl.protocol}//${mediaUrl.hostname}`
+        const hostname = mediaUrl.hostname
+        // 同时添加 HTTP 和 HTTPS 两种协议
+        mediaOrigins = [
+          `http://${hostname}`,
+          `https://${hostname}`
+        ]
       } catch {
         // 忽略解析错误
       }
     }
     
-    // 构建 CSP connect-src，包含媒体服务器
+    // 构建 CSP connect-src，包含媒体服务器（HTTP 和 HTTPS）
     const connectSrc = [
       "'self'",
       'https:',
-      ...(mediaOrigin ? [mediaOrigin] : [])
+      ...mediaOrigins
     ].join(' ')
     
     return [
