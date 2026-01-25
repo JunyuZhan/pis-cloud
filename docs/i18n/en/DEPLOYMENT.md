@@ -401,24 +401,6 @@ Click **Deploy**, wait for build to complete.
 
 ---
 
-### Cloudflare Pages Deployment
-
-> 📖 **Complete guide**: See [Cloudflare Deployment Guide](../CLOUDFLARE_DEPLOY.md)
-
-**Quick Start:**
-
-1. **Connect GitHub repository** in Cloudflare Dashboard → Pages
-2. **Configure Build Settings:**
-   - Build command: `CF_PAGES=1 pnpm install && pnpm build`
-   - Build output directory: `apps/web/.next`
-   - Root directory: `/`
-3. **Set Environment Variables** (same as Vercel)
-4. **Deploy**
-
-**Note:** Cloudflare Pages deployment keeps Worker service on your independent server (via FRP proxy).
-
----
-
 ## Environment Variables
 
 ### Frontend (Vercel / apps/web/.env.local)

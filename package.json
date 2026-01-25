@@ -22,9 +22,7 @@
     "docker:down": "cd docker && docker-compose down",
     "docker:logs": "cd docker && docker-compose logs -f",
     "db:migrate": "cd database && pnpm migrate",
-    "db:types": "cd apps/web && pnpm supabase:types",
-    "deploy:cf": "pnpm build && wrangler pages deploy apps/web/.next --project-name=pis",
-    "deploy:worker": "cd services/worker && wrangler deploy"
+    "db:types": "cd apps/web && pnpm supabase:types"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

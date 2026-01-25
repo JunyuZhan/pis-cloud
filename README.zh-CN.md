@@ -226,10 +226,9 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 1. **配置 Supabase** - 创建项目并执行迁移
 2. **部署服务器** - 在服务器上运行 Docker Compose
-3. **部署前端** - 部署到 Vercel、Cloudflare Pages 或你的托管服务
+3. **部署前端** - 部署到 Vercel 或你的托管服务
 
-> 📖 **详细部署指南**: [docs/i18n/zh-CN/DEPLOYMENT.md](docs/i18n/zh-CN/DEPLOYMENT.md)  
-> 📖 **Cloudflare Pages 部署**: [docs/i18n/en/CLOUDFLARE_DEPLOY.md](docs/i18n/en/CLOUDFLARE_DEPLOY.md)（英文）
+> 📖 **详细部署指南**: [docs/i18n/zh-CN/DEPLOYMENT.md](docs/i18n/zh-CN/DEPLOYMENT.md)
 
 ---
 

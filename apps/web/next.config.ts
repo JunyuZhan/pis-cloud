@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
   generateBuildId: async () => {
     // 使用 Git commit SHA 或时间戳
     return process.env.VERCEL_GIT_COMMIT_SHA || 
-           process.env.CF_PAGES_COMMIT_SHA || 
            `build-${Date.now()}`
   },
   // 压缩配置（Next.js 15 默认启用）
