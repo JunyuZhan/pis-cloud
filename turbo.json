@@ -11,13 +11,12 @@
     "NEXT_PUBLIC_WORKER_URL",
     "NEXT_PUBLIC_APP_URL",
     "NEXT_PUBLIC_PHOTOGRAPHER_NAME",
-    "NEXT_PUBLIC_PHOTOGRAPHER_TAGLINE",
-    "CF_PAGES"
+    "NEXT_PUBLIC_PHOTOGRAPHER_TAGLINE"
   ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**", "out/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]
