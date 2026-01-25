@@ -166,7 +166,24 @@ const worker = new Worker<PhotoJobData>(
     } catch (err: any) {
       console.error(`[${job.id}] Failed:`, err);
       
-      // 更新状态为 failed
+      // 检查是否是文件不存在的错误（上传失败但数据库记录已创建）
+      const isFileNotFound = err?.code === 'NoSuchKey' || 
+                            err?.message?.includes('does not exist') ||
+                            err?.message?.includes('NoSuchKey');
+      
+      if (isFileNotFound) {
+        // 文件不存在，说明上传失败，删除数据库记录
+        console.log(`[${job.id}] File not found, deleting database record for photo ${photoId}`);
+        await supabase
+          .from('photos')
+          .delete()
+          .eq('id', photoId);
+        
+        // 不抛出错误，避免重试（文件不存在时重试也没用）
+        return;
+      }
+      
+      // 其他错误，更新状态为 failed
       await supabase
         .from('photos')
         .update({ status: 'failed' })

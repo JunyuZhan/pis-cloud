@@ -360,6 +360,8 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   }
 
   const uploadSingleFile = async (uploadFile: UploadFile) => {
+    let photoId: string | undefined = undefined
+    
     try {
       // 更新状态为上传中
       setFiles((prev) =>
@@ -383,15 +385,29 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         throw new Error('获取上传凭证失败')
       }
 
-      const { photoId, uploadUrl, originalKey, albumId: respAlbumId } = await credRes.json()
+      const credData = await credRes.json()
+      photoId = credData.photoId as string
+      const { uploadUrl, originalKey, albumId: respAlbumId } = credData
+
+      if (!photoId) {
+        throw new Error('获取上传凭证失败：缺少photoId')
+      }
+
+      // 保存photoId到uploadFile，以便失败时清理
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === uploadFile.id ? { ...f, photoId } : f
+        )
+      )
 
       // 2. 根据文件大小选择上传方式
+      // photoId已经检查过，使用非空断言
       if (uploadFile.file.size >= PRESIGN_THRESHOLD) {
         // 大文件直接上传到 Worker（绕过 Vercel 4.5MB 限制）
-        await uploadToWorkerDirectly(uploadFile, photoId, originalKey, respAlbumId)
+        await uploadToWorkerDirectly(uploadFile, photoId!, originalKey, respAlbumId)
       } else {
         // 小文件通过 Vercel 代理上传
-        await uploadDirectly(uploadFile, photoId, uploadUrl, originalKey, respAlbumId)
+        await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
       }
 
       // 更新状态为完成
@@ -410,6 +426,17 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       const currentFile = files.find(f => f.id === uploadFile.id)
       if (currentFile?.status === 'paused') {
         return // 暂停状态，不标记为失败
+      }
+      
+      // 如果已经获取了photoId，清理数据库记录（上传失败）
+      if (photoId) {
+        try {
+          await fetch(`/api/admin/photos/${photoId}/cleanup`, {
+            method: 'DELETE',
+          })
+        } catch (cleanupErr) {
+          console.error('Failed to cleanup photo record:', cleanupErr)
+        }
       }
       
       // 更新状态为失败
