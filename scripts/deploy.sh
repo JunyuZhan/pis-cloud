@@ -527,19 +527,30 @@ EOF
     
     info "$MSG_BUILDING_WORKER"
     
-    # 检查并配置 Docker DNS（解决 DNS 解析问题）
-    info "配置 Docker DNS..."
+    # ===== 网络环境检测 =====
+    info "$MSG_CHECKING_NETWORK"
+    NETWORK_OK=false
+    DNS_OK=false
+    
+    # 测试 DNS 解析（多种方式）
+    if (timeout 3 bash -c "echo > /dev/tcp/dl-cdn.alpinelinux.org/443" 2>/dev/null) || \
+       (timeout 3 bash -c "echo > /dev/tcp/mirrors.aliyun.com/443" 2>/dev/null) || \
+       (timeout 3 curl -s --connect-timeout 3 https://dl-cdn.alpinelinux.org >/dev/null 2>&1) || \
+       (ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1); then
+        DNS_OK=true
+        success "$MSG_DNS_OK"
+    else
+        warn "$MSG_DNS_WARN"
+    fi
+    
+    # 配置 Docker DNS（如果需要）
     DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
-    if [ ! -f "$DOCKER_DAEMON_JSON" ] || ! grep -q '"dns"' "$DOCKER_DAEMON_JSON" 2>/dev/null; then
-        # 备份现有配置
+    if [ "$DNS_OK" = false ] && ([ ! -f "$DOCKER_DAEMON_JSON" ] || ! grep -q '"dns"' "$DOCKER_DAEMON_JSON" 2>/dev/null); then
+        info "$MSG_CONFIG_DOCKER_DNS"
         [ -f "$DOCKER_DAEMON_JSON" ] && cp "$DOCKER_DAEMON_JSON" "${DOCKER_DAEMON_JSON}.bak" 2>/dev/null || true
         
-        # 创建或更新 Docker daemon 配置
-        if [ -f "$DOCKER_DAEMON_JSON" ]; then
-            # 如果文件存在，尝试合并配置
-            python3 -c "
+        python3 -c "
 import json
-import sys
 try:
     with open('$DOCKER_DAEMON_JSON', 'r') as f:
         config = json.load(f)
@@ -549,41 +560,85 @@ config['dns'] = ['8.8.8.8', '8.8.4.4', '114.114.114.114', '1.1.1.1']
 with open('$DOCKER_DAEMON_JSON', 'w') as f:
     json.dump(config, f, indent=2)
 " 2>/dev/null || echo '{"dns": ["8.8.8.8", "8.8.4.4", "114.114.114.114", "1.1.1.1"]}' > "$DOCKER_DAEMON_JSON"
-        else
-            echo '{"dns": ["8.8.8.8", "8.8.4.4", "114.114.114.114", "1.1.1.1"]}' > "$DOCKER_DAEMON_JSON"
-        fi
         
-        # 重启 Docker（如果可能）
         if systemctl is-active docker >/dev/null 2>&1; then
-            warn "重启 Docker 以应用 DNS 配置..."
+            warn "$MSG_RESTART_DOCKER"
             systemctl restart docker 2>/dev/null || true
             sleep 3
         fi
     fi
     
-    # 构建 Worker（使用 host 网络模式，绕过 DNS 问题）
-    info "开始构建 Worker 镜像..."
-    info "使用 --network=host 模式构建（绕过 DNS 问题）..."
-    
-    # 直接使用 docker build --network=host（使用宿主机网络）
+    # ===== 构建 Worker 镜像（多种策略，适应所有环境） =====
+    BUILD_SUCCESS=false
     cd ${DEPLOY_DIR}
-    DOCKER_BUILDKIT=1 docker build \
+    
+    # 策略 1: 使用 --network=host（推荐，绕过 DNS 问题，适应所有网络环境）
+    info "$MSG_BUILD_STRATEGY_1"
+    if DOCKER_BUILDKIT=1 docker build \
         --network=host \
         -f docker/worker.Dockerfile \
         -t pis-worker:latest \
-        . || {
-        error "构建失败，请检查网络连接"
-        exit 1
-    }
-    
-    # 更新 docker-compose.yml，使用已构建的镜像而不是 build
-    cd ${DEPLOY_DIR}/docker
-    if grep -q "build:" docker-compose.yml; then
-        # 备份原文件
-        cp docker-compose.yml docker-compose.yml.build.bak
+        . 2>&1 | tee /tmp/docker-build.log; then
+        BUILD_SUCCESS=true
+        success "$MSG_BUILD_SUCCESS_HOST"
+    else
+        warn "策略 1 失败，尝试策略 2..."
         
-        # 使用 Python 或 sed 替换 build 配置为 image
-        python3 << 'PYEOF' 2>/dev/null || {
+        # 策略 2: 使用 docker-compose build（如果网络正常）
+        if [ "$DNS_OK" = true ]; then
+            info "$MSG_BUILD_STRATEGY_2"
+            cd ${DEPLOY_DIR}/docker
+            if docker-compose build worker 2>&1 | tee -a /tmp/docker-build.log; then
+                BUILD_SUCCESS=true
+                success "$MSG_BUILD_SUCCESS_COMPOSE"
+                # docker-compose 构建后不需要更新配置
+            fi
+        fi
+        
+        # 策略 3: 尝试使用预构建镜像（如果可用）
+        if [ "$BUILD_SUCCESS" = false ]; then
+            warn "$MSG_BUILD_STRATEGY_3"
+            if docker pull junyuzhan/pis-worker:latest 2>/dev/null; then
+                docker tag junyuzhan/pis-worker:latest pis-worker:latest
+                BUILD_SUCCESS=true
+                success "$MSG_BUILD_SUCCESS_PREBUILT"
+            fi
+        fi
+        
+        # 策略 4: 询问用户是否跳过构建（交互式模式）
+        if [ "$BUILD_SUCCESS" = false ] && [ "$INTERACTIVE" = true ]; then
+            echo ""
+            warn "$MSG_BUILD_FAILED"
+            echo ""
+            echo "$MSG_BUILD_FAILED_REASONS"
+            echo "$MSG_BUILD_FAILED_REASON_1"
+            echo "$MSG_BUILD_FAILED_REASON_2"
+            echo "$MSG_BUILD_FAILED_REASON_3"
+            echo ""
+            echo "$MSG_BUILD_SOLUTIONS"
+            echo "$MSG_BUILD_SOLUTION_1"
+            echo "$MSG_BUILD_SOLUTION_2"
+            echo "$MSG_BUILD_SOLUTION_3"
+            echo ""
+            read -p "$MSG_SKIP_BUILD " SKIP_BUILD
+            if [[ "$SKIP_BUILD" =~ ^[Yy]$ ]]; then
+                warn "$MSG_SKIP_BUILD_WARN"
+                BUILD_SUCCESS=true  # 标记为成功，让 docker-compose 自己处理
+            fi
+        fi
+    fi
+    
+    # 如果构建成功，更新 docker-compose.yml 使用预构建镜像
+    if [ "$BUILD_SUCCESS" = true ] && [ -f "${DEPLOY_DIR}/docker/docker-compose.yml" ]; then
+        cd ${DEPLOY_DIR}/docker
+        if grep -q "build:" docker-compose.yml && ! docker images | grep -q "pis-worker"; then
+            # 如果构建成功但镜像不存在，说明是 docker-compose build，不需要更新
+            :
+        elif grep -q "build:" docker-compose.yml && docker images | grep -q "pis-worker"; then
+            # 使用预构建镜像
+            cp docker-compose.yml docker-compose.yml.build.bak
+            
+            python3 << 'PYEOF' 2>/dev/null || {
 import re
 
 with open('docker-compose.yml', 'r') as f:
@@ -597,12 +652,25 @@ content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
 with open('docker-compose.yml', 'w') as f:
     f.write(content)
 PYEOF
-            # Python 失败，使用 sed（简单替换）
-            sed -i '/build:/,/dockerfile:/d' docker-compose.yml
-            sed -i '/worker:/a\    image: pis-worker:latest' docker-compose.yml
-        }
-        
-        success "已更新 docker-compose.yml 使用预构建镜像"
+            # Python 失败，使用 sed
+            sed -i '/build:/,/dockerfile:/d' docker-compose.yml 2>/dev/null || true
+            sed -i '/worker:/a\    image: pis-worker:latest' docker-compose.yml 2>/dev/null || true
+            
+            success "$MSG_UPDATED_COMPOSE"
+        fi
+    fi
+    
+    # 如果构建失败且用户没有选择跳过，退出
+    if [ "$BUILD_SUCCESS" = false ]; then
+        error "$MSG_BUILD_FAILED_EXIT"
+        echo ""
+        echo "$MSG_BUILD_LOG_SAVED /tmp/docker-build.log"
+        echo ""
+        echo "$MSG_BUILD_MANUAL"
+        echo "$MSG_BUILD_MANUAL_1"
+        echo "$MSG_BUILD_MANUAL_2"
+        echo "$MSG_BUILD_MANUAL_3"
+        exit 1
     fi
     
     info "$MSG_STARTING_SERVICES"
