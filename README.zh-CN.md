@@ -197,10 +197,12 @@ pnpm dev
 
 ### 一键部署到服务器（推荐）
 
-**SSH 登录到服务器，运行一条命令：**
+**SSH 登录到服务器，运行：**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
+# 先下载再执行（推荐，支持交互式输入）
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
+bash /tmp/deploy.sh
 ```
 
 脚本会引导你完成：

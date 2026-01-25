@@ -197,10 +197,12 @@ pnpm dev
 
 ### One-Click Server Deployment (Recommended)
 
-**SSH into your server and run one command:**
+**SSH into your server and run:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
+# Download and run (recommended, supports interactive input)
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
+bash /tmp/deploy.sh
 ```
 
 The script will guide you through:

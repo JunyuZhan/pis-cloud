@@ -5,10 +5,17 @@
 **SSH 登录到你的服务器，然后运行：**
 
 ```bash
+# 方式 1：先下载再执行（推荐，支持交互式输入）
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
+bash /tmp/deploy.sh
+
+# 方式 2：直接管道执行（需要设置环境变量）
+export SUPABASE_URL="https://your-project.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="your-key"
 curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
 ```
 
-就这一条命令，脚本会自动：
+脚本会自动：
 - 安装 Docker、Docker Compose、Git
 - 下载最新代码
 - 引导你选择数据库和网络模式

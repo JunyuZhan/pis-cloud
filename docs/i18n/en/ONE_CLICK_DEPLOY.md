@@ -5,10 +5,17 @@
 **SSH into your server and run:**
 
 ```bash
+# Method 1: Download then execute (recommended, supports interactive input)
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
+bash /tmp/deploy.sh
+
+# Method 2: Pipe directly (requires environment variables)
+export SUPABASE_URL="https://your-project.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="your-key"
 curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
 ```
 
-That's it! The script will automatically:
+The script will automatically:
 - Install Docker, Docker Compose, Git
 - Download the latest code
 - Guide you through database and network selection

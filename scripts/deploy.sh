@@ -15,6 +15,14 @@
 
 set -e
 
+# 检测是否为交互式终端
+if [ -t 0 ]; then
+    INTERACTIVE=true
+else
+    INTERACTIVE=false
+    warn "检测到非交互式模式，将使用环境变量或默认值"
+fi
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -124,7 +132,11 @@ deploy_local() {
     
     if [ -d "${DEPLOY_DIR}" ]; then
         warn "目录 ${DEPLOY_DIR} 已存在"
-        read -p "是否备份并重新克隆? [y/N]: " RECLONE
+        if [ "$INTERACTIVE" = true ]; then
+            read -p "是否备份并重新克隆? [y/N]: " RECLONE
+        else
+            RECLONE="N"  # 非交互式默认不重新克隆
+        fi
         if [[ "$RECLONE" =~ ^[Yy]$ ]]; then
             mv ${DEPLOY_DIR} ${DEPLOY_DIR}.backup.$(date +%Y%m%d_%H%M%S)
             git clone -b ${GITHUB_BRANCH} ${GITHUB_REPO} ${DEPLOY_DIR}
@@ -149,7 +161,16 @@ deploy_local() {
     echo "  2) PostgreSQL (本地 Docker)"
     echo "  3) MySQL (本地 Docker)"
     echo ""
-    read -p "请选择 [1-3，默认: 1]: " DB_CHOICE
+    
+    if [ "$INTERACTIVE" = true ]; then
+        read -p "请选择 [1-3，默认: 1]: " DB_CHOICE
+    else
+        DB_CHOICE=${DATABASE_TYPE:-1}
+        [ "$DB_CHOICE" = "supabase" ] && DB_CHOICE=1
+        [ "$DB_CHOICE" = "postgresql" ] && DB_CHOICE=2
+        [ "$DB_CHOICE" = "mysql" ] && DB_CHOICE=3
+        echo "使用环境变量或默认值: $DB_CHOICE"
+    fi
     DB_CHOICE=${DB_CHOICE:-1}
     
     # ===== 选择网络模式 =====
@@ -160,7 +181,15 @@ deploy_local() {
     echo "  1) 内网模式 - Worker 仅本地访问"
     echo "  2) 公网模式 ${GREEN}(推荐)${NC} - Worker 可公网访问"
     echo ""
-    read -p "请选择 [1-2，默认: 2]: " NET_CHOICE
+    
+    if [ "$INTERACTIVE" = true ]; then
+        read -p "请选择 [1-2，默认: 2]: " NET_CHOICE
+    else
+        NET_CHOICE=${NETWORK_MODE:-2}
+        [ "$NET_CHOICE" = "local" ] && NET_CHOICE=1
+        [ "$NET_CHOICE" = "public" ] && NET_CHOICE=2
+        echo "使用环境变量或默认值: $NET_CHOICE"
+    fi
     NET_CHOICE=${NET_CHOICE:-2}
     
     WORKER_BIND="127.0.0.1"
@@ -184,14 +213,20 @@ deploy_local() {
             
             if [ -n "$SUPABASE_URL" ]; then
                 info "使用环境变量 SUPABASE_URL"
-            else
+            elif [ "$INTERACTIVE" = true ]; then
                 read -p "Supabase Project URL: " SUPABASE_URL
+            else
+                error "非交互式模式需要设置 SUPABASE_URL 环境变量"
+                exit 1
             fi
             
             if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
                 info "使用环境变量 SUPABASE_SERVICE_ROLE_KEY"
-            else
+            elif [ "$INTERACTIVE" = true ]; then
                 read -p "Supabase Service Role Key: " SUPABASE_SERVICE_ROLE_KEY
+            else
+                error "非交互式模式需要设置 SUPABASE_SERVICE_ROLE_KEY 环境变量"
+                exit 1
             fi
             
             if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
