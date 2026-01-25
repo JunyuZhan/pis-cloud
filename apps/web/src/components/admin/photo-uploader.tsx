@@ -358,6 +358,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       xhr.send(uploadFile.file)
     })
 
+    // 上传成功后才触发处理（避免上传失败时也触发处理）
     // 触发处理（不阻塞，异步执行）
     fetch('/api/admin/photos/process', {
       method: 'POST',
@@ -437,7 +438,10 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       // 注意：Vercel有4.5MB限制，但通过代理上传可以绕过
       await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
 
-      // 更新状态为完成
+      // 3. 上传成功，触发 Worker 处理（uploadDirectly 内部已触发，这里确保状态更新）
+      // 注意：处理请求在 uploadDirectly 内部异步触发，不阻塞
+      
+      // 更新状态为完成（前端显示）
       setFiles((prev) =>
         prev.map((f) =>
           f.id === uploadFile.id
@@ -449,7 +453,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       // 从队列中移除已完成的文件
       uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
 
-      // 刷新页面数据
+      // 刷新页面数据（显示处理中的照片）
       router.refresh()
     } catch (err) {
       // 检查是否是暂停导致的中断
@@ -458,18 +462,27 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         return // 暂停状态，不标记为失败
       }
       
-      // 如果已经获取了photoId，清理数据库记录（上传失败）
+      // 上传失败：清理数据库记录和 MinIO 文件
+      // 协调机制：前端失败 → 清理数据库 → 清理 MinIO → Worker 队列任务自动跳过
       if (photoId) {
         try {
-          await fetch(`/api/admin/photos/${photoId}/cleanup`, {
+          const cleanupRes = await fetch(`/api/admin/photos/${photoId}/cleanup`, {
             method: 'DELETE',
           })
+          
+          if (cleanupRes.ok) {
+            console.log(`[Upload] Cleaned up failed upload: ${photoId}`)
+          } else {
+            const errorData = await cleanupRes.json().catch(() => ({}))
+            console.error(`[Upload] Cleanup failed for ${photoId}:`, errorData)
+          }
         } catch (cleanupErr) {
-          console.error('Failed to cleanup photo record:', cleanupErr)
+          console.error('[Upload] Failed to cleanup photo record:', cleanupErr)
+          // 清理失败不影响前端状态更新
         }
       }
       
-      // 更新状态为失败
+      // 更新前端状态为失败
       const errorMessage = err instanceof Error ? err.message : '上传失败'
       setFiles((prev) =>
         prev.map((f) =>

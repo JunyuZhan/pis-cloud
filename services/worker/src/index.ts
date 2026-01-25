@@ -72,15 +72,60 @@ const worker = new Worker<PhotoJobData>(
     console.log(`[${job.id}] Processing photo ${photoId} for album ${albumId}`);
 
     try {
+      // 0. 先检查数据库记录是否存在（可能在上传失败时已被清理）
+      const { data: existingPhoto, error: checkError } = await supabase
+        .from('photos')
+        .select('id, status')
+        .eq('id', photoId)
+        .single();
+      
+      // 如果记录不存在，说明上传失败后已被清理，直接返回
+      if (checkError || !existingPhoto) {
+        console.log(`[${job.id}] Photo record not found (likely cleaned up after upload failure), skipping`);
+        return; // 不抛出错误，避免重试
+      }
+      
+      // 如果状态已经是 completed 或 failed，跳过处理
+      if (existingPhoto.status === 'completed' || existingPhoto.status === 'failed') {
+        console.log(`[${job.id}] Photo already ${existingPhoto.status}, skipping`);
+        return;
+      }
+
       // 1. 更新状态为 processing
-      await supabase
+      const { error: updateError } = await supabase
         .from('photos')
         .update({ status: 'processing' })
         .eq('id', photoId);
+      
+      // 如果更新失败（记录可能已被删除），直接返回
+      if (updateError) {
+        console.log(`[${job.id}] Failed to update status (record may have been deleted), skipping`);
+        return;
+      }
 
       // 2. 从存储下载原图
+      // 如果文件不存在，说明上传失败，会抛出 NoSuchKey 错误，在 catch 中处理
       console.time(`[${job.id}] Download`);
-      const originalBuffer = await downloadFile(originalKey);
+      let originalBuffer: Buffer;
+      try {
+        originalBuffer = await downloadFile(originalKey);
+      } catch (downloadErr: any) {
+        // 如果下载失败且是文件不存在错误，清理数据库记录
+        const isFileNotFound = downloadErr?.code === 'NoSuchKey' || 
+                              downloadErr?.message?.includes('does not exist') ||
+                              downloadErr?.message?.includes('NoSuchKey');
+        
+        if (isFileNotFound) {
+          console.log(`[${job.id}] File not found during download, cleaning up database record`);
+          await supabase
+            .from('photos')
+            .delete()
+            .eq('id', photoId)
+            .catch(() => {}); // 忽略删除错误（记录可能已被清理）
+          return; // 不抛出错误，避免重试
+        }
+        throw downloadErr; // 其他错误继续抛出
+      }
       console.timeEnd(`[${job.id}] Download`);
 
       // 3. 获取照片的手动旋转角度
@@ -172,12 +217,17 @@ const worker = new Worker<PhotoJobData>(
                             err?.message?.includes('NoSuchKey');
       
       if (isFileNotFound) {
-        // 文件不存在，说明上传失败，删除数据库记录
+        // 文件不存在，说明上传失败，尝试删除数据库记录（如果还存在）
         console.log(`[${job.id}] File not found, deleting database record for photo ${photoId}`);
-        await supabase
+        const { error: deleteError } = await supabase
           .from('photos')
           .delete()
           .eq('id', photoId);
+        
+        if (deleteError) {
+          // 记录可能已经被 cleanup API 删除，这是正常的
+          console.log(`[${job.id}] Record may have been already deleted:`, deleteError.message);
+        }
         
         // 不抛出错误，避免重试（文件不存在时重试也没用）
         return;
@@ -468,6 +518,44 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: true, message: 'Job queued' }));
       } catch (err: any) {
         console.error('Process queue error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 清理文件（用于 cleanup API）
+  if (url.pathname === '/api/cleanup-file' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { key } = JSON.parse(body);
+        if (!key) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing key parameter' }));
+          return;
+        }
+
+        // 尝试删除文件（如果不存在也不会报错）
+        try {
+          await deleteFile(key);
+          console.log(`[Cleanup] File deleted: ${key}`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'File deleted' }));
+        } catch (deleteErr: any) {
+          // 文件不存在时也返回成功（幂等操作）
+          if (deleteErr?.code === 'NoSuchKey' || deleteErr?.message?.includes('does not exist')) {
+            console.log(`[Cleanup] File not found (already deleted): ${key}`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'File not found (already deleted)' }));
+          } else {
+            throw deleteErr;
+          }
+        }
+      } catch (err: any) {
+        console.error('[Cleanup] File cleanup error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
