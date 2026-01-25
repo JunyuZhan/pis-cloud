@@ -561,19 +561,32 @@ with open('$DOCKER_DAEMON_JSON', 'w') as f:
         fi
     fi
     
-    # 构建 Worker
+    # 构建 Worker（使用 host 网络模式，绕过 DNS 问题）
     info "开始构建 Worker 镜像..."
-    docker-compose build worker || {
-        warn "docker-compose build 失败，尝试使用 docker build..."
-        DOCKER_BUILDKIT=1 docker build \
-            --network=host \
-            -f worker.Dockerfile \
-            -t pis-worker:latest \
-            .. || {
-            error "构建失败，请检查网络连接和 DNS 配置"
-            exit 1
-        }
+    info "使用 --network=host 模式构建（绕过 DNS 问题）..."
+    
+    # 直接使用 docker build --network=host（使用宿主机网络）
+    cd ${DEPLOY_DIR}
+    DOCKER_BUILDKIT=1 docker build \
+        --network=host \
+        -f docker/worker.Dockerfile \
+        -t pis-worker:latest \
+        . || {
+        error "构建失败，请检查网络连接"
+        exit 1
     }
+    
+    # 更新 docker-compose.yml，使用已构建的镜像而不是 build
+    cd ${DEPLOY_DIR}/docker
+    if grep -q "build:" docker-compose.yml; then
+        # 备份原文件
+        cp docker-compose.yml docker-compose.yml.build.bak
+        # 替换 build 为 image
+        sed -i 's|build:|image: pis-worker:latest # build:|' docker-compose.yml
+        sed -i 's|context: ..||' docker-compose.yml
+        sed -i 's|dockerfile: docker/worker.Dockerfile||' docker-compose.yml
+        success "已更新 docker-compose.yml 使用预构建镜像"
+    fi
     
     info "$MSG_STARTING_SERVICES"
     docker-compose up -d
