@@ -117,11 +117,29 @@ const nextConfig: NextConfig = {
       }
     }
     
-    // 构建 CSP connect-src，包含媒体服务器（HTTP 和 HTTPS）
+    // 从环境变量获取 Supabase URL，用于 WebSocket 连接
+    let supabaseOrigins: string[] = []
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      try {
+        const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL)
+        const hostname = supabaseUrl.hostname
+        // 添加 Supabase 域名（支持 HTTPS 和 WSS）
+        supabaseOrigins = [
+          `https://${hostname}`,
+          `wss://${hostname}`
+        ]
+      } catch {
+        // 忽略解析错误
+      }
+    }
+    
+    // 构建 CSP connect-src，包含媒体服务器和 Supabase（HTTP、HTTPS 和 WSS）
     const connectSrc = [
       "'self'",
       'https:',
-      ...mediaOrigins
+      'wss:', // 允许所有 WebSocket 安全连接
+      ...mediaOrigins,
+      ...supabaseOrigins
     ].join(' ')
     
     return [
