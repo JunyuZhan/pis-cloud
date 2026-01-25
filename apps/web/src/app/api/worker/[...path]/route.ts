@@ -55,13 +55,24 @@ async function proxyRequest(
     const pathSegments = params.path
     
     // 构建目标 URL
+    // 前端调用 /api/worker/presign，pathSegments = ['presign']
+    // 需要转换为 /api/presign（Worker 服务的实际路径）
     // 前端调用 /api/worker/api/multipart/init，pathSegments = ['api', 'multipart', 'init']
     // 需要转换为 /api/multipart/init
-    let targetPath = '/' + pathSegments.join('/')
+    let targetPath: string
     
     // 特殊处理 health 端点
     if (pathSegments[0] === 'health') {
       targetPath = '/health'
+    } else if (pathSegments[0] === 'presign') {
+      // presign 端点需要映射到 /api/presign
+      targetPath = '/api/presign'
+    } else if (pathSegments[0] === 'api') {
+      // 如果第一个段是 'api'，保持原样
+      targetPath = '/' + pathSegments.join('/')
+    } else {
+      // 其他情况，添加 /api 前缀
+      targetPath = '/api/' + pathSegments.join('/')
     }
     
     // 保留查询参数

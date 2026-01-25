@@ -154,11 +154,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     if (!presignResponse.ok) {
       const errorText = await presignResponse.text()
-      console.error('Failed to get presigned URL:', errorText)
-      throw new Error('获取上传凭证失败')
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        errorData = { error: errorText }
+      }
+      console.error('Failed to get presigned URL:', {
+        status: presignResponse.status,
+        statusText: presignResponse.statusText,
+        error: errorData,
+      })
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'PRESIGN_FAILED', 
+            message: errorData.error || '获取上传凭证失败',
+            details: errorData.details || errorText
+          } 
+        },
+        { status: presignResponse.status }
+      )
     }
     
-    const { url: presignedUrl } = await presignResponse.json()
+    const presignData = await presignResponse.json()
+    const { url: presignedUrl } = presignData
+    
+    if (!presignedUrl) {
+      console.error('Presigned URL is missing in response:', presignData)
+      return NextResponse.json(
+        { error: { code: 'INVALID_RESPONSE', message: '服务器返回格式错误' } },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       photoId,
@@ -166,10 +194,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       originalKey,
       albumId,
     })
-  } catch {
-    console.error('Upload API error:')
+  } catch (error) {
+    console.error('Upload API error:', error)
+    const errorMessage = error instanceof Error ? error.message : '服务器错误'
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
+      { error: { code: 'INTERNAL_ERROR', message: errorMessage } },
       { status: 500 }
     )
   }
