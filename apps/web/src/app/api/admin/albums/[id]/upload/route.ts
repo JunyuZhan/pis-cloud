@@ -140,13 +140,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 使用 Next.js 代理上传（避免 CORS 问题）
-    // 浏览器 → Next.js API → 远程 Worker → MinIO
-    const uploadUrl = `/api/admin/upload-proxy?key=${encodeURIComponent(originalKey)}`
+    // 获取 presigned URL 用于直接上传到 MinIO
+    // 浏览器 → MinIO (直接上传，绕过 Vercel 4.5MB 限制)
+    // 上传后，调用 /api/admin/photos/process 触发 Worker 处理
+    const workerUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+    
+    // 通过 Worker API 代理获取 presigned URL（避免 CORS）
+    const presignResponse = await fetch(`/api/worker/presign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: originalKey }),
+    })
+    
+    if (!presignResponse.ok) {
+      const errorText = await presignResponse.text()
+      console.error('Failed to get presigned URL:', errorText)
+      throw new Error('获取上传凭证失败')
+    }
+    
+    const { url: presignedUrl } = await presignResponse.json()
 
     return NextResponse.json({
       photoId,
-      uploadUrl,  // Worker 代理上传 URL
+      uploadUrl: presignedUrl,  // MinIO presigned URL（直接上传）
       originalKey,
       albumId,
     })

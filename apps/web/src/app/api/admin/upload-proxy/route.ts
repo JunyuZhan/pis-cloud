@@ -28,32 +28,47 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // 获取请求体
-    const body = await request.arrayBuffer()
+    // 获取 Content-Type
     const contentType = request.headers.get('content-type') || 'application/octet-stream'
+    
+    // 获取 Content-Length（如果存在）
+    const contentLength = request.headers.get('content-length')
+    const fileSize = contentLength ? parseInt(contentLength, 10) : 0
 
     // 转发到远程 Worker
     const workerUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     const uploadUrl = `${workerUrl}/api/upload?key=${encodeURIComponent(key)}`
+    
+    // 记录上传请求信息（用于调试）
+    console.log('[Upload Proxy] Forwarding upload:', {
+      key,
+      fileSize,
+      contentType,
+      workerUrl,
+      uploadUrl,
+    })
 
-    // 使用 AbortController 设置超时（根据文件大小动态计算，最大30分钟）
-    // 基础超时：10分钟，每MB增加5秒
-    const fileSizeMb = body.byteLength / (1024 * 1024)
+    // 使用流式传输绕过 Vercel 的 4.5MB 请求体限制
+    // 直接流式转发请求体，而不是先读取到内存
+    const controller = new AbortController()
+    
+    // 根据文件大小动态计算超时（最大30分钟）
+    const fileSizeMb = fileSize / (1024 * 1024)
     const baseTimeout = 10 * 60 * 1000 // 10分钟
     const perMbTimeout = 5 * 1000 // 每MB 5秒
     const maxTimeout = 30 * 60 * 1000 // 30分钟
     const timeout = Math.min(baseTimeout + fileSizeMb * perMbTimeout, maxTimeout)
-    
-    const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
+      // 使用流式传输：直接将请求体流式转发到 Worker
       const workerResponse = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': contentType,
+          ...(contentLength ? { 'Content-Length': contentLength } : {}),
         },
-        body: body,
+        body: request.body, // 直接使用请求体流，不读取到内存
         signal: controller.signal,
       })
 
@@ -73,10 +88,41 @@ export async function PUT(request: NextRequest) {
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId)
       
+      const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error'
+      
+      // 记录详细错误信息
+      console.error('[Upload Proxy] Error details:', {
+        error: errorMessage,
+        workerUrl,
+        uploadUrl,
+        fileSize,
+        key,
+      })
+      
+      // 检查是否是连接错误（Worker不可达）
+      if (errorMessage.includes('ECONNREFUSED') || 
+          errorMessage.includes('fetch failed') ||
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('getaddrinfo')) {
+        console.error('[Upload Proxy] Worker connection failed:', {
+          workerUrl,
+          error: errorMessage,
+        })
+        return NextResponse.json(
+          { 
+            error: { 
+              code: 'WORKER_UNAVAILABLE', 
+              message: `无法连接到Worker服务: ${workerUrl}`,
+              details: errorMessage
+            } 
+          },
+          { status: 503 }
+        )
+      }
+      
       // 如果是超时或连接被关闭，可能上传已经成功但响应没返回
       // 返回一个"可能成功"的响应，让前端继续处理流程
-      const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error'
-      console.warn('Upload proxy: connection issue, upload may have succeeded:', errorMessage)
+      console.warn('[Upload Proxy] Connection issue, upload may have succeeded:', errorMessage)
       
       // 返回成功，因为文件可能已经上传
       return NextResponse.json({ 
@@ -86,10 +132,14 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-  } catch {
-    console.error('Upload proxy error:')
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Upload Proxy] Unexpected error:', {
+      error: errorMessage,
+      stack: err instanceof Error ? err.stack : undefined,
+    })
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
+      { error: { code: 'INTERNAL_ERROR', message: '服务器错误', details: errorMessage } },
       { status: 500 }
     )
   }

@@ -303,11 +303,23 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         }
       }
 
-      xhr.onerror = () => {
+      xhr.onerror = (event) => {
         xhrMapRef.current.delete(uploadFile.id)
         const elapsed = (Date.now() - uploadStartTime) / 1000
         const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
-        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接`))
+        
+        // 记录详细错误信息（用于调试）
+        console.error('[Upload] XHR error:', {
+          uploadUrl,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          readyState: xhr.readyState,
+          responseText: xhr.responseText,
+          elapsed,
+          fileSizeMb,
+        })
+        
+        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`))
       }
       
       xhr.onabort = () => {
@@ -322,6 +334,14 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
       }
 
+      // 记录上传信息（用于调试）
+      console.log('[Upload] Starting upload:', {
+        uploadUrl,
+        fileSize: uploadFile.file.size,
+        fileName: uploadFile.file.name,
+        contentType: uploadFile.file.type,
+      })
+      
       xhr.open('PUT', uploadUrl)
       xhr.setRequestHeader('Content-Type', uploadFile.file.type)
       uploadStartTime = Date.now()
@@ -400,15 +420,9 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         )
       )
 
-      // 2. 根据文件大小选择上传方式
-      // photoId已经检查过，使用非空断言
-      if (uploadFile.file.size >= PRESIGN_THRESHOLD) {
-        // 大文件直接上传到 Worker（绕过 Vercel 4.5MB 限制）
-        await uploadToWorkerDirectly(uploadFile, photoId!, originalKey, respAlbumId)
-      } else {
-        // 小文件通过 Vercel 代理上传
-        await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
-      }
+      // 2. 统一使用代理上传（避免前端直接访问内网Worker的问题）
+      // 注意：Vercel有4.5MB限制，但通过代理上传可以绕过
+      await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
 
       // 更新状态为完成
       setFiles((prev) =>
