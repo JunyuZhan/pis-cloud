@@ -143,7 +143,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 获取 presigned URL 用于直接上传到 MinIO
     // 浏览器 → MinIO (直接上传，绕过 Vercel 4.5MB 限制)
     // 上传后，调用 /api/admin/photos/process 触发 Worker 处理
-    const workerUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     
     // 通过 Worker API 代理获取 presigned URL（避免 CORS）
     const presignResponse = await fetch(`/api/worker/presign`, {
@@ -154,7 +153,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     if (!presignResponse.ok) {
       const errorText = await presignResponse.text()
-      let errorData: any = {}
+      let errorData: { error?: string; details?: string } = {}
       try {
         errorData = JSON.parse(errorText)
       } catch {

@@ -6,7 +6,7 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Pause, Play }
 import { cn, formatFileSize } from '@/lib/utils'
 
 // 上传配置
-const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker
+// const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker (保留供将来使用)
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 // MAX_RETRIES removed as it's not used
 
@@ -142,6 +142,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   // getWorkerUrl removed as it's not used
 
   // 大文件直接上传到 Worker（Worker 没有大小限制）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const uploadToWorkerDirectly = async (
     uploadFile: UploadFile,
     photoId: string,
@@ -303,7 +304,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
         }
       }
 
-      xhr.onerror = (event) => {
+      xhr.onerror = () => {
         xhrMapRef.current.delete(uploadFile.id)
         const elapsed = (Date.now() - uploadStartTime) / 1000
         const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
