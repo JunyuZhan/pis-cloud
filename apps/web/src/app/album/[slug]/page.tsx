@@ -109,10 +109,8 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
 
 /**
  * 访客相册浏览页 - 沉浸式活动主页
- * 使用ISR（增量静态再生）优化性能，每30秒重新生成
+ * 静态导出模式：完全静态化，不支持 ISR
  */
-export const revalidate = 30 // ISR: 30秒重新验证
-
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { slug } = await params
   const { sort, layout, group, from } = await searchParams
