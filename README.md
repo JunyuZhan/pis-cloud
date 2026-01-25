@@ -195,6 +195,32 @@ pnpm dev
 
 ## 🌐 Production Deployment
 
+### One-Click Deployment to Public Server (Recommended)
+
+**Deploy directly from GitHub - no need to clone code locally!**
+
+```bash
+# Method 1: Pull script directly from GitHub (Simplest)
+bash <(curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy-to-server.sh)
+
+# Method 2: Run locally (if project is already cloned)
+bash scripts/deploy-to-server.sh
+
+# Method 3: Command line arguments
+bash scripts/deploy-to-server.sh <server-ip> <ssh-user> [github-repo] [branch]
+```
+
+The script will automatically:
+- ✅ Clone latest code from GitHub (or upload locally)
+- ✅ Check and install Docker, Docker Compose, and Git
+- ✅ Configure environment variables
+- ✅ Build and start all services
+- ✅ Optionally configure Nginx reverse proxy and SSL
+
+> 📖 **One-click deployment guide**: [docs/i18n/en/ONE_CLICK_DEPLOY.md](docs/i18n/en/ONE_CLICK_DEPLOY.md)
+
+### Manual Deployment
+
 1. **Configure Supabase** - Create project and run migrations
 2. **Deploy Server** - Run Docker Compose on your server
 3. **Deploy Frontend** - Deploy to Vercel or your hosting
@@ -274,6 +300,7 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 ## 📚 Documentation
 
 ### Getting Started
+- [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy directly from GitHub to your server
 - [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps
 - [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
 - [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration

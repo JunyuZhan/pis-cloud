@@ -195,6 +195,32 @@ pnpm dev
 
 ## 🌐 生产环境部署
 
+### 一键部署到公网服务器（推荐）
+
+**无需本地克隆代码，直接从 GitHub 部署！**
+
+```bash
+# 方式一：直接从 GitHub 拉取脚本部署（最简单）
+bash <(curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy-to-server.sh)
+
+# 方式二：本地运行（如果已克隆项目）
+bash scripts/deploy-to-server.sh
+
+# 方式三：命令行参数
+bash scripts/deploy-to-server.sh <服务器IP> <SSH用户名> [GitHub仓库] [分支]
+```
+
+脚本会自动完成：
+- ✅ 从 GitHub 克隆最新代码（或本地上传）
+- ✅ 检查并安装 Docker、Docker Compose 和 Git
+- ✅ 配置环境变量
+- ✅ 构建并启动所有服务
+- ✅ 可选配置 Nginx 反向代理和 SSL
+
+> 📖 **一键部署详细指南**: [docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md)
+
+### 手动部署
+
 1. **配置 Supabase** - 创建项目并执行迁移
 2. **部署服务器** - 在服务器上运行 Docker Compose
 3. **部署前端** - 部署到 Vercel 或你的托管服务
