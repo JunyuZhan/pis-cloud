@@ -639,6 +639,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   priority={index < 6}
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                   key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || Date.now()}`}
+                  unoptimized // 跳过 Next.js Image Optimization，直接使用原始图片（避免 Vercel 无法访问 HTTP 媒体服务器）
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">
