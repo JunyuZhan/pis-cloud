@@ -90,7 +90,7 @@ if (!WORKER_API_KEY) {
 
 // 请求大小限制
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB for JSON requests
-const MAX_UPLOAD_SIZE = 500 * 1024 * 1024; // 500MB for file uploads
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB for file uploads (统一限制，照片最多几十MB)
 
 // CORS 配置
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
