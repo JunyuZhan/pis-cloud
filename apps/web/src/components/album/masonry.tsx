@@ -63,9 +63,8 @@ export function MasonryGrid({
       const photo = photos[startIndex + i]
       if (!photo?.thumb_key) continue
       
-      const rotation = photo.rotation ?? 'auto'
       const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
-      const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?r=${rotation}&t=${timestamp}`
+      const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
       
       // 使用 link preload 预加载图片
       const link = document.createElement('link')
@@ -142,9 +141,8 @@ export function MasonryGrid({
         const imageKey = photo.preview_key || photo.thumb_key
         if (!imageKey) return
         
-        const rotation = photo.rotation ?? 'auto'
         const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
-        const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}?r=${rotation}&t=${timestamp}`
+        const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
         
         const link = document.createElement('link')
         link.rel = 'preload'
@@ -460,7 +458,7 @@ function PhotoCard({
         >
           {currentImageKey ? (
             <OptimizedImage
-              src={`${safeMediaUrl.replace(/\/$/, '')}/${currentImageKey.replace(/^\//, '')}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
+              src={`${safeMediaUrl.replace(/\/$/, '')}/${currentImageKey.replace(/^\//, '')}${photo.updated_at ? `?t=${new Date(photo.updated_at).getTime()}` : ''}`}
               alt={photo.filename || 'Photo'}
               width={layout === 'grid' ? undefined : 400}
               height={layout === 'grid' ? undefined : Math.round(400 * aspectRatio)}

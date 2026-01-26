@@ -780,7 +780,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
             >
               {photo.thumb_key ? (
                 <Image
-                  src={`${mediaUrl}/${photo.thumb_key}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
+                  src={`${mediaUrl}/${photo.thumb_key}${photo.updated_at ? `?t=${new Date(photo.updated_at).getTime()}` : ''}`}
                   alt=""
                   fill
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
