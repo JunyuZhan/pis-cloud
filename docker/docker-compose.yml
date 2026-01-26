@@ -52,24 +52,24 @@ services:
       - pis_redis_data:/data
     # 如果 REDIS_PASSWORD 为空，则不使用 --requirepass
     command: >
-      sh -c "
-      if [ -n \"$${REDIS_PASSWORD}\" ]; then
+      sh -c
+      "if [ -n \"$${REDIS_PASSWORD}\" ]; then
         redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\"
       else
         redis-server --appendonly yes
-      fi
+      fi"
     restart: unless-stopped
     networks:
       - pis-network
     healthcheck:
       # 如果 REDIS_PASSWORD 为空，则不需要 -a 参数
       test: >
-        sh -c "
-        if [ -n \"$${REDIS_PASSWORD}\" ]; then
+        sh -c
+        "if [ -n \"$${REDIS_PASSWORD}\" ]; then
           redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping
         else
           redis-cli ping
-        fi
+        fi"
       interval: 30s
       timeout: 10s
       retries: 3
