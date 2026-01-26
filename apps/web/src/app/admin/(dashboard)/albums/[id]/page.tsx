@@ -43,12 +43,13 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
     .in('status', ['pending', 'processing', 'completed'])
     .order('sort_order', { ascending: true })
 
-  // 统计已完成的照片数量（用于显示）
+  // 统计已完成的照片数量（用于显示，排除已删除的照片）
   const { count: actualPhotoCount } = await supabase
     .from('photos')
     .select('*', { count: 'exact', head: true })
     .eq('album_id', id)
     .eq('status', 'completed')
+    .is('deleted_at', null) // 排除已删除的照片
 
   // 如果实际照片数量与存储的不一致，更新数据库
   const photoCount = actualPhotoCount ?? 0

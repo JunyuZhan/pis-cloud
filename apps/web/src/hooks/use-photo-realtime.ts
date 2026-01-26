@@ -57,8 +57,8 @@ export function usePhotoRealtime({
     switch (eventType) {
       case 'INSERT':
         if (newRecord && newRecord.album_id === albumId) {
-          // 仅处理 completed 状态的照片
-          if (newRecord.status === 'completed') {
+          // 仅处理 completed 状态且未删除的照片
+          if (newRecord.status === 'completed' && !newRecord.deleted_at) {
             callbacksRef.current.onInsert?.(newRecord as Photo)
           }
         }
@@ -66,13 +66,27 @@ export function usePhotoRealtime({
 
       case 'UPDATE':
         if (newRecord && newRecord.album_id === albumId) {
-          // 照片处理完成时触发插入
+          // 处理软删除：如果 deleted_at 从 null 变为非 null，触发删除回调
+          if (!oldRecord?.deleted_at && newRecord.deleted_at) {
+            callbacksRef.current.onDelete?.(newRecord.id as string)
+            return
+          }
+          
+          // 处理恢复：如果 deleted_at 从非 null 变为 null，触发插入回调
+          if (oldRecord?.deleted_at && !newRecord.deleted_at && newRecord.status === 'completed') {
+            callbacksRef.current.onInsert?.(newRecord as Photo)
+            return
+          }
+          
+          // 照片处理完成时触发插入（仅未删除的照片）
           if (
             oldRecord?.status !== 'completed' &&
-            newRecord.status === 'completed'
+            newRecord.status === 'completed' &&
+            !newRecord.deleted_at
           ) {
             callbacksRef.current.onInsert?.(newRecord as Photo)
-          } else if (newRecord.status === 'completed') {
+          } else if (newRecord.status === 'completed' && !newRecord.deleted_at) {
+            // 更新已完成且未删除的照片
             callbacksRef.current.onUpdate?.(newRecord as Photo)
           }
         }

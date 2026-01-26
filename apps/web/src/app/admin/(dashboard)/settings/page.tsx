@@ -25,6 +25,7 @@ export default async function SettingsPage() {
     .from('photos')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'completed')
+    .is('deleted_at', null) // 排除已删除的照片
 
   // 获取公开相册数量
   const { count: publicAlbumCount } = await supabase

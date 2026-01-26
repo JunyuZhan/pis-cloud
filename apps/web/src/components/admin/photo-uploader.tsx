@@ -550,8 +550,20 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
   // 恢复上传（重新开始）
   const resumeUpload = (file: UploadFile) => {
+    // 如果文件已经完成上传，不应该恢复
+    if (file.status === 'completed' || file.progress >= 100) {
+      console.warn('[Upload] Cannot resume completed upload:', file.id)
+      return
+    }
+    
+    // 如果文件已经有 photoId 且进度很高，可能是上传完成但状态未更新，不应该重置
+    if (file.photoId && file.progress >= 95) {
+      console.warn('[Upload] Upload appears to be completed, not resetting:', file.id)
+      return
+    }
+    
     setFiles(prev => prev.map(f => 
-      f.id === file.id ? { ...f, status: 'pending' as const, progress: 0 } : f
+      f.id === file.id ? { ...f, status: 'pending' as const, progress: 0, error: undefined } : f
     ))
     uploadQueueRef.current.unshift(file.id) // 加到队列最前面
     setTimeout(processQueue, 0)

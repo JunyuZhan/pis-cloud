@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { ScanSyncButton } from './scan-sync-button'
 
 interface ScanSyncButtonWrapperProps {
@@ -7,5 +8,11 @@ interface ScanSyncButtonWrapperProps {
 }
 
 export function ScanSyncButtonWrapper({ albumId }: ScanSyncButtonWrapperProps) {
-  return <ScanSyncButton albumId={albumId} onComplete={() => window.location.reload()} />
+  const router = useRouter()
+  
+  const handleComplete = () => {
+    router.refresh()
+  }
+  
+  return <ScanSyncButton albumId={albumId} onComplete={handleComplete} />
 }

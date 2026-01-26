@@ -47,6 +47,7 @@ export default async function HomePage() {
         .select('*')
         .eq('id', featuredAlbum.cover_photo_id)
         .eq('status', 'completed')
+        .is('deleted_at', null) // 排除已删除的照片
         .maybeSingle() // 使用 maybeSingle() 而不是 single()，避免异常
         
       if (coverError) {
@@ -63,6 +64,7 @@ export default async function HomePage() {
         .select('*')
         .eq('album_id', featuredAlbum.id)
         .eq('status', 'completed')
+        .is('deleted_at', null) // 排除已删除的照片
         .order('captured_at', { ascending: false })
         .limit(1)
         .maybeSingle() // 使用 maybeSingle() 而不是 single()，避免异常
@@ -95,6 +97,7 @@ export default async function HomePage() {
           .select('id, thumb_key, preview_key, status')
           .in('id', coverPhotoIds)
           .eq('status', 'completed')
+          .is('deleted_at', null) // 排除已删除的照片
       : { data: [], error: null }
     
     if (coverPhotosError) {
@@ -122,6 +125,7 @@ export default async function HomePage() {
           .select('album_id, thumb_key, preview_key')
           .in('album_id', albumIdsNeedingPhoto)
           .eq('status', 'completed')
+          .is('deleted_at', null) // 排除已删除的照片
           .not('thumb_key', 'is', null)
           .order('captured_at', { ascending: false })
       : { data: [], error: null }

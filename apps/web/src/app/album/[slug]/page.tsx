@@ -151,12 +151,13 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     notFound()
   }
 
-  // 获取实际照片数量（确保计数准确）
+  // 获取实际照片数量（确保计数准确，排除已删除的照片）
   const { count: actualPhotoCount } = await supabase
     .from('photos')
     .select('*', { count: 'exact', head: true })
     .eq('album_id', albumData.id)
     .eq('status', 'completed')
+    .is('deleted_at', null) // 排除已删除的照片
 
   const album = {
     ...albumData,

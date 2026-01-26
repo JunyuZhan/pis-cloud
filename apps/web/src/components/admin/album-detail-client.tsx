@@ -127,6 +127,16 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   // 过滤照片 - 使用 useMemo 优化性能，避免每次渲染都重新计算
   const filteredPhotos = useMemo(() => {
     return photos.filter((p) => {
+      // 根据当前视图过滤已删除的照片
+      // 如果不在回收站视图，过滤掉已删除的照片
+      if (!showDeleted && p.deleted_at) {
+        return false
+      }
+      // 如果在回收站视图，只显示已删除的照片
+      if (showDeleted && !p.deleted_at) {
+        return false
+      }
+      
       // 按选中状态过滤
       if (filterSelected && !p.is_selected) {
         return false
@@ -140,7 +150,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       
       return true
     })
-  }, [photos, filterSelected, selectedGroupId, photoGroupMap])
+  }, [photos, filterSelected, selectedGroupId, photoGroupMap, showDeleted])
 
   // 轮询检查处理中的照片
   useEffect(() => {
@@ -400,6 +410,12 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     const photo = photos.find(p => p.id === photoId)
     if (!photo) return
     
+    // 验证照片未删除
+    if (photo.deleted_at) {
+      handleApiError(new Error('照片已删除，无法操作'), '操作失败')
+      return
+    }
+    
     // 计算新的旋转角度
     const currentRotation = photo.rotation ?? 0
     let nextRotation = (currentRotation + angle) % 360
@@ -501,6 +517,14 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   // 设置封面
   const handleSetCover = async (photoId: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    
+    // 验证照片未删除
+    const photo = photos.find(p => p.id === photoId)
+    if (!photo) return
+    if (photo.deleted_at) {
+      handleApiError(new Error('照片已删除，无法操作'), '操作失败')
+      return
+    }
     
     try {
       const response = await fetch(`/api/admin/albums/${album.id}`, {

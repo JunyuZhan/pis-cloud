@@ -43,12 +43,13 @@ export default async function AdminPage() {
   const albumsToUpdate: { id: string; count: number }[] = []
 
   if (albumIds.length > 0) {
-    // 使用分组查询统计每个相册的照片数量
+    // 使用分组查询统计每个相册的照片数量（排除已删除的照片）
     const { data: photoCounts } = await supabase
       .from('photos')
       .select('album_id')
       .in('album_id', albumIds)
       .eq('status', 'completed')
+      .is('deleted_at', null) // 排除已删除的照片
 
     if (photoCounts) {
       // 统计每个相册的照片数量
