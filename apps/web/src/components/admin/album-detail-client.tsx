@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw, RefreshCw, Archive, RotateCcw as RestoreIcon } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw, RefreshCw, Archive, RotateCcw as RestoreIcon, AlertCircle } from 'lucide-react'
 import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -950,6 +950,12 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || ''}`}
                   unoptimized // 跳过 Next.js Image Optimization，直接使用原始图片（避免 Vercel 无法访问 HTTP 媒体服务器）
                 />
+              ) : photo.status === 'failed' ? (
+                <div className="w-full h-full bg-gradient-to-br from-red-500/10 to-red-600/10 flex flex-col items-center justify-center gap-2 border-2 border-red-500/20">
+                  <AlertCircle className="w-6 h-6 text-red-400" />
+                  <span className="text-red-400 text-xs">处理失败</span>
+                  <span className="text-text-muted text-xs">点击重新生成</span>
+                </div>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 text-accent animate-spin" />
