@@ -177,18 +177,20 @@ export class PhotoProcessor {
           const enabledCount = watermarkConfig.watermarks.filter(w => w.enabled !== false).length;
           console.log(`[Watermark] Found ${watermarkConfig.watermarks.length} watermarks, ${enabledCount} enabled`);
           
-          // 处理多个水印
-          for (const watermark of watermarkConfig.watermarks) {
-            if (watermark.enabled === false) continue; // 跳过禁用的水印
-
-            const watermarkBuffer = await this.createWatermarkBuffer(
-              watermark,
-              width,
-              height
-            );
-            
+          // 并行处理多个水印（性能优化）
+          const enabledWatermarks = watermarkConfig.watermarks.filter(w => w.enabled !== false);
+          const watermarkPromises = enabledWatermarks.map(watermark =>
+            this.createWatermarkBuffer(watermark, width, height)
+          );
+          
+          // 并行创建所有水印 buffer
+          const watermarkBuffers = await Promise.all(watermarkPromises);
+          
+          // 构建 composites 数组
+          for (let i = 0; i < enabledWatermarks.length; i++) {
+            const watermarkBuffer = watermarkBuffers[i];
             if (watermarkBuffer) {
-              const gravity = this.positionToGravity(watermark.position);
+              const gravity = this.positionToGravity(enabledWatermarks[i].position);
               composites.push({
                 input: watermarkBuffer,
                 gravity,
