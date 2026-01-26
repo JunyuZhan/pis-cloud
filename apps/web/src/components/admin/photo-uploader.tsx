@@ -94,32 +94,44 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     if (isProcessingQueueRef.current) return
     isProcessingQueueRef.current = true
 
-    setFiles(currentFiles => {
-      const uploadingCount = currentFiles.filter(f => f.status === 'uploading').length
-      const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount
+    // 使用 setTimeout 确保在下一个事件循环中处理，避免状态更新冲突
+    setTimeout(() => {
+      setFiles(currentFiles => {
+        const uploadingCount = currentFiles.filter(f => f.status === 'uploading').length
+        const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount
 
-      if (availableSlots > 0 && uploadQueueRef.current.length > 0) {
-        // 过滤队列：移除已完成、失败或暂停的文件，只保留 pending 状态的文件
-        uploadQueueRef.current = uploadQueueRef.current.filter(fileId => {
-          const file = currentFiles.find(f => f.id === fileId)
-          // 保留 pending 状态的文件，移除其他状态的文件
-          return file && file.status === 'pending'
-        })
-
-        if (uploadQueueRef.current.length > 0 && availableSlots > 0) {
-          const toStart = uploadQueueRef.current.splice(0, availableSlots)
-          toStart.forEach(fileId => {
+        if (availableSlots > 0 && uploadQueueRef.current.length > 0) {
+          // 过滤队列：移除已完成、失败或暂停的文件，只保留 pending 状态的文件
+          uploadQueueRef.current = uploadQueueRef.current.filter(fileId => {
             const file = currentFiles.find(f => f.id === fileId)
-            if (file && file.status === 'pending') {
-              uploadSingleFile(file)
-            }
+            // 保留 pending 状态的文件，移除其他状态的文件
+            return file && file.status === 'pending'
           })
-        }
-      }
 
-      isProcessingQueueRef.current = false
-      return currentFiles
-    })
+          if (uploadQueueRef.current.length > 0 && availableSlots > 0) {
+            const toStart = uploadQueueRef.current.splice(0, availableSlots)
+            // 先重置标志，避免阻塞后续调用
+            isProcessingQueueRef.current = false
+            
+            // 异步启动上传，避免阻塞状态更新
+            toStart.forEach(fileId => {
+              const file = currentFiles.find(f => f.id === fileId)
+              if (file && file.status === 'pending') {
+                // 使用 setTimeout 确保状态更新完成后再启动上传
+                setTimeout(() => {
+                  uploadSingleFile(file)
+                }, 0)
+              }
+            })
+            
+            return currentFiles
+          }
+        }
+
+        isProcessingQueueRef.current = false
+        return currentFiles
+      })
+    }, 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -421,20 +433,44 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
             throw new Error('重新获取上传凭证失败：无效响应')
           }
           
-          // 重置进度并重试
+          // 如果创建了新的 photoId，清理旧的 photoId（避免数据库中有多个 pending 记录）
+          const newPhotoId = credData.photoId as string | undefined
+          if (newPhotoId && newPhotoId !== photoId) {
+            try {
+              await fetch(`/api/admin/photos/${photoId}/cleanup`, {
+                method: 'DELETE',
+              })
+              console.log(`[Upload] Cleaned up old photoId ${photoId} after retry, using new photoId ${newPhotoId}`)
+            } catch (cleanupErr) {
+              console.warn(`[Upload] Failed to cleanup old photoId ${photoId} after retry:`, cleanupErr)
+              // 继续重试，即使清理失败
+            }
+          }
+          
+          // 更新文件状态，使用新的 photoId
+          const finalPhotoId = newPhotoId || photoId
+          const finalAlbumId = credData.albumId || respAlbumId
           setFiles((prev) =>
             prev.map((f) =>
-              f.id === uploadFile.id ? { ...f, progress: 0, error: undefined } : f
+              f.id === uploadFile.id 
+                ? { 
+                    ...f, 
+                    progress: 0, 
+                    error: undefined,
+                    photoId: finalPhotoId,
+                    respAlbumId: finalAlbumId
+                  } 
+                : f
             )
           )
           
-          // 递归重试
+          // 递归重试，使用新的 photoId
           return uploadDirectly(
             uploadFile,
-            photoId,
+            finalPhotoId,
             credData.uploadUrl,
             credData.originalKey || originalKey,
-            credData.albumId || respAlbumId,
+            finalAlbumId,
             retryCount + 1
           )
         } catch (retryError) {
@@ -726,13 +762,20 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 注意：处理请求在 uploadDirectly 内部异步触发，不阻塞
       
       // 更新状态为完成（前端显示）
-      setFiles((prev) =>
-        prev.map((f) =>
+      // 使用函数式更新确保获取最新状态
+      setFiles((prev) => {
+        const currentFile = prev.find(f => f.id === uploadFile.id)
+        // 如果文件已被暂停，不标记为完成
+        if (currentFile?.status === 'paused') {
+          return prev
+        }
+        
+        return prev.map((f) =>
           f.id === uploadFile.id
             ? { ...f, status: 'completed' as const, progress: 100 }
             : f
         )
-      )
+      })
       
       // 从队列中移除已完成的文件
       uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
