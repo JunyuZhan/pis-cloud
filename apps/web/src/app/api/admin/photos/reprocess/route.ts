@@ -44,10 +44,11 @@ export async function POST(request: NextRequest) {
     const { photoIds, albumId } = body
 
     // 构建查询：获取需要重新处理的照片（排除已删除的）
+    // 支持处理 completed 和 failed 状态的照片
     let query = supabase
       .from('photos')
       .select('id, album_id, original_key, status')
-      .eq('status', 'completed') // 只处理已完成状态的照片
+      .in('status', ['completed', 'failed']) // 支持处理已完成和失败状态的照片
       .not('original_key', 'is', null) // 必须有原图
       .is('deleted_at', null) // 排除已删除的照片
 

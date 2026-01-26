@@ -348,6 +348,39 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     })
   }
 
+  // 单张照片重新生成
+  const handleReprocessSingle = async (photoId: string) => {
+    try {
+      const response = await fetch('/api/admin/photos/reprocess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoIds: [photoId],
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || '重新生成失败')
+      }
+
+      const result = await response.json()
+      showSuccess(result.message || '已加入处理队列')
+      
+      // 更新本地状态：将照片状态设置为 pending
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId ? { ...p, status: 'pending' as const } : p
+        )
+      )
+      
+      router.refresh()
+    } catch (error) {
+      console.error('Reprocess single photo error:', error)
+      handleApiError(error, '重新生成失败，请重试')
+    }
+  }
+
   const reprocessPhotos = async (photoIds?: string[], albumId?: string) => {
     setIsReprocessing(true)
     try {
@@ -952,6 +985,18 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   }
                   return
                 }
+                // 失败状态的照片：如果有原图，打开灯箱；如果没有原图，重新生成
+                if (photo.status === 'failed') {
+                  if (photo.original_key) {
+                    // 有原图，打开灯箱查看
+                    const idx = filteredPhotos.findIndex(p => p.id === photo.id)
+                    setLightboxIndex(idx)
+                  } else {
+                    // 没有原图，重新生成
+                    handleReprocessSingle(photo.id)
+                  }
+                  return
+                }
                 // 普通模式下，打开灯箱
                 const idx = filteredPhotos.findIndex(p => p.id === photo.id)
                 setLightboxIndex(idx)
@@ -963,6 +1008,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 selectionMode && 'cursor-pointer'
               )}
             >
+              {/* 优先显示缩略图，如果没有缩略图但有原图，显示原图 */}
               {photo.thumb_key ? (
                 <Image
                   src={`${mediaUrl}/${photo.thumb_key}${photo.updated_at ? `?t=${new Date(photo.updated_at).getTime()}` : ''}`}
@@ -974,11 +1020,46 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || ''}`}
                   unoptimized // 跳过 Next.js Image Optimization，直接使用原始图片（避免 Vercel 无法访问 HTTP 媒体服务器）
                 />
+              ) : photo.original_key && photo.status === 'failed' ? (
+                // 如果缩略图生成失败但原图存在，显示原图（降级显示）
+                <Image
+                  src={`${mediaUrl}/${photo.original_key}${photo.updated_at ? `?t=${new Date(photo.updated_at).getTime()}` : ''}`}
+                  alt=""
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                  priority={index < 6}
+                  className="object-cover transition-transform duration-300 group-hover:scale-105 opacity-80"
+                  key={`${photo.id}-original-${photo.updated_at || ''}`}
+                  unoptimized
+                />
               ) : photo.status === 'failed' ? (
-                <div className="w-full h-full bg-gradient-to-br from-red-500/10 to-red-600/10 flex flex-col items-center justify-center gap-2 border-2 border-red-500/20">
+                <div className="w-full h-full bg-gradient-to-br from-red-500/10 to-red-600/10 flex flex-col items-center justify-center gap-2 border-2 border-red-500/20 relative">
                   <AlertCircle className="w-6 h-6 text-red-400" />
                   <span className="text-red-400 text-xs">处理失败</span>
                   <span className="text-text-muted text-xs">点击重新生成</span>
+                  {/* 失败照片操作按钮 */}
+                  <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleReprocessSingle(photo.id)
+                      }}
+                      className="bg-green-500/90 hover:bg-green-500 text-white rounded-full p-1.5 transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      title="重新生成"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeletePhoto(photo.id, e)
+                      }}
+                      className="bg-red-500/90 hover:bg-red-500 text-white rounded-full p-1.5 transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      title="删除"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface to-surface-elevated flex flex-col items-center justify-center gap-2">
