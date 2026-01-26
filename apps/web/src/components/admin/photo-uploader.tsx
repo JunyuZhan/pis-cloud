@@ -456,14 +456,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
       // 检查是否为可重试的错误
       const err = error as Error & { retryable?: boolean }
-      const errorMessage = err instanceof Error ? err.message : '分片上传失败'
+      const errorMsg = err instanceof Error ? err.message : '分片上传失败'
       
       // 网络错误、超时错误可以重试
       const isRetryable = err.retryable !== false && 
-        (errorMessage.includes('网络') || 
-         errorMessage.includes('超时') || 
-         errorMessage.includes('HTTP') ||
-         errorMessage.includes('失败'))
+        (errorMsg.includes('网络') || 
+         errorMsg.includes('超时') || 
+         errorMsg.includes('HTTP') ||
+         errorMsg.includes('失败'))
       
       if (isRetryable && retryCount < MAX_RETRIES) {
         setFiles((prev) =>
@@ -480,11 +480,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
 
       // 失败处理
-      const errorMessage = err instanceof Error ? err.message : '分片上传失败'
       setFiles((prev) =>
         prev.map((f) =>
           f.id === uploadFile.id
-            ? { ...f, status: 'failed' as const, error: errorMessage }
+            ? { ...f, status: 'failed' as const, error: errorMsg }
             : f
         )
       )
