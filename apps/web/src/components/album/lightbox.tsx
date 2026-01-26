@@ -7,7 +7,7 @@ import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
-import { Download, Heart } from 'lucide-react'
+import { Download, Heart, RotateCw, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { handleApiError } from '@/lib/toast'
 import type { Photo } from '@/types/database'
@@ -54,6 +54,8 @@ export function PhotoLightbox({
     })
     return map
   })
+  // 跟踪每张照片的临时旋转角度（仅前端显示，不保存到数据库）
+  const [viewRotationMap, setViewRotationMap] = useState<Record<string, number>>({})
   // 跟踪哪些照片已加载原图（用户点击"查看原图"后）
   // 移除此逻辑，现在默认只显示大预览图，下载时才获取原图
   // const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
@@ -292,6 +294,20 @@ export function PhotoLightbox({
     }
   }, [photos.length, onIndexChange])
 
+  // 旋转照片（仅前端显示）
+  const handleRotate = useCallback((angle: number) => {
+    if (!currentPhotoId) return
+    
+    setViewRotationMap((prev) => {
+      const currentRotation = prev[currentPhotoId] || 0
+      const newRotation = (currentRotation + angle) % 360
+      return {
+        ...prev,
+        [currentPhotoId]: newRotation < 0 ? newRotation + 360 : newRotation,
+      }
+    })
+  }, [currentPhotoId])
+
   const toolbarButtons = useMemo(() => {
     if (!currentPhoto) {
       return ['close']
@@ -320,6 +336,28 @@ export function PhotoLightbox({
           )}
         />
       </button>,
+      <button
+        key="rotate-left"
+        type="button"
+        onClick={() => handleRotate(-90)}
+        className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+        aria-label="逆时针旋转"
+        title="逆时针旋转90度"
+      >
+        <RotateCcw className="w-5 h-5" />
+        <span className="hidden sm:inline text-sm">逆时针</span>
+      </button>,
+      <button
+        key="rotate-right"
+        type="button"
+        onClick={() => handleRotate(90)}
+        className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+        aria-label="顺时针旋转"
+        title="顺时针旋转90度"
+      >
+        <RotateCw className="w-5 h-5" />
+        <span className="hidden sm:inline text-sm">顺时针</span>
+      </button>,
     ]
 
     if (allowDownload) {
@@ -340,7 +378,7 @@ export function PhotoLightbox({
 
     buttons.push('close')
     return buttons
-  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload])
+  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload, handleRotate])
 
   // 如果未打开或没有照片，不渲染
   if (!open || photos.length === 0) {
@@ -403,6 +441,50 @@ export function PhotoLightbox({
         // 只有一张照片时隐藏导航按钮
         buttonPrev: photos.length <= 1 ? () => null : undefined,
         buttonNext: photos.length <= 1 ? () => null : undefined,
+        // 自定义 slide 渲染，应用旋转（保留默认行为）
+        slide: ({ slide }) => {
+          interface SlideWithPhotoId {
+            photoId?: string
+            src: string
+            title?: string
+          }
+          const slideWithId = slide as SlideWithPhotoId
+          const photoId = slideWithId.photoId
+          const rotation = photoId ? (viewRotationMap[photoId] || 0) : 0
+          
+          // 如果没有旋转，使用默认渲染
+          if (rotation === 0) {
+            return undefined
+          }
+          
+          // 有旋转时，自定义渲染
+          // eslint-disable-next-line @next/next/no-img-element
+          return (
+            <div
+              className="yarl__slide"
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: `rotate(${rotation}deg)`,
+                transition: 'transform 0.3s ease-out',
+              }}
+            >
+              <img
+                src={slide.src}
+                alt={typeof slide.title === 'string' ? slide.title : ''}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+                draggable={false}
+              />
+            </div>
+          )
+        },
       }}
       toolbar={{
         buttons: toolbarButtons,
