@@ -352,13 +352,29 @@ sudo nginx -t && sudo nginx -s reload
 
 In **Settings** → **Environment Variables** add:
 
+**Required Variables:**
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 NEXT_PUBLIC_MEDIA_URL=https://media.yourdomain.com/pis-photos
+NEXT_PUBLIC_WORKER_URL=https://worker.yourdomain.com
+WORKER_API_KEY=your-generated-api-key
 ```
+
+**Optional Variables (Recommended):**
+```
+NEXT_PUBLIC_PHOTOGRAPHER_NAME=Your Studio Name
+NEXT_PUBLIC_PHOTOGRAPHER_TAGLINE=Professional Photography
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-turnstile-site-key
+TURNSTILE_SECRET_KEY=your-turnstile-secret-key
+```
+
+> 💡 **Note**: 
+> - All URLs should use `https://` in production
+> - `NEXT_PUBLIC_*` variables are exposed to the browser
+> - Never set sensitive keys as `NEXT_PUBLIC_*`
 
 #### 4. Deploy
 

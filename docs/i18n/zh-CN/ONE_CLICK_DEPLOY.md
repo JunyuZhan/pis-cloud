@@ -64,8 +64,8 @@ curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh
 git clone https://github.com/junyuzhan/pis.git
 cd pis
 
-# 远程部署
-bash scripts/deploy.sh 192.168.1.100 root
+# 远程部署（替换为你的服务器IP和用户名）
+bash scripts/deploy.sh your-server-ip root
 ```
 
 ### 使用环境变量

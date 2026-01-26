@@ -1,17 +1,17 @@
--- PIS 完整数据库架构
--- 使用方法:
--- 1. 在 Supabase Dashboard -> SQL Editor 中执行此文件
--- 2. 或使用 psql: psql $DATABASE_URL < database/full_schema.sql
+-- PIS Complete Database Schema
+-- Usage:
+-- 1. Execute this file in Supabase Dashboard -> SQL Editor
+-- 2. Or use psql: psql $DATABASE_URL < database/full_schema.sql
 --
--- ⚠️ 重要提示：
---   - 此文件仅适用于全新的数据库（首次安装）
---   - 只需执行一次即可完成所有数据库初始化
---   - 不要在已有数据的数据库上重复执行
+-- ⚠️ Important Notes:
+--   - This file is for fresh databases only (first-time installation)
+--   - Execute only once to complete all database initialization
+--   - Do NOT execute on databases with existing data
 
--- 启用 UUID 扩展
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 相册表
+-- Albums table
 CREATE TABLE albums (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   slug UUID UNIQUE DEFAULT uuid_generate_v4(),
@@ -19,7 +19,7 @@ CREATE TABLE albums (
   description TEXT,
   cover_photo_id UUID,
   
-  -- 显示设置
+  -- Display settings
   is_public BOOLEAN DEFAULT false,
   layout TEXT DEFAULT 'masonry' CHECK (layout IN ('masonry', 'grid', 'carousel')),
   sort_rule TEXT DEFAULT 'capture_desc' CHECK (sort_rule IN ('capture_desc', 'capture_asc', 'manual')),
@@ -27,12 +27,12 @@ CREATE TABLE albums (
   show_exif BOOLEAN DEFAULT true,
   allow_share BOOLEAN DEFAULT true,
   
-  -- 水印配置
+  -- Watermark configuration
   watermark_enabled BOOLEAN DEFAULT false,
   watermark_type TEXT CHECK (watermark_type IN ('text', 'logo')),
   watermark_config JSONB DEFAULT '{}',
   
-  -- 高级功能
+  -- Advanced features
   password TEXT DEFAULT NULL,
   expires_at TIMESTAMPTZ DEFAULT NULL,
   allow_batch_download BOOLEAN DEFAULT true,
@@ -40,34 +40,34 @@ CREATE TABLE albums (
   view_count INTEGER DEFAULT 0,
   is_live BOOLEAN DEFAULT false,
   
-  -- 分享配置
+  -- Share configuration
   share_title TEXT,
   share_description TEXT,
   share_image_url TEXT,
   poster_image_url TEXT,
   
-  -- 活动元数据
+  -- Event metadata
   event_date TIMESTAMPTZ,
   location TEXT,
   
-  -- 元数据
+  -- Metadata
   photo_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
 );
 
--- 照片表
+-- Photos table
 CREATE TABLE photos (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   album_id UUID NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   
-  -- 存储路径
+  -- Storage paths
   original_key TEXT NOT NULL,
   preview_key TEXT,
   thumb_key TEXT,
   
-  -- 图片信息
+  -- Image information
   filename TEXT NOT NULL,
   file_size BIGINT,
   width INTEGER,
@@ -75,33 +75,33 @@ CREATE TABLE photos (
   mime_type TEXT,
   blur_data TEXT,
   
-  -- EXIF 数据
+  -- EXIF data
   exif JSONB DEFAULT '{}',
   captured_at TIMESTAMPTZ,
   
-  -- 处理状态
+  -- Processing status
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   
-  -- 交互状态
+  -- Interaction state
   is_selected BOOLEAN DEFAULT false,
   rotation INTEGER DEFAULT NULL CHECK (rotation IS NULL OR rotation IN (0, 90, 180, 270)),
   
-  -- 排序
+  -- Sorting
   sort_order INTEGER DEFAULT 0,
   
-  -- 元数据
+  -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
 );
 
--- 相册模板表
+-- Album templates table
 CREATE TABLE album_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   description TEXT,
   
-  -- 模板配置
+  -- Template configuration
   is_public BOOLEAN DEFAULT false,
   layout TEXT DEFAULT 'masonry' CHECK (layout IN ('masonry', 'grid', 'carousel')),
   sort_rule TEXT DEFAULT 'capture_desc' CHECK (sort_rule IN ('capture_desc', 'capture_asc', 'manual')),
@@ -109,48 +109,48 @@ CREATE TABLE album_templates (
   allow_batch_download BOOLEAN DEFAULT true,
   show_exif BOOLEAN DEFAULT true,
   
-  -- 访问控制
+  -- Access control
   password TEXT DEFAULT NULL,
   expires_at TIMESTAMPTZ DEFAULT NULL,
   
-  -- 水印设置
+  -- Watermark settings
   watermark_enabled BOOLEAN DEFAULT false,
   watermark_type TEXT CHECK (watermark_type IN ('text', 'logo')),
   watermark_config JSONB DEFAULT '{}',
   
-  -- 元数据
+  -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 打包下载任务表
+-- Package downloads table
 CREATE TABLE package_downloads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   album_id UUID NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   
-  -- 打包配置
+  -- Package configuration
   photo_ids UUID[] NOT NULL,
   include_watermarked BOOLEAN DEFAULT true,
   include_original BOOLEAN DEFAULT true,
   
-  -- 打包状态
+  -- Package status
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   
-  -- 存储信息
+  -- Storage information
   zip_key TEXT,
   file_size BIGINT,
   
-  -- 下载链接
+  -- Download link
   download_url TEXT,
   expires_at TIMESTAMPTZ,
   
-  -- 元数据
+  -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
 
--- 照片分组表
+-- Photo groups table
 CREATE TABLE photo_groups (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   album_id UUID NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
@@ -162,7 +162,7 @@ CREATE TABLE photo_groups (
   CONSTRAINT unique_group_name_per_album UNIQUE (album_id, name)
 );
 
--- 照片分组关联表
+-- Photo group assignments table
 CREATE TABLE photo_group_assignments (
   photo_id UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
   group_id UUID NOT NULL REFERENCES photo_groups(id) ON DELETE CASCADE,
@@ -170,7 +170,7 @@ CREATE TABLE photo_group_assignments (
   PRIMARY KEY (photo_id, group_id)
 );
 
--- 索引
+-- Indexes
 CREATE INDEX idx_albums_slug ON albums(slug) WHERE deleted_at IS NULL;
 CREATE INDEX idx_albums_is_public ON albums(is_public) WHERE deleted_at IS NULL;
 CREATE INDEX idx_albums_expires_at ON albums(expires_at) WHERE expires_at IS NOT NULL;
@@ -194,7 +194,7 @@ CREATE INDEX idx_photo_groups_sort_order ON photo_groups(album_id, sort_order);
 CREATE INDEX idx_photo_group_assignments_photo_id ON photo_group_assignments(photo_id);
 CREATE INDEX idx_photo_group_assignments_group_id ON photo_group_assignments(group_id);
 
--- 更新时间触发器函数
+-- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -208,12 +208,12 @@ CREATE TRIGGER photos_updated_at BEFORE UPDATE ON photos FOR EACH ROW EXECUTE FU
 CREATE TRIGGER album_templates_updated_at BEFORE UPDATE ON album_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER package_downloads_updated_at BEFORE UPDATE ON package_downloads FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- 照片计数函数（排除已删除的照片）
+-- Photo count function (excludes deleted photos)
 CREATE OR REPLACE FUNCTION increment_photo_count(album_id UUID)
 RETURNS void AS $$
 BEGIN
-  -- 注意：此函数在 Worker 处理完成后调用，此时照片状态已经是 completed
-  -- 但为了安全，我们重新统计，确保只统计未删除的 completed 照片
+  -- Note: This function is called after Worker processing completes, when photo status is already 'completed'
+  -- For safety, we recalculate to ensure only non-deleted completed photos are counted
   UPDATE albums 
   SET photo_count = (
     SELECT COUNT(*) FROM photos 
@@ -232,7 +232,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 选片数量更新函数
+-- Selected photo count update function
 CREATE OR REPLACE FUNCTION update_album_selected_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -253,7 +253,7 @@ AFTER UPDATE OF is_selected ON photos
 FOR EACH ROW
 EXECUTE FUNCTION update_album_selected_count();
 
--- 照片分组更新时间触发器函数
+-- Photo groups updated_at trigger function
 CREATE OR REPLACE FUNCTION update_photo_groups_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -267,7 +267,7 @@ BEFORE UPDATE ON photo_groups
 FOR EACH ROW
 EXECUTE FUNCTION update_photo_groups_updated_at();
 
--- 浏览量统计函数
+-- Album view count increment function
 CREATE OR REPLACE FUNCTION increment_album_view_count(album_id UUID)
 RETURNS void AS $$
 BEGIN
@@ -275,13 +275,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 初始化选片数量
+-- Initialize selected photo count
 UPDATE albums SET selected_count = (
   SELECT COUNT(*) FROM photos 
   WHERE photos.album_id = albums.id AND is_selected = true AND status = 'completed'
 );
 
--- 启用 RLS
+-- Enable RLS
 ALTER TABLE albums ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE album_templates ENABLE ROW LEVEL SECURITY;
@@ -289,13 +289,13 @@ ALTER TABLE package_downloads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photo_group_assignments ENABLE ROW LEVEL SECURITY;
 
--- RLS 策略：相册可通过 slug 访问
+-- RLS Policy: Albums are viewable by slug
 CREATE POLICY "Albums are viewable by slug" 
 ON albums FOR SELECT 
 TO anon, authenticated
 USING (deleted_at IS NULL);
 
--- RLS 策略：照片随相册可见性
+-- RLS Policy: Photos inherit album visibility
 CREATE POLICY "Photos are viewable if album exists"
 ON photos FOR SELECT
 TO anon, authenticated
@@ -307,7 +307,7 @@ USING (
   )
 );
 
--- RLS 策略：管理员拥有所有权限
+-- RLS Policy: Admins have full access
 CREATE POLICY "Admins can do everything on albums"
 ON albums FOR ALL
 TO authenticated
@@ -332,26 +332,26 @@ TO authenticated
 USING (true)
 WITH CHECK (true);
 
-CREATE POLICY "管理员可以管理所有分组"
+CREATE POLICY "Admins can manage all photo groups"
 ON photo_groups FOR ALL
 TO authenticated
 USING (true)
 WITH CHECK (true);
 
-CREATE POLICY "管理员可以管理所有分组关联"
+CREATE POLICY "Admins can manage all photo group assignments"
 ON photo_group_assignments FOR ALL
 TO authenticated
 USING (true)
 WITH CHECK (true);
 
--- RLS 策略：匿名用户可以查看已完成的打包
+-- RLS Policy: Anonymous users can view completed packages
 CREATE POLICY "Public can view completed packages"
 ON package_downloads FOR SELECT
 TO anon, authenticated
 USING (status = 'completed' AND expires_at > NOW());
 
--- RLS 策略：访客可以查看公开相册的分组
-CREATE POLICY "访客可以查看公开相册的分组"
+-- RLS Policy: Guests can view groups of public albums
+CREATE POLICY "Guests can view groups of public albums"
 ON photo_groups FOR SELECT
 USING (
   EXISTS (
@@ -363,7 +363,7 @@ USING (
   )
 );
 
-CREATE POLICY "访客可以查看公开相册的分组关联"
+CREATE POLICY "Guests can view group assignments of public albums"
 ON photo_group_assignments FOR SELECT
 USING (
   EXISTS (
@@ -377,5 +377,5 @@ USING (
   )
 );
 
--- 启用 Realtime
+-- Enable Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE photos;

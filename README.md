@@ -332,9 +332,7 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 - [CDN Setup Guide](docs/CDN_SETUP_GUIDE.md) - Cloudflare/阿里云/腾讯云 CDN configuration
 
 ### Features
-- [Worker Features](docs/WORKER_FEATURES.md) - Complete Worker service functionality
-- [Poster Feature](docs/POSTER_FEATURE.md) - Album poster images and dynamic poster generation guide
-- [Share Image URL](docs/SHARE_IMAGE_URL_EXPLANATION.md) - Share preview image configuration
+- [Development Guide](docs/DEVELOPMENT.md) - Complete development guide including all features
 
 ---
 

@@ -127,7 +127,28 @@ export function AlbumClient({ album, initialPhotos, layout = 'masonry' }: AlbumC
     onDelete: useCallback((photoId: string) => {
       // 照片被删除时，从已知 ID 中移除
       knownPhotoIdsRef.current.delete(photoId)
-    }, []),
+      
+      // 从 React Query 缓存中移除已删除的照片
+      queryClient.setQueryData<{ pages: PhotosResponse[]; pageParams: number[] }>(
+        ['album-photos', album.slug, sort, groupId],
+        (oldData) => {
+          if (!oldData) return oldData
+          
+          // 从所有页面中移除已删除的照片
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              photos: page.photos.filter((photo) => photo.id !== photoId),
+              pagination: {
+                ...page.pagination,
+                total: Math.max(0, page.pagination.total - 1),
+              },
+            })),
+          }
+        }
+      )
+    }, [queryClient, album.slug, sort, groupId]),
   })
 
   // 刷新照片列表

@@ -410,7 +410,136 @@ watch -n 5 'curl -I https://media.yourdomain.com/pis-photos/processed/thumbs/tes
 
 ---
 
+---
+
+## 🔄 缓存清除配置（可选）
+
+如果使用 Cloudflare CDN，可以配置自动清除缓存功能，确保删除照片后 CDN 缓存也被清除。
+
+### 步骤 1：获取 Cloudflare API Token
+
+1. **登录 Cloudflare 控制台**
+   - 访问：https://dash.cloudflare.com/
+   - 使用你的账号登录
+
+2. **创建 API 令牌**
+   - 点击右上角头像 → **我的个人资料**（或 **My Profile**）
+   - 左侧菜单选择 **API 令牌**（或 **API Tokens**）
+   - 点击 **创建令牌**（或 **Create Token**）
+
+3. **配置令牌权限**
+   - 在 **权限** 部分，点击 **添加更多** 添加权限：
+     - **区域** → **清除缓存** → **清除**
+   - 在 **区域资源** 部分：
+     - 选择 **包括** → **特定区域**
+     - 点击 **Select...** 下拉框
+     - 选择你的域名（如 `example.com`）
+   - **客户端 IP 地址筛选**：可以留空（默认适用于所有地址）
+   - **TTL**：可以留空（默认永久有效）
+
+4. **创建并复制令牌**
+   - 配置完成后，滚动到页面底部
+   - 点击 **创建令牌** 按钮
+   - **重要**：立即复制显示的令牌（只显示一次，关闭后无法再次查看）
+   - 格式类似：`xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+   - 建议保存到安全的地方（如密码管理器）
+
+### 步骤 2：获取区域 ID（Zone ID）
+
+1. **进入域名管理**
+   - 在 Cloudflare 控制台首页
+   - 点击你的域名（如 `example.com`）
+
+2. **找到区域 ID**
+   - 在右侧边栏（概览页面，或 **Overview**）
+   - 找到 **区域 ID**（或 **Zone ID**，一串字母数字）
+   - 点击复制
+   - 格式类似：`xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+
+### 步骤 3：配置环境变量
+
+#### 在 Vercel 中配置
+
+1. **进入 Vercel 控制台**
+   - 访问：https://vercel.com/dashboard
+   - 选择你的项目
+
+2. **添加环境变量**
+   - 进入 **设置**（或 **Settings**）→ **环境变量**（或 **Environment Variables**）
+   - 添加以下变量：
+
+   ```
+   变量名: CLOUDFLARE_API_TOKEN
+   值: 你的 API 令牌（步骤 1 获取的）
+   环境: Production（生产环境）、Preview（预览环境）、Development（开发环境）（全选）
+   ```
+
+   ```
+   变量名: CLOUDFLARE_ZONE_ID
+   值: 你的区域 ID（步骤 2 获取的）
+   环境: Production（生产环境）、Preview（预览环境）、Development（开发环境）（全选）
+   ```
+
+3. **保存并重新部署**
+   - 点击 **保存**（或 **Save**）
+   - 重新部署应用（或等待下次部署）
+
+#### 在 Worker 服务中配置
+
+如果你的 Worker 服务是独立部署的（不在 Vercel），需要在 Worker 服务的环境变量中配置：
+
+```bash
+# Worker 服务环境变量
+CLOUDFLARE_API_TOKEN=你的 API Token
+CLOUDFLARE_ZONE_ID=你的 Zone ID
+```
+
+**配置方式取决于你的部署方式**：
+- **Docker**: 在 `docker-compose.yml` 或启动命令中添加环境变量
+- **PM2**: 在 `ecosystem.config.js` 中配置
+- **systemd**: 在服务配置文件中添加环境变量
+- **其他**: 根据你的部署方式配置
+
+**示例（docker-compose.yml）**：
+```yaml
+services:
+  worker:
+    environment:
+      # ... 其他环境变量 ...
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
+```
+
+然后在服务器上的 `.env.local` 文件中添加：
+```bash
+CLOUDFLARE_API_TOKEN=你的 API 令牌
+CLOUDFLARE_ZONE_ID=你的区域 ID
+```
+
+### 步骤 4：验证配置
+
+配置完成后，删除一张照片，系统会自动清除该照片在 Cloudflare CDN 中的缓存。
+
+**验证方法**：
+1. 删除一张照片
+2. 查看 Worker 日志，应该看到缓存清除成功的日志
+3. 或直接访问已删除照片的 URL，应该返回 404 或无法访问
+
+### ⚠️ 安全注意事项
+
+- **API Token 安全**：
+  - API Token 具有清除缓存的权限，请妥善保管
+  - 不要将 Token 提交到代码仓库
+  - 定期轮换 Token（建议每 90 天）
+  - 如果 Token 泄露，立即在 Cloudflare 控制台删除并重新创建
+
+- **权限最小化**：
+  - 只授予必要的权限（清除缓存）
+  - 只针对特定域名，不要使用全局权限
+
+---
+
 ## 📚 相关文档
 
-- [前端性能优化](./FRONTEND_IMAGE_PERFORMANCE_OPTIMIZATION.md)
-- [Worker 性能优化](./WORKER_PERFORMANCE_OPTIMIZATION.md)
+- [性能优化指南](./PERFORMANCE_OPTIMIZATION.md)
+- [安全最佳实践](./SECURITY.md)

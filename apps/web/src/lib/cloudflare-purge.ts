@@ -1,7 +1,7 @@
 /**
- * Cloudflare CDN 缓存清除工具
+ * Cloudflare CDN Cache Purge Utility
  * 
- * 用于在删除照片时清除 CDN 缓存，确保删除后无法通过 CDN 访问
+ * Used to purge CDN cache when photos are deleted, ensuring deleted photos cannot be accessed via CDN
  */
 
 interface PurgeCacheOptions {
@@ -18,17 +18,17 @@ interface PurgeCacheResult {
 }
 
 /**
- * 清除 Cloudflare CDN 缓存
+ * Purge Cloudflare CDN cache
  * 
- * @param options 清除选项
- * @returns 清除结果
+ * @param options Purge options
+ * @returns Purge result
  */
 export async function purgeCloudflareCache(
   options: PurgeCacheOptions
 ): Promise<PurgeCacheResult> {
   const { urls, zoneId, apiToken } = options
 
-  // 如果没有配置，跳过清除
+  // Skip purge if not configured
   if (!zoneId || !apiToken) {
     console.warn('[Cloudflare Purge] Zone ID or API Token not configured, skipping cache purge')
     return {
@@ -48,7 +48,7 @@ export async function purgeCloudflareCache(
   }
 
   try {
-    // Cloudflare API 限制：单次最多清除 30 个 URL
+    // Cloudflare API limit: maximum 30 URLs per request
     const BATCH_SIZE = 30
     const batches: string[][] = []
     
@@ -59,7 +59,7 @@ export async function purgeCloudflareCache(
     const purgedUrls: string[] = []
     const failedUrls: string[] = []
 
-    // 批量清除
+    // Purge in batches
     for (const batch of batches) {
       try {
         const response = await fetch(
@@ -100,7 +100,7 @@ export async function purgeCloudflareCache(
         failedUrls.push(...batch)
       }
 
-      // 避免触发速率限制：每批之间延迟 100ms
+      // Avoid rate limiting: delay 100ms between batches
       if (batches.indexOf(batch) < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 100))
       }
@@ -127,11 +127,11 @@ export async function purgeCloudflareCache(
 }
 
 /**
- * 构建图片的完整 URL（用于清除缓存）
+ * Build complete image URL (for cache purging)
  * 
- * @param mediaUrl 媒体服务器基础 URL
- * @param imageKey 图片存储路径（如 processed/thumbs/xxx.jpg）
- * @returns 完整的图片 URL
+ * @param mediaUrl Media server base URL
+ * @param imageKey Image storage path (e.g., processed/thumbs/xxx.jpg)
+ * @returns Complete image URL
  */
 export function buildImageUrl(mediaUrl: string, imageKey: string): string {
   const baseUrl = mediaUrl.replace(/\/$/, '')
@@ -140,13 +140,13 @@ export function buildImageUrl(mediaUrl: string, imageKey: string): string {
 }
 
 /**
- * 清除照片的 CDN 缓存
+ * Purge photo CDN cache
  * 
- * @param mediaUrl 媒体服务器基础 URL
- * @param photo 照片对象（包含 original_key, thumb_key, preview_key）
- * @param zoneId Cloudflare Zone ID（可选，从环境变量获取）
- * @param apiToken Cloudflare API Token（可选，从环境变量获取）
- * @returns 清除结果
+ * @param mediaUrl Media server base URL
+ * @param photo Photo object (contains original_key, thumb_key, preview_key)
+ * @param zoneId Cloudflare Zone ID (optional, from environment variables)
+ * @param apiToken Cloudflare API Token (optional, from environment variables)
+ * @returns Purge result
  */
 export async function purgePhotoCache(
   mediaUrl: string,
@@ -160,7 +160,7 @@ export async function purgePhotoCache(
 ): Promise<PurgeCacheResult> {
   const urls: string[] = []
 
-  // 构建所有图片 URL
+  // Build all image URLs
   if (photo.original_key) {
     urls.push(buildImageUrl(mediaUrl, photo.original_key))
   }
@@ -179,7 +179,7 @@ export async function purgePhotoCache(
     }
   }
 
-  // 使用传入的参数或从环境变量获取
+  // Use provided parameters or get from environment variables
   const finalZoneId = zoneId || process.env.CLOUDFLARE_ZONE_ID
   const finalApiToken = apiToken || process.env.CLOUDFLARE_API_TOKEN
 

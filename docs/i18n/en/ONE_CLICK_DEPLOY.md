@@ -64,8 +64,8 @@ If you want to deploy from your local computer to a remote server:
 git clone https://github.com/junyuzhan/pis.git
 cd pis
 
-# Remote deploy
-bash scripts/deploy.sh 192.168.1.100 root
+# Remote deploy (replace with your server IP and username)
+bash scripts/deploy.sh your-server-ip root
 ```
 
 ### Using Environment Variables

@@ -324,8 +324,7 @@ MIT License © 2026 junyuzhan
 - [性能优化](docs/PERFORMANCE_OPTIMIZATION.md) - 性能优化指南
 
 ### 功能说明
-- [相册海报功能](docs/POSTER_FEATURE.md) - 相册海报图片和动态海报生成指南
-- [分享图片 URL](docs/SHARE_IMAGE_URL_EXPLANATION.md) - 分享预览图片配置说明
+- [开发指南](docs/DEVELOPMENT.md) - 完整开发指南，包含所有功能说明
 
 ---
 

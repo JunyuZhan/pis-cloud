@@ -1,31 +1,31 @@
 /**
- * 动态海报生成器
- * 使用 Canvas API 合成包含背景图、标题、描述、二维码的海报
+ * Dynamic Poster Generator
+ * Uses Canvas API to composite posters with background image, title, description, and QR code
  */
 
 export interface PosterStyle {
-  // 布局选项
+  // Layout options
   layout?: 'centered' | 'top' | 'bottom'
-  // 颜色选项
+  // Color options
   titleColor?: string
   descriptionColor?: string
-  // 字体大小
+  // Font sizes
   titleFontSize?: number
   descriptionFontSize?: number
-  // 遮罩透明度
+  // Overlay opacity
   overlayOpacity?: number
-  // 二维码位置
+  // QR code position
   qrPosition?: 'bottom-center' | 'bottom-right' | 'bottom-left'
-  // 二维码大小
+  // QR code size
   qrSize?: number
 }
 
 /**
- * 预设海报样式模板
- * 提供经过设计的样式组合，确保海报质量
+ * Preset poster style templates
+ * Provides designed style combinations to ensure poster quality
  */
 export const POSTER_PRESETS: Record<string, PosterStyle> = {
-  // 经典风格：居中布局，白色文字，适中遮罩
+  // Classic style: centered layout, white text, moderate overlay
   classic: {
     layout: 'centered',
     titleColor: '#FFFFFF',
@@ -36,7 +36,7 @@ export const POSTER_PRESETS: Record<string, PosterStyle> = {
     qrPosition: 'bottom-center',
     qrSize: 280,
   },
-  // 简约风格：顶部布局，高对比度
+  // Minimal style: top layout, high contrast
   minimal: {
     layout: 'top',
     titleColor: '#FFFFFF',
@@ -47,7 +47,7 @@ export const POSTER_PRESETS: Record<string, PosterStyle> = {
     qrPosition: 'bottom-right',
     qrSize: 240,
   },
-  // 优雅风格：底部布局，柔和色调
+  // Elegant style: bottom layout, soft tones
   elegant: {
     layout: 'bottom',
     titleColor: '#FFFFFF',
@@ -58,7 +58,7 @@ export const POSTER_PRESETS: Record<string, PosterStyle> = {
     qrPosition: 'bottom-center',
     qrSize: 300,
   },
-  // 商务风格：居中布局，专业配色
+  // Business style: centered layout, professional color scheme
   business: {
     layout: 'centered',
     titleColor: '#FFFFFF',
@@ -72,12 +72,12 @@ export const POSTER_PRESETS: Record<string, PosterStyle> = {
 }
 
 /**
- * 验证并限制样式参数，确保海报质量
+ * Validate and limit style parameters to ensure poster quality
  */
 export function validateAndLimitStyle(style: PosterStyle): PosterStyle {
   const validated: PosterStyle = { ...style }
 
-  // 限制字体大小范围（确保可读性）
+  // Limit font size range (ensure readability)
   if (validated.titleFontSize !== undefined) {
     validated.titleFontSize = Math.max(32, Math.min(72, validated.titleFontSize))
   }
@@ -85,25 +85,25 @@ export function validateAndLimitStyle(style: PosterStyle): PosterStyle {
     validated.descriptionFontSize = Math.max(18, Math.min(40, validated.descriptionFontSize))
   }
 
-  // 限制遮罩透明度（确保文字可读性）
+  // Limit overlay opacity (ensure text readability)
   if (validated.overlayOpacity !== undefined) {
     validated.overlayOpacity = Math.max(0.2, Math.min(0.8, validated.overlayOpacity))
   }
 
-  // 限制二维码大小（确保扫描性）
+  // Limit QR code size (ensure scannability)
   if (validated.qrSize !== undefined) {
     validated.qrSize = Math.max(200, Math.min(400, validated.qrSize))
   }
 
-  // 验证颜色格式（必须是有效的十六进制颜色）
+  // Validate color format (must be valid hex color)
   if (validated.titleColor) {
     if (!/^#[0-9A-Fa-f]{6}$/.test(validated.titleColor)) {
-      validated.titleColor = '#FFFFFF' // 默认白色
+      validated.titleColor = '#FFFFFF' // Default white
     }
   }
   if (validated.descriptionColor) {
     if (!/^#[0-9A-Fa-f]{6}$/.test(validated.descriptionColor)) {
-      validated.descriptionColor = '#FFFFFF' // 默认白色
+      validated.descriptionColor = '#FFFFFF' // Default white
     }
   }
 
@@ -126,7 +126,7 @@ interface PosterResult {
 }
 
 /**
- * 加载图片并返回 Image 对象
+ * Load image and return Image object
  */
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -139,7 +139,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * 加载二维码 SVG 并转换为 Image
+ * Load QR code SVG and convert to Image
  */
 function loadQRCodeSVG(svgElement: SVGElement): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -165,7 +165,7 @@ function loadQRCodeSVG(svgElement: SVGElement): Promise<HTMLImageElement> {
 }
 
 /**
- * 绘制文字（支持自动换行）
+ * Draw text with automatic line wrapping support
  */
 function drawText(
   ctx: CanvasRenderingContext2D,
@@ -182,7 +182,7 @@ function drawText(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   
-  // 按字符分割（中文按字符，英文按单词）
+  // Split by characters (Chinese by character, English by word)
   const chars = text.split('')
   let line = ''
   let currentY = y
@@ -210,7 +210,7 @@ function drawText(
 }
 
 /**
- * 生成动态海报
+ * Generate dynamic poster
  */
 export async function generatePoster(options: PosterOptions): Promise<PosterResult> {
   const {
@@ -222,10 +222,10 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
     style = {},
   } = options
 
-  // 验证并限制样式参数，确保海报质量
+  // Validate and limit style parameters to ensure poster quality
   const validatedStyle = validateAndLimitStyle(style)
 
-  // 提取样式选项，使用默认值
+  // Extract style options with default values
   const {
     layout = 'centered',
     titleColor = '#FFFFFF',
@@ -237,7 +237,7 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
     qrSize = 280,
   } = validatedStyle
 
-  // 创建 Canvas
+  // Create Canvas
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -247,11 +247,11 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
     throw new Error('Canvas context not available')
   }
 
-  // 1. 绘制背景
+  // 1. Draw background
   if (backgroundImageUrl) {
     try {
       const bgImage = await loadImage(backgroundImageUrl)
-      // 计算缩放比例，确保图片覆盖整个画布
+      // Calculate scale to ensure image covers entire canvas
       const scale = Math.max(width / bgImage.width, height / bgImage.height)
       const scaledWidth = bgImage.width * scale
       const scaledHeight = bgImage.height * scale
@@ -260,12 +260,12 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
       
       ctx.drawImage(bgImage, x, y, scaledWidth, scaledHeight)
       
-      // 添加半透明遮罩，提高文字可读性（可配置透明度）
+      // Add semi-transparent overlay to improve text readability (configurable opacity)
       ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`
       ctx.fillRect(0, 0, width, height)
     } catch (error) {
       console.warn('Failed to load background image, using gradient:', error)
-      // 如果背景图加载失败，使用渐变背景
+      // If background image fails to load, use gradient background
       const gradient = ctx.createLinearGradient(0, 0, 0, height)
       gradient.addColorStop(0, '#667eea')
       gradient.addColorStop(1, '#764ba2')
@@ -273,7 +273,7 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
       ctx.fillRect(0, 0, width, height)
     }
   } else {
-    // 没有背景图，使用渐变背景
+    // No background image, use gradient background
     const gradient = ctx.createLinearGradient(0, 0, 0, height)
     gradient.addColorStop(0, '#667eea')
     gradient.addColorStop(1, '#764ba2')
@@ -281,7 +281,7 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
     ctx.fillRect(0, 0, width, height)
   }
 
-  // 2. 根据布局计算标题和描述位置
+  // 2. Calculate title and description positions based on layout
   let titleY: number
   let descriptionY: number
   
@@ -290,14 +290,14 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
   } else if (layout === 'bottom') {
     titleY = height * 0.5
   } else {
-    // centered (默认)
+    // centered (default)
     titleY = height * 0.2
   }
   
   const titleMaxWidth = width * 0.85
   const titleEndY = drawText(ctx, title, width / 2, titleY, titleMaxWidth, titleFontSize, titleColor)
 
-  // 3. 绘制描述（如果有）
+  // 3. Draw description (if provided)
   descriptionY = titleEndY + 20
   if (description && description.trim()) {
     ctx.font = `${descriptionFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
@@ -314,16 +314,16 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
     descriptionY += lines.length * descriptionFontSize * 1.5
   }
 
-  // 4. 绘制二维码（根据位置选项）
+  // 4. Draw QR code (based on position option)
   try {
-    // 从 DOM 中获取二维码 SVG 元素
+    // Get QR code SVG element from DOM
     const qrSvgElement = document.getElementById('qr-code-svg')
     if (qrSvgElement && qrSvgElement instanceof SVGElement) {
       const qrSvg = qrSvgElement
       const qrImage = await loadQRCodeSVG(qrSvg)
       const actualQrSize = Math.min(width * 0.4, qrSize)
       
-      // 根据位置计算二维码坐标
+      // Calculate QR code coordinates based on position
       let qrX: number
       let qrY: number
       
@@ -334,34 +334,34 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
         qrX = 40
         qrY = height - actualQrSize - 120
       } else {
-        // bottom-center (默认)
+        // bottom-center (default)
         qrX = (width - actualQrSize) / 2
         qrY = height - actualQrSize - 120
       }
       
-      // 绘制白色背景
+      // Draw white background
       ctx.fillStyle = '#FFFFFF'
       ctx.fillRect(qrX - 10, qrY - 10, actualQrSize + 20, actualQrSize + 20)
       
-      // 绘制二维码
+      // Draw QR code
       ctx.drawImage(qrImage, qrX, qrY, actualQrSize, actualQrSize)
       
-      // 绘制提示文字（只在居中时显示）
+      // Draw hint text (only shown when centered)
       if (qrPosition === 'bottom-center') {
         ctx.font = '24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
         ctx.fillStyle = '#FFFFFF'
         ctx.textAlign = 'center'
-        ctx.fillText('扫描二维码查看相册', width / 2, qrY + actualQrSize + 40)
+        ctx.fillText('Scan QR code to view album', width / 2, qrY + actualQrSize + 40)
       }
     } else {
-      // 如果没有 SVG，尝试从 URL 生成二维码
+      // If no SVG, try to generate QR code from URL
       console.warn('QR code SVG not found, skipping QR code in poster')
     }
   } catch (error) {
     console.warn('Failed to add QR code to poster:', error)
   }
 
-  // 5. 转换为 Blob 和 Data URL
+  // 5. Convert to Blob and Data URL
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -381,7 +381,7 @@ export async function generatePoster(options: PosterOptions): Promise<PosterResu
 }
 
 /**
- * 下载海报
+ * Download poster
  */
 export function downloadPoster(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)

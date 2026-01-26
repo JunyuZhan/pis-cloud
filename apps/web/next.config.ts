@@ -57,16 +57,16 @@ const nextConfig: NextConfig = {
             }
           })()
         : []),
-      // 内网 MinIO 服务器
+      // 内网 MinIO 服务器（开发/测试环境，根据实际情况修改）
       {
         protocol: 'http',
-        hostname: '192.168.50.10',
+        hostname: '192.168.x.x', // 替换为你的内网服务器IP
         port: '9000',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: '192.168.50.10',
+        hostname: '192.168.x.x', // 替换为你的内网服务器IP
         port: '9000',
         pathname: '/**',
       },
