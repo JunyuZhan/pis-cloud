@@ -355,16 +355,24 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           const elapsed = (Date.now() - uploadStartTime) / 1000
           const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
           
-          // 判断是否为可重试的网络错误（连接中断、超时等）
+          // 检查是否是 HTTP/2 协议错误（ERR_HTTP2_PROTOCOL_ERROR）
+          // 这通常发生在 MinIO 不支持 HTTP/2 时，重试可能会降级到 HTTP/1.1
+          const isHttp2Error = xhr.status === 0 && 
+            (xhr.responseText === '' || xhr.responseText.includes('HTTP2') || xhr.responseText.includes('protocol'))
+          
+          // 判断是否为可重试的网络错误（连接中断、超时、HTTP/2 错误等）
           const isRetryableError = xhr.status === 0 || 
             xhr.readyState === 0 || 
-            (xhr.statusText === '' && xhr.responseText === '')
+            (xhr.statusText === '' && xhr.responseText === '') ||
+            isHttp2Error
           
-          const error = new Error(
-            isRetryableError && retryCount < MAX_RETRIES
+          const errorMessage = isHttp2Error
+            ? `HTTP/2 协议错误（${fileSizeMb}MB），正在重试（将降级到 HTTP/1.1）...`
+            : (isRetryableError && retryCount < MAX_RETRIES
               ? `网络连接中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒），正在重试...`
-              : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`
-          ) as Error & { retryable?: boolean }
+              : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`)
+          
+          const error = new Error(errorMessage) as Error & { retryable?: boolean }
           
           error.retryable = isRetryableError
           reject(error)
