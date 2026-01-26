@@ -8,11 +8,27 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 
 // 从根目录加载 .env.local（monorepo 统一配置）
+// 支持多种路径：容器内挂载路径 /app/.env.local，或项目根目录
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '../../../');
-config({ path: resolve(rootDir, '.env.local') });
+
+// 优先尝试容器内挂载路径，然后尝试项目根目录
+const envPaths = [
+  '/app/.env.local', // Docker 容器挂载路径
+  resolve(rootDir, '.env.local'), // 项目根目录
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (existsSync(envPath)) {
+    config({ path: envPath });
+    envLoaded = true;
+    break;
+  }
+}
 import http from 'http';
 import { Worker, Job, Queue } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
