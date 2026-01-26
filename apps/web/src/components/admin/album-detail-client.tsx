@@ -58,6 +58,8 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   }, [initialPhotos])
 
   useEffect(() => {
+    // 只统计 pending 和 processing 状态的照片
+    // processing 状态的照片正在处理中，pending 状态的照片等待处理
     const pending = photos.filter(p => p.status === 'pending' || p.status === 'processing')
     setProcessingCount(pending.length)
   }, [photos])
@@ -713,15 +715,20 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           </div>
           <button
             onClick={async () => {
-              // 清理所有 pending 或 processing 状态的照片
-              const stuckPhotos = photos.filter(p => p.status === 'pending' || p.status === 'processing')
-              if (stuckPhotos.length === 0) return
+              // 只清理 pending 或 failed 状态的照片
+              // processing 状态的照片正在处理中，不应该被清理
+              const stuckPhotos = photos.filter(p => p.status === 'pending' || p.status === 'failed')
+              if (stuckPhotos.length === 0) {
+                alert('没有可清理的照片（只清理 pending 或 failed 状态的照片）')
+                return
+              }
               
-              if (!confirm(`确定要清理 ${stuckPhotos.length} 张卡住的照片吗？这将删除未完成的照片记录。`)) {
+              if (!confirm(`确定要清理 ${stuckPhotos.length} 张卡住的照片吗？这将删除未完成的照片记录。\n\n注意：processing 状态的照片正在处理中，不会被清理。`)) {
                 return
               }
               
               let cleanedCount = 0
+              let failedCount = 0
               for (const photo of stuckPhotos) {
                 try {
                   const res = await fetch(`/api/admin/photos/${photo.id}/cleanup`, {
@@ -729,14 +736,22 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   })
                   if (res.ok) {
                     cleanedCount++
+                  } else {
+                    const errorData = await res.json().catch(() => ({}))
+                    console.error(`Failed to cleanup photo ${photo.id}:`, errorData)
+                    failedCount++
                   }
                 } catch (err) {
                   console.error(`Failed to cleanup photo ${photo.id}:`, err)
+                  failedCount++
                 }
               }
               
               if (cleanedCount > 0) {
+                showSuccess(`已清理 ${cleanedCount} 张照片${failedCount > 0 ? `，${failedCount} 张清理失败` : ''}`)
                 router.refresh()
+              } else if (failedCount > 0) {
+                handleApiError(new Error(`清理失败：${failedCount} 张照片无法清理`), '清理失败')
               }
             }}
             className="text-xs text-text-secondary hover:text-text-primary underline"

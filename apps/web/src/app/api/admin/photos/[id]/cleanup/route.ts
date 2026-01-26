@@ -47,11 +47,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       })
     }
 
-    // 只允许删除pending、failed或processing状态的照片（上传失败或处理失败的记录）
-    // processing 状态可能是上传成功但处理失败，也需要允许清理
-    if (!['pending', 'failed', 'processing'].includes(photo.status)) {
+    // 只允许删除pending或failed状态的照片（上传失败或处理失败的记录）
+    // 注意：processing 状态的照片正在处理中，不应该被清理
+    // 如果 processing 状态的照片卡住了，应该由 Worker 的恢复机制处理，而不是手动清理
+    if (!['pending', 'failed'].includes(photo.status)) {
       return NextResponse.json(
-        { error: { code: 'INVALID_STATUS', message: `只能清理pending、failed或processing状态的照片，当前状态：${photo.status}` } },
+        { error: { code: 'INVALID_STATUS', message: `只能清理pending或failed状态的照片，当前状态：${photo.status}。processing状态的照片正在处理中，请等待处理完成或由系统自动恢复。` } },
         { status: 400 }
       )
     }
