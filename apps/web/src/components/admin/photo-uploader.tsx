@@ -568,6 +568,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       if (!credRes.ok) {
         // 尝试解析错误信息
         let errorMessage = '获取上传凭证失败'
+        let photoIdFromError: string | undefined = undefined
+        
         try {
           const errorData = await credRes.json()
           if (errorData?.error?.message) {
@@ -576,13 +578,33 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
             if (errorData?.error?.details) {
               errorMessage += `: ${errorData.error.details}`
             }
+            // 如果错误响应中包含 photoId，说明记录已创建但后续步骤失败
+            if (errorData?.photoId) {
+              photoIdFromError = errorData.photoId
+            }
           } else if (errorData?.error) {
             errorMessage = typeof errorData.error === 'string' ? errorData.error : errorMessage
+            if (errorData?.photoId) {
+              photoIdFromError = errorData.photoId
+            }
           }
         } catch {
           // 如果响应不是 JSON，使用状态文本
           errorMessage = `获取上传凭证失败 (${credRes.status} ${credRes.statusText})`
         }
+        
+        // 如果获取凭证失败但照片记录已创建，尝试清理
+        if (photoIdFromError) {
+          try {
+            await fetch(`/api/admin/photos/${photoIdFromError}/cleanup`, {
+              method: 'DELETE',
+            })
+            console.log(`[Upload] Cleaned up photo record after credential failure: ${photoIdFromError}`)
+          } catch (cleanupErr) {
+            console.error('[Upload] Failed to cleanup photo record after credential failure:', cleanupErr)
+          }
+        }
+        
         throw new Error(errorMessage)
       }
 
@@ -591,6 +613,17 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 检查响应中是否有错误
       if (credData?.error) {
         const errorMessage = credData.error.message || credData.error || '获取上传凭证失败'
+        // 如果响应中包含 photoId，说明记录已创建但后续步骤失败，需要清理
+        if (credData.photoId) {
+          try {
+            await fetch(`/api/admin/photos/${credData.photoId}/cleanup`, {
+              method: 'DELETE',
+            })
+            console.log(`[Upload] Cleaned up photo record after credential error: ${credData.photoId}`)
+          } catch (cleanupErr) {
+            console.error('[Upload] Failed to cleanup photo record after credential error:', cleanupErr)
+          }
+        }
         throw new Error(errorMessage)
       }
       
@@ -602,6 +635,15 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       }
       
       if (!uploadUrl) {
+        // 如果缺少上传地址，说明获取凭证失败，尝试清理已创建的照片记录
+        try {
+          await fetch(`/api/admin/photos/${photoId}/cleanup`, {
+            method: 'DELETE',
+          })
+          console.log(`[Upload] Cleaned up photo record after missing uploadUrl: ${photoId}`)
+        } catch (cleanupErr) {
+          console.error('[Upload] Failed to cleanup photo record after missing uploadUrl:', cleanupErr)
+        }
         throw new Error('获取上传凭证失败：缺少上传地址')
       }
 

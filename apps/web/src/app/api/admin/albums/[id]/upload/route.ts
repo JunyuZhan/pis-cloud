@@ -238,7 +238,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               code: 'PRESIGN_FETCH_ERROR', 
               message: '获取上传凭证失败',
               details: `调用 Worker API 时出错: ${errorMsg}`
-            } 
+            },
+            photoId // 包含 photoId，让前端知道需要清理
           },
           { 
             status: 500,
@@ -285,7 +286,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               code: errorCode, 
               message: errorMessage,
               details: errorDetails
-            } 
+            },
+            photoId // 包含 photoId，让前端知道需要清理
           },
           { 
             status: presignResponse.status,
