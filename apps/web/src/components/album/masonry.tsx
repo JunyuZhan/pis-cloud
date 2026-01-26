@@ -311,10 +311,10 @@ function PhotoCard({
 }: PhotoCardProps) {
   const [showCopied, setShowCopied] = useState(false)
   const [blurDataURL, setBlurDataURL] = useState<string | undefined>(undefined)
-  const [isMobile, setIsMobile] = useState(true) // 默认移动端，避免 hydration mismatch
+  const [isMobile, setIsMobile] = useState<boolean | null>(null) // 初始为 null，避免 hydration mismatch
   const [imageKeyIndex, setImageKeyIndex] = useState(0) // 当前使用的图片 key 索引
   
-  // 客户端检测设备类型
+  // 客户端检测设备类型（仅在客户端执行，避免 hydration mismatch）
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768) // md breakpoint
@@ -577,15 +577,15 @@ function PhotoCard({
           {isSelected && (
             <div className={cn(
               'absolute z-10',
-              isMobile ? 'top-1.5 right-1.5' : 'top-2 right-2'
+              (isMobile ?? true) ? 'top-1.5 right-1.5' : 'top-2 right-2'
             )}>
               <div className={cn(
                 'bg-red-500/90 rounded-full shadow-lg backdrop-blur-sm',
-                isMobile ? 'p-1.5' : 'p-2'
+                (isMobile ?? true) ? 'p-1.5' : 'p-2'
               )}>
                 <Heart className={cn(
                   'text-white fill-current',
-                  isMobile ? 'w-3 h-3' : 'w-4 h-4'
+                  (isMobile ?? true) ? 'w-3 h-3' : 'w-4 h-4'
                 )} />
               </div>
             </div>

@@ -124,8 +124,16 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   // 获取默认水印配置（单个水印对象）
   const getDefaultWatermark = (): WatermarkItem => {
     const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
+    // 使用 crypto.randomUUID() 生成稳定的 ID，避免 hydration mismatch
+    const generateId = () => {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID()
+      }
+      // 后备方案：使用时间戳 + 随机数（仅在客户端）
+      return `watermark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }
     return {
-      id: `watermark-${Date.now()}`,
+      id: generateId(),
       type: 'text' as const,
       text: `© ${photographerName}`,
       logoUrl: undefined,
