@@ -80,24 +80,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let finalPhotoIds: string[] = []
 
     if (photoSelection === 'selected') {
-      // 获取已选照片
+      // 获取已选照片（排除已删除的）
       const { data: selectedPhotos } = await supabase
         .from('photos')
         .select('id')
         .eq('album_id', id)
         .eq('is_selected', true)
         .eq('status', 'completed')
+        .is('deleted_at', null)
 
       finalPhotoIds = selectedPhotos?.map(p => p.id) || []
     } else if (photoSelection === 'custom' && Array.isArray(photoIds)) {
       finalPhotoIds = photoIds
     } else {
-      // 获取所有照片
+      // 获取所有照片（排除已删除的）
       const { data: allPhotos } = await supabase
         .from('photos')
         .select('id')
         .eq('album_id', id)
         .eq('status', 'completed')
+        .is('deleted_at', null)
 
       finalPhotoIds = allPhotos?.map(p => p.id) || []
     }

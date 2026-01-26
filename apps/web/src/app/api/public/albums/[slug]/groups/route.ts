@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const counts = new Map<string, number>()
     
     if (groupIds.length > 0) {
-      // 批量查询所有分组的照片关联（只统计已完成且相册未删除的照片）
+      // 批量查询所有分组的照片关联（只统计已完成且相册和照片都未删除的）
       const { data: assignments, error: assignmentsError } = await supabase
         .from('photo_group_assignments')
         .select(`
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           photos!inner(
             id,
             status,
+            deleted_at,
             album_id,
             albums!inner(
               id,
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .in('group_id', groupIds)
         .eq('photos.status', 'completed')
+        .is('photos.deleted_at', null) // 排除已删除的照片
         .is('albums.deleted_at', null)
 
       if (assignmentsError) {

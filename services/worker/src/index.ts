@@ -47,7 +47,8 @@ import {
   listObjects,
   copyFile,
   deleteFile,
-  bucketName
+  bucketName,
+  getStorageAdapter
 } from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
@@ -107,6 +108,11 @@ const CONFIG = {
   
   // 恢复配置
   STUCK_PHOTO_THRESHOLD_HOURS: parseInt(process.env.STUCK_PHOTO_THRESHOLD_HOURS || '1'),
+  
+  // 回收站配置
+  DELETED_PHOTO_RETENTION_DAYS: parseInt(process.env.DELETED_PHOTO_RETENTION_DAYS || '30'), // 保留 30 天
+  DELETED_PHOTO_CLEANUP_INTERVAL_MS: parseInt(process.env.DELETED_PHOTO_CLEANUP_INTERVAL_MS || '3600000'), // 每小时检查一次
+  
   
   // 打包下载配置
   PACKAGE_DOWNLOAD_EXPIRY_DAYS: parseInt(process.env.PACKAGE_DOWNLOAD_EXPIRY_DAYS || '15'),
@@ -422,6 +428,7 @@ const worker = new Worker<PhotoJobData>(
 
       // 7. 优化：使用数据库函数增量更新相册照片数量，避免每次 COUNT 查询
       // 这样可以减少数据库负载，特别是在批量上传时
+      // 注意：increment_photo_count 函数需要更新以排除 deleted_at
       const { error: countError } = await supabase.rpc('increment_photo_count', {
         album_id: albumId
       });
@@ -433,7 +440,8 @@ const worker = new Worker<PhotoJobData>(
           .from('photos')
           .select('*', { count: 'exact', head: true })
           .eq('album_id', albumId)
-          .eq('status', 'completed');
+          .eq('status', 'completed')
+          .is('deleted_at', null); // 排除已删除的照片
         
         await supabase
           .from('albums')
@@ -1149,6 +1157,80 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ============================================
+  // 检查 pending 照片 API（事件驱动）
+  // ============================================
+  if (url.pathname === '/api/check-pending' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { albumId } = body;
+      
+      // albumId 是可选的，如果不提供则检查所有相册
+      if (albumId && !isValidUUID(albumId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid albumId format' }));
+        return;
+      }
+      
+      const result = await checkPendingPhotos(albumId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        processed: result?.processed || 0,
+        requeued: result?.requeued || 0,
+        cleaned: result?.cleaned || 0,
+        orphaned: result?.orphaned || 0,
+        message: `检查完成：${result?.processed || 0} 张照片，${result?.requeued || 0} 张重新加入队列，${result?.cleaned || 0} 张已清理${result?.orphaned ? `，${result.orphaned} 张孤立文件已恢复` : ''}`,
+      }));
+    } catch (err: any) {
+      console.error('Check pending error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: err.message || 'Internal server error',
+      }));
+    }
+    return;
+  }
+
+  // ============================================
+  // 列出文件 API（用于诊断）
+  // ============================================
+
+  // 列出指定前缀下的文件
+  if (url.pathname === '/api/list-files' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { prefix } = body;
+      
+      if (!prefix || typeof prefix !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'prefix is required and must be a string' }));
+        return;
+      }
+
+      const objects = await listObjects(prefix);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true,
+        prefix,
+        files: objects.map(obj => ({
+          key: obj.key,
+          size: obj.size,
+          lastModified: obj.lastModified.toISOString(),
+        })),
+        count: objects.length,
+      }));
+    } catch (err: any) {
+      console.error('List files error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+      }));
+    }
+    return;
+  }
+
+  // ============================================
   // 扫描同步 API
   // ============================================
 
@@ -1436,7 +1518,341 @@ async function recoverStuckProcessingPhotos() {
   }
 }
 
+// ============================================
+// 检查并修复 pending 状态的照片（事件驱动，按需调用）
+// 同时检测两种不一致情况：
+// 1. 数据库有记录，但文件不在 MinIO（清理数据库记录）
+// 2. 文件在 MinIO，但数据库没有记录（创建数据库记录并加入队列）
+// ============================================
+async function checkPendingPhotos(albumId?: string) {
+  try {
+    console.log(`🔍 Checking pending photos${albumId ? ` for album ${albumId}` : ''}...`);
+    
+    // 1. 查询 pending 状态的照片（可选：指定相册）
+    let query = supabase
+      .from('photos')
+      .select('id, album_id, original_key, created_at, updated_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(100); // 限制每次最多检查 100 张
+    
+    if (albumId) {
+      query = query.eq('album_id', albumId);
+    }
+    
+    const { data: pendingPhotos, error } = await query;
+    
+    if (error) {
+      console.error('❌ Failed to query pending photos:', error);
+      return;
+    }
+    
+    // 2. 检查队列中是否有对应的任务（避免重复添加）
+    let queuedPhotoIds = new Set<string>();
+    try {
+      const waitingJobs = await photoQueue.getWaiting();
+      const activeJobs = await photoQueue.getActive();
+      queuedPhotoIds = new Set(
+        [...waitingJobs, ...activeJobs].map(job => job.data.photoId)
+      );
+    } catch (queueError: any) {
+      console.warn('⚠️ Failed to query queue jobs:', queueError.message);
+    }
+    
+    let processedCount = 0;
+    let requeuedCount = 0;
+    let cleanedCount = 0;
+    let orphanedFilesCount = 0;
+    
+    // 3. 检查每个 pending 照片的文件是否存在
+    if (pendingPhotos && pendingPhotos.length > 0) {
+      console.log(`📋 Found ${pendingPhotos.length} pending photos to check`);
+      
+      for (const photo of pendingPhotos) {
+        // 如果已经在队列中，跳过
+        if (queuedPhotoIds.has(photo.id)) {
+          continue;
+        }
+        
+        try {
+          // 检查文件是否存在
+          const fileExists = await checkFileExists(photo.original_key);
+          
+          if (fileExists) {
+            // 文件存在，但状态是 pending，说明上传成功但处理未触发
+            // 重新加入处理队列
+            try {
+              await photoQueue.add('process-photo', {
+                photoId: photo.id,
+                albumId: photo.album_id,
+                originalKey: photo.original_key,
+              });
+              console.log(`🔄 Requeued pending photo with existing file: ${photo.id}`);
+              requeuedCount++;
+            } catch (queueError) {
+              console.error(`❌ Failed to requeue photo ${photo.id}:`, queueError);
+            }
+          } else {
+            // 文件不存在，说明上传失败，清理数据库记录
+            const { error: deleteError } = await supabase
+              .from('photos')
+              .delete()
+              .eq('id', photo.id);
+            
+            if (deleteError) {
+              console.error(`❌ Failed to cleanup pending photo ${photo.id}:`, deleteError);
+            } else {
+              console.log(`🧹 Cleaned up pending photo without file: ${photo.id}`);
+              cleanedCount++;
+            }
+          }
+          
+          processedCount++;
+        } catch (err: any) {
+          console.error(`❌ Error checking photo ${photo.id}:`, err.message);
+          // 继续处理下一个
+        }
+      }
+    }
+    
+    // 4. 如果指定了相册，检查 MinIO 中是否有孤立文件（文件存在但数据库没有记录）
+    if (albumId) {
+      try {
+        console.log(`🔍 Checking for orphaned files in MinIO for album ${albumId}...`);
+        const rawPrefix = `raw/${albumId}/`;
+        const rawFiles = await listObjects(rawPrefix);
+        
+        if (rawFiles.length > 0) {
+          // 查询该相册的所有照片记录（包括所有状态，但排除已删除的）
+          const { data: allPhotos } = await supabase
+            .from('photos')
+            .select('id, original_key')
+            .eq('album_id', albumId)
+            .is('deleted_at', null); // 排除已删除的照片
+          
+          const dbPhotoKeys = new Set(
+            (allPhotos || []).map(p => p.original_key)
+          );
+          
+          // 找出 MinIO 中存在但数据库中没有记录的文件
+          const orphanedFiles = rawFiles.filter(file => !dbPhotoKeys.has(file.key));
+          
+          if (orphanedFiles.length > 0) {
+            console.log(`📋 Found ${orphanedFiles.length} orphaned files in MinIO`);
+            
+            // 为每个孤立文件创建数据库记录并加入处理队列
+            for (const file of orphanedFiles) {
+              try {
+                // 从文件路径提取 photoId（格式：raw/{albumId}/{photoId}.jpg）
+                const filename = file.key.split('/').pop() || '';
+                const photoIdMatch = filename.match(/^([a-f0-9-]+)\./);
+                
+                if (!photoIdMatch) {
+                  console.warn(`⚠️ Cannot extract photoId from filename: ${filename}`);
+                  continue;
+                }
+                
+                const photoId = photoIdMatch[1];
+                
+                // 检查该 photoId 是否已存在（可能在其他状态，包括已删除的）
+                const { data: existingPhoto } = await supabase
+                  .from('photos')
+                  .select('id, status, deleted_at')
+                  .eq('id', photoId)
+                  .single();
+                
+                // 如果照片已删除，跳过（不恢复已删除的照片）
+                if (existingPhoto && existingPhoto.deleted_at) {
+                  continue;
+                }
+                
+                if (existingPhoto) {
+                  // 如果记录存在但 original_key 不匹配，更新它
+                  if (existingPhoto.status !== 'pending' && existingPhoto.status !== 'processing') {
+                    // 更新为 pending 并重新处理
+                    await supabase
+                      .from('photos')
+                      .update({ 
+                        status: 'pending',
+                        original_key: file.key,
+                      })
+                      .eq('id', photoId);
+                    
+                    await photoQueue.add('process-photo', {
+                      photoId,
+                      albumId,
+                      originalKey: file.key,
+                    });
+                    console.log(`🔄 Recovered orphaned file: ${file.key} (updated existing record)`);
+                    orphanedFilesCount++;
+                  }
+                  continue;
+                }
+                
+                // 创建新的数据库记录
+                const { error: insertError } = await supabase
+                  .from('photos')
+                  .insert({
+                    id: photoId,
+                    album_id: albumId,
+                    original_key: file.key,
+                    filename: filename,
+                    file_size: file.size,
+                    status: 'pending',
+                  });
+                
+                if (insertError) {
+                  console.error(`❌ Failed to insert orphaned file ${file.key}:`, insertError);
+                  continue;
+                }
+                
+                // 加入处理队列
+                await photoQueue.add('process-photo', {
+                  photoId,
+                  albumId,
+                  originalKey: file.key,
+                });
+                
+                console.log(`✅ Recovered orphaned file: ${file.key} (created new record)`);
+                orphanedFilesCount++;
+              } catch (err: any) {
+                console.error(`❌ Error recovering orphaned file ${file.key}:`, err.message);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('❌ Error checking orphaned files:', err.message);
+        // 不抛出错误，继续返回其他结果
+      }
+    }
+    
+    if (processedCount > 0 || orphanedFilesCount > 0) {
+      console.log(`✅ Pending check completed:`);
+      if (processedCount > 0) {
+        console.log(`   - ${processedCount} pending photos checked`);
+        console.log(`   - ${requeuedCount} photos requeued (file exists)`);
+        console.log(`   - ${cleanedCount} photos cleaned (file missing)`);
+      }
+      if (orphanedFilesCount > 0) {
+        console.log(`   - ${orphanedFilesCount} orphaned files recovered (file exists but no DB record)`);
+      }
+    } else {
+      console.log('✅ No pending photos or orphaned files found');
+    }
+    
+    return {
+      processed: processedCount,
+      requeued: requeuedCount,
+      cleaned: cleanedCount,
+      orphaned: orphanedFilesCount,
+    };
+  } catch (err: any) {
+    console.error('❌ Error during pending photo check:', err);
+    throw err;
+  }
+}
+
+/**
+ * 检查文件是否存在于存储中
+ */
+async function checkFileExists(key: string): Promise<boolean> {
+  try {
+    const adapter = getStorageAdapter();
+    return await adapter.exists(key);
+  } catch (err: any) {
+    // 如果检查出错，保守地返回 false
+    console.warn(`⚠️ Error checking file existence for ${key}:`, err.message);
+    return false;
+  }
+}
+
+// ============================================
+// 回收站清理：删除超过保留期的已删除照片的 MinIO 文件
+// ============================================
+async function cleanupDeletedPhotos() {
+  try {
+    console.log('🗑️  Cleaning up deleted photos...');
+    
+    // 1. 查询所有 deleted_at 不为空且超过保留期的照片
+    const retentionDays = CONFIG.DELETED_PHOTO_RETENTION_DAYS;
+    const retentionDate = new Date();
+    retentionDate.setDate(retentionDate.getDate() - retentionDays);
+    const retentionDateISO = retentionDate.toISOString();
+    
+    const { data: deletedPhotos, error } = await supabase
+      .from('photos')
+      .select('id, album_id, original_key, thumb_key, preview_key, deleted_at')
+      .not('deleted_at', 'is', null)
+      .lt('deleted_at', retentionDateISO)
+      .limit(100); // 每次最多处理 100 张
+    
+    if (error) {
+      console.error('❌ Failed to query deleted photos:', error);
+      return;
+    }
+    
+    if (!deletedPhotos || deletedPhotos.length === 0) {
+      console.log('✅ No expired deleted photos to clean up');
+      return;
+    }
+    
+    console.log(`📋 Found ${deletedPhotos.length} expired deleted photos to clean up`);
+    
+    let filesDeletedCount = 0;
+    let recordsDeletedCount = 0;
+    let errorCount = 0;
+    
+    // 2. 删除每张照片的 MinIO 文件，然后删除数据库记录
+    for (const photo of deletedPhotos) {
+      try {
+        const filesToDelete: string[] = [];
+        if (photo.original_key) filesToDelete.push(photo.original_key);
+        if (photo.thumb_key) filesToDelete.push(photo.thumb_key);
+        if (photo.preview_key) filesToDelete.push(photo.preview_key);
+        
+        // 删除 MinIO 文件
+        for (const key of filesToDelete) {
+          try {
+            await deleteFile(key);
+            filesDeletedCount++;
+          } catch (deleteErr: any) {
+            // 文件不存在时也继续（可能已经被清理）
+            if (deleteErr?.code !== 'NoSuchKey' && !deleteErr?.message?.includes('does not exist')) {
+              console.warn(`⚠️ Failed to delete file ${key}:`, deleteErr.message);
+            }
+          }
+        }
+        
+        // 删除数据库记录
+        const { error: deleteError } = await supabase
+          .from('photos')
+          .delete()
+          .eq('id', photo.id);
+        
+        if (deleteError) {
+          console.error(`❌ Failed to delete record for photo ${photo.id}:`, deleteError);
+          errorCount++;
+        } else {
+          recordsDeletedCount++;
+          console.log(`✅ Cleaned up deleted photo: ${photo.id} (deleted at: ${photo.deleted_at})`);
+        }
+      } catch (err: any) {
+        console.error(`❌ Error cleaning up photo ${photo.id}:`, err.message);
+        errorCount++;
+      }
+    }
+    
+    if (recordsDeletedCount > 0 || filesDeletedCount > 0) {
+      console.log(`✅ Cleanup completed: ${recordsDeletedCount} records deleted, ${filesDeletedCount} files deleted${errorCount > 0 ? `, ${errorCount} errors` : ''}`);
+    }
+  } catch (err: any) {
+    console.error('❌ Error during deleted photo cleanup:', err);
+  }
+}
+
 let recoveryTimeout: NodeJS.Timeout | null = null;
+let deletedPhotoCleanupInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
 
 // 优雅退出函数
@@ -1450,6 +1866,12 @@ async function gracefulShutdown(signal: string) {
   if (recoveryTimeout) {
     clearTimeout(recoveryTimeout);
     recoveryTimeout = null;
+  }
+  
+  // 清理回收站定时器
+  if (deletedPhotoCleanupInterval) {
+    clearInterval(deletedPhotoCleanupInterval);
+    deletedPhotoCleanupInterval = null;
   }
   
   // 停止接受新请求
@@ -1508,4 +1930,13 @@ server.listen(HTTP_PORT, () => {
     recoverStuckProcessingPhotos();
     recoveryTimeout = null;
   }, 5000);
+  
+  // 启动回收站清理定时任务（首次延迟10秒，之后每小时执行一次）
+  setTimeout(() => {
+    cleanupDeletedPhotos(); // 立即执行一次
+    deletedPhotoCleanupInterval = setInterval(() => {
+      cleanupDeletedPhotos();
+    }, CONFIG.DELETED_PHOTO_CLEANUP_INTERVAL_MS);
+    console.log(`🗑️  Deleted photo cleanup scheduled (interval: ${CONFIG.DELETED_PHOTO_CLEANUP_INTERVAL_MS / 1000 / 60} minutes)`);
+  }, 10000);
 });

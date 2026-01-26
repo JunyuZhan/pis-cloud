@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw, RefreshCw } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw, RefreshCw, Archive, RotateCcw as RestoreIcon } from 'lucide-react'
 import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -43,6 +43,8 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [isReordering, setIsReordering] = useState(false)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
   const [isReprocessing, setIsReprocessing] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false) // 是否显示回收站
+  const [isRestoring, setIsRestoring] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     title: string
@@ -56,6 +58,29 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   useEffect(() => {
     setPhotos(initialPhotos)
   }, [initialPhotos])
+
+  // 加载照片列表（支持切换回收站视图）
+  const loadPhotos = async (showDeletedPhotos = false) => {
+    try {
+      const url = new URL(`/api/admin/albums/${album.id}/photos`, window.location.origin)
+      url.searchParams.set('showDeleted', showDeletedPhotos.toString())
+      
+      const response = await fetch(url.toString())
+      if (!response.ok) throw new Error('加载失败')
+      
+      const data = await response.json()
+      setPhotos(data.photos || [])
+    } catch (error) {
+      console.error('Failed to load photos:', error)
+      handleApiError(error, '加载照片失败')
+    }
+  }
+
+  // 切换回收站视图时重新加载照片
+  useEffect(() => {
+    loadPhotos(showDeleted)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDeleted, album.id])
 
   useEffect(() => {
     // 只统计 pending 和 processing 状态的照片
@@ -154,7 +179,9 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     setConfirmDialog({
       open: true,
       title: '确认删除',
-      message: `确定要删除选中的 ${selectedPhotos.size} 张照片吗？此操作不可恢复。`,
+      message: showDeleted
+        ? `确定要永久删除选中的 ${selectedPhotos.size} 张照片吗？此操作不可恢复，文件将在 30 天后自动清理。`
+        : `确定要删除选中的 ${selectedPhotos.size} 张照片吗？照片将移至回收站，30 天后自动清理。`,
       variant: 'danger',
       onConfirm: async () => {
         await deletePhotos(Array.from(selectedPhotos))
@@ -171,12 +198,77 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
     setConfirmDialog({
       open: true,
       title: '确认删除',
-      message: '确定要删除这张照片吗？此操作不可恢复。',
+      message: showDeleted 
+        ? '确定要永久删除这张照片吗？此操作不可恢复，文件将在 30 天后自动清理。'
+        : '确定要删除这张照片吗？照片将移至回收站，30 天后自动清理。',
       variant: 'danger',
       onConfirm: async () => {
         await deletePhotos([photoId])
       },
     })
+  }
+
+  // 恢复照片
+  const handleRestorePhoto = async (photoId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    await restorePhotos([photoId])
+  }
+
+  // 批量恢复照片
+  const handleRestoreSelected = () => {
+    if (selectedPhotos.size === 0) return
+    
+    setConfirmDialog({
+      open: true,
+      title: '确认恢复',
+      message: `确定要恢复选中的 ${selectedPhotos.size} 张照片吗？`,
+      variant: 'default',
+      onConfirm: async () => {
+        await restorePhotos(Array.from(selectedPhotos))
+      },
+    })
+  }
+
+  const restorePhotos = async (photoIds: string[]) => {
+    setIsRestoring(true)
+    try {
+      const response = await fetch('/api/admin/photos/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoIds,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('恢复失败')
+      }
+
+      const result = await response.json()
+      showSuccess(result.message || '恢复成功')
+      
+      // 更新本地状态
+      setPhotos((prev) => prev.filter((p) => !photoIds.includes(p.id)))
+      if (photoIds.length === selectedPhotos.size) {
+        clearSelection()
+      }
+      
+      // 如果不在回收站视图，刷新照片列表
+      if (!showDeleted) {
+        router.refresh()
+      } else {
+        // 在回收站视图，重新加载已删除的照片
+        loadPhotos(true)
+      }
+    } catch (error) {
+      console.error(error)
+      handleApiError(error, '恢复失败，请重试')
+    } finally {
+      setIsRestoring(false)
+    }
   }
 
   const deletePhotos = async (photoIds: string[]) => {
@@ -617,14 +709,25 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                     <span className="hidden sm:inline">重新生成预览图</span>
                     <span className="sm:hidden">重新生成</span>
                   </button>
-                  <button
-                    onClick={handleDeleteSelected}
-                    disabled={isDeleting}
-                    className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
-                  >
-                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    <span className="hidden sm:inline">删除</span>
-                  </button>
+                  {showDeleted ? (
+                    <button
+                      onClick={handleRestoreSelected}
+                      disabled={isRestoring}
+                      className="btn-ghost text-sm text-green-400 hover:text-green-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
+                    >
+                      {isRestoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <RestoreIcon className="w-4 h-4" />}
+                      <span className="hidden sm:inline">恢复</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDeleteSelected}
+                      disabled={isDeleting}
+                      className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
+                    >
+                      {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      <span className="hidden sm:inline">删除</span>
+                    </button>
+                  )}
                 </div>
               )}
             </>
@@ -685,22 +788,47 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
             </>
           )}
         </div>
-        <button
-          onClick={() => setShowUploader(!showUploader)}
-          className="btn-primary w-full sm:w-auto min-h-[44px] justify-center"
-        >
-          <Upload className="w-4 h-4" />
-          {showUploader ? '收起' : '上传照片'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDeleted(!showDeleted)}
+            className={cn(
+              "btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95",
+              showDeleted ? "bg-accent/10 text-accent" : ""
+            )}
+          >
+            <Archive className="w-4 h-4" />
+            <span className="hidden sm:inline">{showDeleted ? '返回相册' : '回收站'}</span>
+            <span className="sm:hidden">{showDeleted ? '返回' : '回收站'}</span>
+          </button>
+          {!showDeleted && (
+            <button
+              onClick={() => setShowUploader(!showUploader)}
+              className="btn-primary w-full sm:w-auto min-h-[44px] justify-center"
+            >
+              <Upload className="w-4 h-4" />
+              {showUploader ? '收起' : '上传照片'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 上传区域 */}
-      {showUploader && (
+      {showUploader && !showDeleted && (
         <div className="card">
           <PhotoUploader
             albumId={album.id}
             onComplete={handleUploadComplete}
           />
+        </div>
+      )}
+
+      {/* 回收站提示 */}
+      {showDeleted && (
+        <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm">
+          <Archive className="w-4 h-4 text-yellow-500" />
+          <span className="text-text-secondary">
+            回收站中的照片将在 30 天后自动清理。您可以恢复这些照片。
+          </span>
         </div>
       )}
 
@@ -715,43 +843,43 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
           </div>
           <button
             onClick={async () => {
-              // 只清理 pending 或 failed 状态的照片
-              // processing 状态的照片正在处理中，不应该被清理
-              const stuckPhotos = photos.filter(p => p.status === 'pending' || p.status === 'failed')
-              if (stuckPhotos.length === 0) {
-                alert('没有可清理的照片（只清理 pending 或 failed 状态的照片）')
+              // 调用 check-pending API，自动检测和修复不一致情况
+              // 1. 数据库有记录但文件不存在 → 清理数据库记录
+              // 2. 文件存在但数据库没有记录 → 创建数据库记录并加入队列
+              // 3. 文件存在但状态是 pending → 重新加入处理队列
+              if (!confirm('确定要检查并修复卡住的照片吗？\n\n这将：\n- 清理文件不存在的 pending/failed 照片\n- 恢复 MinIO 中存在但数据库没有记录的照片\n- 重新加入处理队列（如果文件存在）\n\n注意：processing 状态的照片正在处理中，不会被清理。')) {
                 return
               }
               
-              if (!confirm(`确定要清理 ${stuckPhotos.length} 张卡住的照片吗？这将删除未完成的照片记录。\n\n注意：processing 状态的照片正在处理中，不会被清理。`)) {
-                return
-              }
-              
-              let cleanedCount = 0
-              let failedCount = 0
-              for (const photo of stuckPhotos) {
-                try {
-                  const res = await fetch(`/api/admin/photos/${photo.id}/cleanup`, {
-                    method: 'DELETE',
-                  })
-                  if (res.ok) {
-                    cleanedCount++
-                  } else {
-                    const errorData = await res.json().catch(() => ({}))
-                    console.error(`Failed to cleanup photo ${photo.id}:`, errorData)
-                    failedCount++
-                  }
-                } catch (err) {
-                  console.error(`Failed to cleanup photo ${photo.id}:`, err)
-                  failedCount++
+              try {
+                const res = await fetch(`/api/admin/albums/${album.id}/check-pending`, {
+                  method: 'POST',
+                })
+                
+                if (!res.ok) {
+                  const errorData = await res.json().catch(() => ({}))
+                  throw new Error(errorData?.error?.message || '检查失败')
                 }
-              }
-              
-              if (cleanedCount > 0) {
-                showSuccess(`已清理 ${cleanedCount} 张照片${failedCount > 0 ? `，${failedCount} 张清理失败` : ''}`)
+                
+                const result = await res.json()
+                const { processed = 0, requeued = 0, cleaned = 0, orphaned = 0 } = result
+                
+                let message = ''
+                if (processed === 0 && orphaned === 0) {
+                  message = '没有发现需要处理的问题'
+                } else {
+                  const parts: string[] = []
+                  if (requeued > 0) parts.push(`${requeued} 张重新加入队列`)
+                  if (cleaned > 0) parts.push(`${cleaned} 张已清理`)
+                  if (orphaned > 0) parts.push(`${orphaned} 张孤立文件已恢复`)
+                  message = `处理完成：${parts.join('，')}`
+                }
+                
+                showSuccess(message)
                 router.refresh()
-              } else if (failedCount > 0) {
-                handleApiError(new Error(`清理失败：${failedCount} 张照片无法清理`), '清理失败')
+              } catch (err) {
+                console.error('Failed to check pending photos:', err)
+                handleApiError(err, '检查失败，请重试')
               }
             }}
             className="text-xs text-text-secondary hover:text-text-primary underline"
@@ -930,14 +1058,25 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       设为封面
                     </button>
                   )}
-                  <button
-                    onClick={(e) => handleDeletePhoto(photo.id, e)}
-                    className="bg-red-500/80 hover:bg-red-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="w-4 h-4 md:w-3 md:h-3" />
-                    删除
-                  </button>
+                  {showDeleted ? (
+                    <button
+                      onClick={(e) => handleRestorePhoto(photo.id, e)}
+                      className="bg-green-500/80 hover:bg-green-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
+                      disabled={isRestoring}
+                    >
+                      <RestoreIcon className="w-4 h-4 md:w-3 md:h-3" />
+                      恢复
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => handleDeletePhoto(photo.id, e)}
+                      className="bg-red-500/80 hover:bg-red-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="w-4 h-4 md:w-3 md:h-3" />
+                      删除
+                    </button>
+                  )}
                 </div>
               )}
 

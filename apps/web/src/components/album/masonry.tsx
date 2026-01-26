@@ -144,7 +144,7 @@ export function MasonryGrid({
       if (index > 0) indices.push(index - 1)
       if (index < photos.length - 1) indices.push(index + 1)
       
-      indices.forEach((idx, i) => {
+      indices.forEach((idx) => {
         const photo = photos[idx]
         const imageKey = photo.preview_key || photo.thumb_key
         if (!imageKey) return
@@ -382,7 +382,7 @@ function PhotoCard({
         triedKeys: imageKeys,
       })
     }
-  }, [imageKeyIndex, imageKeys, photo.id])
+  }, [imageKeyIndex, imageKeys, photo.id, photo.original_key, photo.preview_key, photo.thumb_key])
 
   // 前 6 张图片优先加载（首屏可见区域）
   // 其他图片通过 Intersection Observer 在进入视口时加载

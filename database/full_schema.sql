@@ -91,7 +91,8 @@ CREATE TABLE photos (
   
   -- 元数据
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 -- 相册模板表
@@ -181,6 +182,8 @@ CREATE INDEX idx_photos_status ON photos(status);
 CREATE INDEX idx_photos_album_status_captured ON photos(album_id, status, captured_at DESC) WHERE status = 'completed';
 CREATE INDEX idx_photos_album_status_created ON photos(album_id, status, created_at DESC) WHERE status = 'completed';
 CREATE INDEX idx_photos_album_status_sort ON photos(album_id, status, sort_order ASC) WHERE status = 'completed';
+CREATE INDEX idx_photos_deleted_at ON photos(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_photos_album_deleted ON photos(album_id, deleted_at) WHERE deleted_at IS NOT NULL;
 CREATE INDEX idx_album_templates_name ON album_templates(name);
 CREATE INDEX idx_album_templates_created_at ON album_templates(created_at DESC);
 CREATE INDEX idx_package_downloads_album_id ON package_downloads(album_id);

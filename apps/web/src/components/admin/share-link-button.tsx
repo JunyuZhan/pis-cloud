@@ -40,14 +40,12 @@ export function ShareLinkButton({
   const [isWeixin, setIsWeixin] = useState(false)
   const [generatingPoster, setGeneratingPoster] = useState(false)
   const [showPosterConfig, setShowPosterConfig] = useState(false)
-  const [mounted, setMounted] = useState(false)
   // 使用经典模板作为默认样式，确保海报质量
   const [posterStyle, setPosterStyle] = useState<PosterStyle>(POSTER_PRESETS.classic)
   const [posterPreview, setPosterPreview] = useState<string | null>(null)
   const timeoutRefs = useRef<Set<NodeJS.Timeout>>(new Set())
 
   useEffect(() => {
-    setMounted(true)
     setIsWeixin(isWeChat())
   }, [])
 

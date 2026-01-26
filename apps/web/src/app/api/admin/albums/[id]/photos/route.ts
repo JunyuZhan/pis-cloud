@@ -59,6 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 筛选参数
     const status = searchParams.get('status') // pending, processing, completed, failed
     const selected = searchParams.get('selected') // true, false
+    const showDeleted = searchParams.get('showDeleted') === 'true' // 是否显示已删除的照片
 
     // 验证相册存在
     const { data: albumData, error: albumError } = await supabase
@@ -85,6 +86,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
+    
+    // 根据 showDeleted 参数决定是否过滤已删除的照片
+    if (showDeleted) {
+      // 显示已删除的照片
+      query = query.not('deleted_at', 'is', null)
+      // 按删除时间倒序排列
+      query = query.order('deleted_at', { ascending: false })
+    } else {
+      // 默认：只查询未删除的照片
+      query = query.is('deleted_at', null)
+    }
 
     // 可选：按状态筛选
     if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
@@ -109,13 +121,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const photos = data as PhotoRow[] | null
 
-    // 获取选中统计
+    // 获取选中统计（排除已删除的照片）
     const { count: selectedCount } = await supabase
       .from('photos')
       .select('*', { count: 'exact', head: true })
       .eq('album_id', id)
       .eq('is_selected', true)
       .eq('status', 'completed')
+      .is('deleted_at', null)
 
     // 构造响应（添加 URL）
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
@@ -230,11 +243,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 验证照片属于该相册
+    // 验证照片属于该相册，并获取文件路径信息（只查询未删除的照片）
     const { data: photosData, error: checkError } = await supabase
       .from('photos')
-      .select('id')
+      .select('id, original_key, thumb_key, preview_key')
       .eq('album_id', id)
+      .is('deleted_at', null) // 只查询未删除的照片
       .in('id', photoIds)
 
     if (checkError) {
@@ -244,7 +258,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const validPhotos = photosData as { id: string }[] | null
+    const validPhotos = photosData as Array<{ id: string; original_key: string; thumb_key: string | null; preview_key: string | null }> | null
     const validPhotoIds = validPhotos?.map((p) => p.id) || []
 
     if (validPhotoIds.length === 0) {
@@ -254,10 +268,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 执行删除
+    // 1. 软删除：设置 deleted_at 时间戳（回收站机制）
+    // MinIO 文件保留 30 天，由 Worker 定时任务自动清理
     const { error: deleteError } = await supabase
       .from('photos')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .in('id', validPhotoIds)
 
     if (deleteError) {
@@ -274,27 +289,24 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         .eq('id', id)
     }
 
-    // 更新相册的照片计数（重新统计 completed 状态的照片）
+    // 更新相册的照片计数（重新统计 completed 状态且未删除的照片）
     const deletedCount = validPhotoIds.length
     const { count: actualPhotoCount } = await supabase
       .from('photos')
       .select('*', { count: 'exact', head: true })
       .eq('album_id', id)
       .eq('status', 'completed')
+      .is('deleted_at', null) // 只统计未删除的照片
     
     await supabase
       .from('albums')
       .update({ photo_count: actualPhotoCount ?? 0 })
       .eq('id', id)
 
-    // 注意：MinIO 文件清理策略
-    // 我们目前不在这里同步删除 MinIO 文件，而是依赖数据库的软删除/定期清理机制
-    // 或者后续添加一个专门的清理 Worker。对于 MVP，保留文件是更安全的策略。
-
     return NextResponse.json({
       success: true,
       deletedCount: deletedCount,
-      message: `已删除 ${deletedCount} 张照片`,
+      message: `已删除 ${deletedCount} 张照片（已移至回收站，MinIO 文件将保留 30 天后自动清理）`,
     })
   } catch {
     return NextResponse.json(

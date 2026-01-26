@@ -262,7 +262,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
     }).catch((err) => {
       console.error('Failed to trigger photo processing:', err)
-      // 不阻断流程，Worker 可以通过定时任务补偿
+      // 处理 API 调用失败，延迟 3 秒后检查 pending 照片（事件驱动补偿）
+      setTimeout(() => {
+        fetch(`/api/admin/albums/${respAlbumId}/check-pending`, {
+          method: 'POST',
+        }).catch((checkErr) => {
+          console.error('Failed to check pending photos:', checkErr)
+        })
+      }, 3000)
     })
   }
 
@@ -447,7 +454,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
     }).catch((err) => {
       console.error('Failed to trigger photo processing:', err)
-      // 不阻断流程，Worker 可以通过定时任务补偿
+      // 处理 API 调用失败，延迟 3 秒后检查 pending 照片（事件驱动补偿）
+      setTimeout(() => {
+        fetch('/api/admin/albums/' + respAlbumId + '/check-pending', {
+          method: 'POST',
+        }).catch((checkErr) => {
+          console.error('Failed to check pending photos:', checkErr)
+        })
+      }, 3000)
     })
   }
 
@@ -596,12 +610,31 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         // 如果获取凭证失败但照片记录已创建，尝试清理
         if (photoIdFromError) {
           try {
-            await fetch(`/api/admin/photos/${photoIdFromError}/cleanup`, {
+            const cleanupRes = await fetch(`/api/admin/photos/${photoIdFromError}/cleanup`, {
               method: 'DELETE',
             })
-            console.log(`[Upload] Cleaned up photo record after credential failure: ${photoIdFromError}`)
+            if (cleanupRes.ok) {
+              console.log(`[Upload] Cleaned up photo record after credential failure: ${photoIdFromError}`)
+            } else {
+              // 清理失败，延迟检查 pending 照片
+              setTimeout(() => {
+                fetch(`/api/admin/albums/${albumId}/check-pending`, {
+                  method: 'POST',
+                }).catch((checkErr) => {
+                  console.error('Failed to check pending photos after credential failure:', checkErr)
+                })
+              }, 2000)
+            }
           } catch (cleanupErr) {
             console.error('[Upload] Failed to cleanup photo record after credential failure:', cleanupErr)
+            // 清理失败，延迟检查 pending 照片
+            setTimeout(() => {
+              fetch(`/api/admin/albums/${albumId}/check-pending`, {
+                method: 'POST',
+              }).catch((checkErr) => {
+                console.error('Failed to check pending photos after credential failure:', checkErr)
+              })
+            }, 2000)
           }
         }
         
@@ -616,12 +649,31 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         // 如果响应中包含 photoId，说明记录已创建但后续步骤失败，需要清理
         if (credData.photoId) {
           try {
-            await fetch(`/api/admin/photos/${credData.photoId}/cleanup`, {
+            const cleanupRes = await fetch(`/api/admin/photos/${credData.photoId}/cleanup`, {
               method: 'DELETE',
             })
-            console.log(`[Upload] Cleaned up photo record after credential error: ${credData.photoId}`)
+            if (cleanupRes.ok) {
+              console.log(`[Upload] Cleaned up photo record after credential error: ${credData.photoId}`)
+            } else {
+              // 清理失败，延迟检查 pending 照片
+              setTimeout(() => {
+                fetch(`/api/admin/albums/${albumId}/check-pending`, {
+                  method: 'POST',
+                }).catch((checkErr) => {
+                  console.error('Failed to check pending photos after credential error:', checkErr)
+                })
+              }, 2000)
+            }
           } catch (cleanupErr) {
             console.error('[Upload] Failed to cleanup photo record after credential error:', cleanupErr)
+            // 清理失败，延迟检查 pending 照片
+            setTimeout(() => {
+              fetch(`/api/admin/albums/${albumId}/check-pending`, {
+                method: 'POST',
+              }).catch((checkErr) => {
+                console.error('Failed to check pending photos after credential error:', checkErr)
+              })
+            }, 2000)
           }
         }
         throw new Error(errorMessage)
@@ -647,10 +699,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         throw new Error('获取上传凭证失败：缺少上传地址')
       }
 
-      // 保存photoId到uploadFile，以便失败时清理
+      // 保存 photoId 和 respAlbumId 到 uploadFile，以便失败时清理和检查
       setFiles((prev) =>
         prev.map((f) =>
-          f.id === uploadFile.id ? { ...f, photoId } : f
+          f.id === uploadFile.id ? { ...f, photoId, respAlbumId } : f
         )
       )
 
@@ -685,6 +737,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 上传失败：清理数据库记录和 MinIO 文件
       // 协调机制：前端失败 → 清理数据库 → 清理 MinIO → Worker 队列任务自动跳过
       let cleanupSuccess = false
+      let albumIdForCheck: string | undefined = undefined
+      
       if (photoId) {
         try {
           const cleanupRes = await fetch(`/api/admin/photos/${photoId}/cleanup`, {
@@ -697,11 +751,18 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           } else {
             const errorData = await cleanupRes.json().catch(() => ({}))
             console.error(`[Upload] Cleanup failed for ${photoId}:`, errorData)
+            // 清理失败，记录相册 ID 以便后续检查
+            albumIdForCheck = uploadFile.respAlbumId || albumId
           }
         } catch (cleanupErr) {
           console.error('[Upload] Failed to cleanup photo record:', cleanupErr)
-          // 清理失败不影响前端状态更新
+          // 清理失败，记录相册 ID 以便后续检查
+          albumIdForCheck = uploadFile.respAlbumId || albumId
         }
+      } else {
+        // 如果没有 photoId，说明可能是在获取凭证阶段就失败了
+        // 但为了保险，还是检查一下相册的 pending 照片
+        albumIdForCheck = uploadFile.respAlbumId || albumId
       }
       
       // 更新前端状态为失败
@@ -720,6 +781,17 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       
       // 从队列中移除失败的文件
       uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
+      
+      // 如果清理失败或没有 photoId，延迟检查 pending 照片（事件驱动补偿）
+      if (albumIdForCheck && !cleanupSuccess) {
+        setTimeout(() => {
+          fetch(`/api/admin/albums/${albumIdForCheck}/check-pending`, {
+            method: 'POST',
+          }).catch((checkErr) => {
+            console.error('Failed to check pending photos after upload failure:', checkErr)
+          })
+        }, 2000) // 延迟 2 秒，给清理操作一些时间
+      }
       
       // 无论清理成功与否，都刷新页面数据以更新处理中的照片数量
       // 这样即使清理失败，用户也能看到实际状态

@@ -356,12 +356,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 同步照片计数（确保计数准确）
+    // 同步照片计数（确保计数准确，排除已删除的）
     const { count: actualPhotoCount } = await supabase
       .from('photos')
       .select('*', { count: 'exact', head: true })
       .eq('album_id', id)
       .eq('status', 'completed')
+      .is('deleted_at', null)
     
     if (actualPhotoCount !== null) {
       updateData.photo_count = actualPhotoCount

@@ -43,13 +43,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 首先验证照片存在且所属相册未删除
+    // 首先验证照片存在且所属相册未删除，照片也未删除
     // 这里可以使用普通客户端利用 RLS 进行安全查询，确保用户只能看到该看到的数据
     const { data: photo, error: photoError } = await supabase
       .from('photos')
       .select(`
         id,
         album_id,
+        deleted_at,
         albums!inner (
           id,
           deleted_at
@@ -57,6 +58,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       `)
       .eq('id', id)
       .eq('status', 'completed')
+      .is('deleted_at', null) // 排除已删除的照片
       .single()
 
     if (photoError || !photo) {
@@ -105,6 +107,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select('id, is_selected')
       .eq('id', id)
       .eq('status', 'completed')
+      .is('deleted_at', null) // 排除已删除的照片
       .single()
 
     if (error || !photo) {

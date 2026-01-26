@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       const paramsResult = await params
       albumId = paramsResult.id
-    } catch (paramsError) {
+    } catch {
       return NextResponse.json(
         { error: { code: 'INVALID_PARAMS', message: '无效的请求参数' } },
         { status: 400 }

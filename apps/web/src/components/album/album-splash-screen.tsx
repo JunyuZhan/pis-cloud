@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { ChevronDown, X, Aperture } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Album } from '@/types/database'
@@ -58,14 +59,19 @@ export function AlbumSplashScreen({ album, posterImageUrl }: AlbumSplashScreenPr
           <div className="absolute inset-0">
             {hasPosterImage ? (
               <>
-                <img
-                  src={posterImageUrl!}
-                  alt={album.title || siteName}
-                  className={`w-full h-full object-cover transition-opacity duration-500 ${
-                    imageLoaded ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  onLoad={() => setImageLoaded(true)}
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    src={posterImageUrl!}
+                    alt={album.title || siteName}
+                    fill
+                    className={`object-cover transition-opacity duration-500 ${
+                      imageLoaded ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    onLoad={() => setImageLoaded(true)}
+                    priority
+                    unoptimized
+                  />
+                </div>
                 {/* 渐变遮罩，确保文字可读性 */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
               </>
