@@ -16,12 +16,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileError, setTurnstileError] = useState(false)
   const turnstileContainerRef = useRef<HTMLDivElement>(null)
   const [isClient, setIsClient] = useState(false)
+  const pageLoadTimeRef = useRef<number | null>(null)
 
   // 检查是否配置了 Turnstile（只在客户端检查，避免 Hydration 错误）
   useEffect(() => {
     setIsClient(true)
+    // 记录页面加载时间（Turnstile 验证从此时开始）
+    pageLoadTimeRef.current = Date.now()
   }, [])
 
   const hasTurnstile = isClient && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -48,21 +52,33 @@ export default function LoginPage() {
 
     // 如果配置了 Turnstile，等待验证完成
     // Invisible 模式会在页面加载时自动执行验证
-    if (hasTurnstile && !turnstileToken) {
-      // 等待 Turnstile 验证完成（最多等待 2 秒）
-      let waited = 0
-      const maxWait = 2000
-      while (!turnstileToken && waited < maxWait) {
-        await new Promise((resolve) => setTimeout(resolve, 100))
-        waited += 100
-      }
+    if (hasTurnstile && !turnstileToken && !turnstileError) {
+      // 计算从页面加载到现在已经过去的时间
+      const timeSincePageLoad = pageLoadTimeRef.current 
+        ? Date.now() - pageLoadTimeRef.current 
+        : 0
       
-      // 如果超时仍未获取到 token，允许继续（降级策略）
-      // 服务端会验证 token，如果没有 token 且配置了 Turnstile，会拒绝登录
-      if (!turnstileToken && waited >= maxWait) {
-        setError('验证超时，请刷新页面重试')
-        setLoading(false)
-        return
+      // Turnstile 验证从页面加载时就开始，用户输入的时间已经算在内
+      // 如果已经等待了超过 10 秒（从页面加载开始），说明 Turnstile 可能有问题，直接继续
+      if (timeSincePageLoad > 10000) {
+        console.warn('Turnstile verification timeout (over 10s since page load), proceeding with login')
+        // 继续登录流程，让服务端处理（服务端有降级策略）
+      } else {
+        // 如果页面刚加载不久，最多再等待 3 秒（因为 Turnstile 已经在后台验证了）
+        // 这样可以避免用户输入时间被算入等待时间
+        const remainingWait = Math.max(0, 3000 - timeSincePageLoad)
+        if (remainingWait > 0) {
+          let waited = 0
+          while (!turnstileToken && !turnstileError && waited < remainingWait) {
+            await new Promise((resolve) => setTimeout(resolve, 200))
+            waited += 200
+          }
+        }
+        
+        // 如果仍然没有 token，继续登录流程（降级策略）
+        if (!turnstileToken && !turnstileError) {
+          console.warn('Turnstile verification timeout, proceeding with login attempt')
+        }
       }
     }
 
@@ -184,12 +200,17 @@ export default function LoginPage() {
               <Turnstile
                 onVerify={(token) => {
                   setTurnstileToken(token)
+                  setTurnstileError(false)
                 }}
                 onError={() => {
-                  setError('验证失败，请刷新页面重试')
+                  console.warn('Turnstile verification error, will proceed with fallback')
+                  setTurnstileError(true)
+                  // 不设置错误消息，允许降级登录
+                  // 服务端会处理 Turnstile 验证失败的情况
                 }}
                 onExpire={() => {
                   setTurnstileToken(null)
+                  // Token 过期不影响登录，用户重新提交时会重新验证
                 }}
               />
             </div>

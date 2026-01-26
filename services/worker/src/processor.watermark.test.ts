@@ -32,6 +32,15 @@ describe('Watermark Security Tests', () => {
 
       // Mock metadata - vitest 4.x: 使用 Object.defineProperty 来 mock 属性
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -40,8 +49,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -71,6 +79,15 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -79,8 +96,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -117,6 +133,15 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -125,8 +150,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -170,6 +194,15 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -178,8 +211,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -222,6 +254,15 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -230,8 +271,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -275,6 +315,15 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -283,8 +332,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -323,6 +371,15 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -331,8 +388,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -364,6 +420,15 @@ describe('Watermark Security Tests', () => {
 
       // Mock invalid metadata
       const mockMetadata = { width: 0, height: 0 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -372,8 +437,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
@@ -402,6 +466,15 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
+      // 创建链式调用的 mock 对象
+      const chainMock = {
+        ensureAlpha: vi.fn().mockReturnThis(),
+        resize: vi.fn().mockReturnThis(),
+        toBuffer: vi.fn().mockResolvedValue({ 
+          data: Buffer.from('preview'),
+          info: { width: 32, height: 32 }
+        }),
+      }
       const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
@@ -410,8 +483,7 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
-        raw: vi.fn().mockReturnThis(),
-        ensureAlpha: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnValue(chainMock),
       }
       Object.defineProperty(processor, 'image', {
         value: mockImage,
