@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { purgePhotoCache } from '@/lib/cloudflare-purge'
 
@@ -232,7 +233,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { data: albumData, error: albumError } = await supabase
       .from('albums')
-      .select('id, cover_photo_id')
+      .select('id, slug, cover_photo_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single()
@@ -329,6 +330,59 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .from('albums')
       .update({ photo_count: actualPhotoCount ?? 0 })
       .eq('id', id)
+
+    // 3. 清除 Worker 相册缓存（如果配置了 Worker URL）
+    const workerUrl = process.env.WORKER_URL || process.env.WORKER_API_URL
+    if (workerUrl) {
+      try {
+        const requestUrl = new URL(request.url)
+        const protocol = requestUrl.protocol
+        const host = requestUrl.host
+        const proxyUrl = `${protocol}//${host}/api/worker/clear-album-cache`
+        
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        
+        // 传递认证 cookie，代理路由会处理认证
+        const cookieHeader = request.headers.get('cookie')
+        if (cookieHeader) {
+          headers['cookie'] = cookieHeader
+        }
+        
+        // 异步调用，不阻塞删除操作
+        fetch(proxyUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ albumId: id }),
+        }).catch((error) => {
+          // 记录错误但不抛出（不影响删除操作）
+          console.warn(`[Delete Photos] Failed to clear Worker cache for album ${id}:`, error)
+        })
+      } catch (workerCacheError) {
+        // 记录错误但不阻止删除操作
+        console.warn('[Delete Photos] Error clearing Worker cache:', workerCacheError)
+      }
+    }
+
+    // 4. 清除 Next.js/Vercel 路由缓存，确保前端立即看到更新
+    // 清除相册相关的所有公开API路由缓存
+    if (albumData.slug) {
+      try {
+        // 清除照片列表API缓存
+        revalidatePath(`/api/public/albums/${albumData.slug}/photos`)
+        // 清除分组列表API缓存（人物相册）
+        revalidatePath(`/api/public/albums/${albumData.slug}/groups`)
+        // 清除相册信息API缓存
+        revalidatePath(`/api/public/albums/${albumData.slug}`)
+        // 清除相册页面缓存
+        revalidatePath(`/album/${albumData.slug}`)
+        console.log(`[Delete Photos] Cache revalidated for album: ${albumData.slug}`)
+      } catch (revalidateError) {
+        // 记录错误但不阻止删除操作
+        console.warn('[Delete Photos] Failed to revalidate cache:', revalidateError)
+      }
+    }
 
     return NextResponse.json({
       success: true,

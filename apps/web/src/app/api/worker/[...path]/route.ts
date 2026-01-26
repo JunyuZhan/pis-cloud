@@ -16,6 +16,7 @@
  * - /api/worker/check-pending -> WORKER_URL/api/check-pending
  * - /api/worker/list-files -> WORKER_URL/api/list-files
  * - /api/worker/cleanup-file -> WORKER_URL/api/cleanup-file
+ * - /api/worker/clear-album-cache -> WORKER_URL/api/clear-album-cache
  * - /api/worker/health -> WORKER_URL/health
  * 
  * 注意：所有端点（除了 /health）都需要用户认证，API Key 会自动添加

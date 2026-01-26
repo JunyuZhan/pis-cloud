@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 /**
@@ -96,6 +97,22 @@ export async function POST(request: NextRequest) {
 
     // 更新相册照片计数（重新统计 completed 状态且未删除的照片）
     const albumIds = [...new Set(deletedPhotos.map(p => p.album_id))]
+    const albumSlugs = new Map<string, string>()
+    
+    // 批量获取相册slug
+    const { data: albumsData } = await adminClient
+      .from('albums')
+      .select('id, slug')
+      .in('id', albumIds)
+    
+    if (albumsData) {
+      albumsData.forEach(album => {
+        if (album.slug) {
+          albumSlugs.set(album.id, album.slug)
+        }
+      })
+    }
+    
     for (const albumId of albumIds) {
       const { count: actualPhotoCount } = await adminClient
         .from('photos')
@@ -108,6 +125,26 @@ export async function POST(request: NextRequest) {
         .from('albums')
         .update({ photo_count: actualPhotoCount ?? 0 })
         .eq('id', albumId)
+    }
+
+    // 清除 Next.js/Vercel 路由缓存，确保前端立即看到更新
+    for (const [albumId, slug] of albumSlugs.entries()) {
+      if (slug) {
+        try {
+          // 清除照片列表API缓存
+          revalidatePath(`/api/public/albums/${slug}/photos`)
+          // 清除分组列表API缓存（人物相册）
+          revalidatePath(`/api/public/albums/${slug}/groups`)
+          // 清除相册信息API缓存
+          revalidatePath(`/api/public/albums/${slug}`)
+          // 清除相册页面缓存
+          revalidatePath(`/album/${slug}`)
+          console.log(`[Restore Photos] Cache revalidated for album: ${slug}`)
+        } catch (revalidateError) {
+          // 记录错误但不阻止恢复操作
+          console.warn(`[Restore Photos] Failed to revalidate cache for album ${slug}:`, revalidateError)
+        }
+      }
     }
 
     return NextResponse.json({

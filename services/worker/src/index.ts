@@ -893,6 +893,38 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 清除相册缓存（用于缓存失效）
+  if (url.pathname === '/api/clear-album-cache' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { albumId } = body;
+      
+      if (!albumId || typeof albumId !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing or invalid albumId' }));
+        return;
+      }
+
+      const albumCache = getAlbumCache();
+      albumCache.delete(albumId);
+      
+      console.log(`[Clear Cache] Album cache cleared for: ${albumId}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: 'Album cache cleared' }));
+    } catch (err: any) {
+      console.error('[Clear Cache] Error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
+    }
+    return;
+  }
+
   // 清理文件（用于 cleanup API）
   if (url.pathname === '/api/cleanup-file' && req.method === 'POST') {
     try {

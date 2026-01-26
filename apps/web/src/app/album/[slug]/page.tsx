@@ -200,12 +200,13 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
 
   const groups = groupsData || []
 
-  // 获取照片列表
+  // 获取照片列表（排除已删除的照片）
   const { data: photosData } = await supabase
     .from('photos')
     .select('*')
     .eq('album_id', album.id)
     .eq('status', 'completed')
+    .is('deleted_at', null) // 排除已删除的照片
     .order(orderBy, { ascending })
     .limit(20)
 
@@ -227,12 +228,14 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   }
 
   // 获取封面照片（优先使用设置的封面，否则用第一张）
+  // 注意：封面照片必须未删除
   let coverPhoto: Photo | null = null
   if (album.cover_photo_id) {
     const { data: cover } = await supabase
       .from('photos')
       .select('*')
       .eq('id', album.cover_photo_id)
+      .is('deleted_at', null) // 确保封面照片未删除
       .single()
     coverPhoto = cover as Photo | null
   }
