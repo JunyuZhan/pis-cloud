@@ -20,8 +20,16 @@ if [ -z "$SSH_CONNECTION" ] && [ "$1" != "--force" ]; then
   fi
 fi
 
-# 项目目录
-PROJECT_DIR="/root/PIS"
+# 项目目录（自动检测）
+if [ -d "/opt/PIS" ]; then
+  PROJECT_DIR="/opt/PIS"
+elif [ -d "/root/PIS" ]; then
+  PROJECT_DIR="/root/PIS"
+else
+  echo "❌ 未找到项目目录，请手动指定 PROJECT_DIR"
+  exit 1
+fi
+
 cd "$PROJECT_DIR" || exit 1
 
 echo "📁 项目目录: $PROJECT_DIR"
