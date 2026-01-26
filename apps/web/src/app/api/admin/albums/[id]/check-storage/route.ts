@@ -64,18 +64,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 调用 Worker API 检查 MinIO 中的文件
-    const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
-    const workerApiKey = process.env.WORKER_API_KEY
-    const headers: HeadersInit = { 'Content-Type': 'application/json' }
-    if (workerApiKey) {
-      headers['X-API-Key'] = workerApiKey
+    // 使用代理路由调用 Worker API 检查 MinIO 中的文件
+    // 代理路由会自动处理 Worker URL 配置和认证
+    const requestUrl = new URL(request.url)
+    const protocol = requestUrl.protocol
+    const host = requestUrl.host
+    const proxyUrl = `${protocol}//${host}/api/worker/list-files`
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+    
+    // 传递认证 cookie，代理路由会处理认证
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['cookie'] = cookieHeader
     }
 
     // 检查 raw/{albumId}/ 路径下的文件
     let rawFiles: FileInfo[] = []
     try {
-      const rawResponse = await fetch(`${workerApiUrl}/api/list-files`, {
+      const rawResponse = await fetch(proxyUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ prefix: `raw/${albumId}/` }),
@@ -91,7 +100,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 检查 processed/{albumId}/ 路径下的文件
     let processedFiles: FileInfo[] = []
     try {
-      const processedResponse = await fetch(`${workerApiUrl}/api/list-files`, {
+      const processedResponse = await fetch(proxyUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ prefix: `processed/${albumId}/` }),

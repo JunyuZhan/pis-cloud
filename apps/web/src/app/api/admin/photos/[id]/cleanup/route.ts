@@ -60,13 +60,24 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 1. 清理 MinIO 中的原图文件（如果存在）
     if (photo.original_key) {
       try {
-        const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
-        const headers: HeadersInit = { 'Content-Type': 'application/json' }
-        const workerApiKey = process.env.WORKER_API_KEY
-        if (workerApiKey) {
-          headers['X-API-Key'] = workerApiKey
+        // 使用代理路由调用 Worker API
+        // 代理路由会自动处理 Worker URL 配置和认证
+        const requestUrl = new URL(request.url)
+        const protocol = requestUrl.protocol
+        const host = requestUrl.host
+        const proxyUrl = `${protocol}//${host}/api/worker/cleanup-file`
+        
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
         }
-        const cleanupRes = await fetch(`${workerApiUrl}/api/cleanup-file`, {
+        
+        // 传递认证 cookie，代理路由会处理认证
+        const cookieHeader = request.headers.get('cookie')
+        if (cookieHeader) {
+          headers['cookie'] = cookieHeader
+        }
+        
+        const cleanupRes = await fetch(proxyUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify({ key: photo.original_key }),

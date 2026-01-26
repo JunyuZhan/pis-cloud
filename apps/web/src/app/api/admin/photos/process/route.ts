@@ -46,16 +46,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 调用远程 Worker API 触发处理
-    const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
-    const headers: HeadersInit = { 'Content-Type': 'application/json' }
-    const workerApiKey = process.env.WORKER_API_KEY
-    if (workerApiKey) {
-      headers['X-API-Key'] = workerApiKey
-    }
+    // 使用代理路由调用 Worker API 触发处理
+    // 代理路由会自动处理 Worker URL 配置和认证
+    const requestUrl = new URL(request.url)
+    const protocol = requestUrl.protocol
+    const host = requestUrl.host
+    const proxyUrl = `${protocol}//${host}/api/worker/process`
     
     try {
-      const processRes = await fetch(`${workerApiUrl}/api/process`, {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      // 传递认证 cookie，代理路由会处理认证
+      const cookieHeader = request.headers.get('cookie')
+      if (cookieHeader) {
+        headers['cookie'] = cookieHeader
+      }
+      
+      const processRes = await fetch(proxyUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ photoId, albumId, originalKey }),

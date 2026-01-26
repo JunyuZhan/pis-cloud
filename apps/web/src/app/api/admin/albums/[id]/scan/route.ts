@@ -5,11 +5,6 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-// Worker 服务 URL
-const WORKER_URL = process.env.WORKER_URL || 
-                   process.env.WORKER_API_URL || 
-                   process.env.NEXT_PUBLIC_WORKER_URL || 
-                   'http://localhost:3001'
 
 /**
  * 触发扫描同步
@@ -44,13 +39,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 调用 Worker 扫描 API
-    const headers: HeadersInit = { 'Content-Type': 'application/json' }
-    const workerApiKey = process.env.WORKER_API_KEY
-    if (workerApiKey) {
-      headers['X-API-Key'] = workerApiKey
+    // 使用代理路由调用 Worker 扫描 API
+    // 代理路由会自动处理 Worker URL 配置和认证
+    const requestUrl = new URL(request.url)
+    const protocol = requestUrl.protocol
+    const host = requestUrl.host
+    const proxyUrl = `${protocol}//${host}/api/worker/scan`
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
     }
-    const workerResponse = await fetch(`${WORKER_URL}/api/scan`, {
+    
+    // 传递认证 cookie，代理路由会处理认证
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      headers['cookie'] = cookieHeader
+    }
+    
+    const workerResponse = await fetch(proxyUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ albumId }),

@@ -126,20 +126,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     let reprocessingError: string | null = null
     
     if (photoStatus.status === 'completed' && photoStatus.original_key) {
-      // 触发重新处理
+      // 触发重新处理 - 直接调用 Worker API，使用环境变量中的 API key
       try {
-        const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+        const workerApiUrl = process.env.WORKER_API_URL || process.env.WORKER_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
         const headers: HeadersInit = { 'Content-Type': 'application/json' }
         const workerApiKey = process.env.WORKER_API_KEY
         
-        // 添加调试日志（仅在开发环境）
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Rotate API] Worker API URL:', workerApiUrl)
-          console.log('[Rotate API] Worker API Key configured:', !!workerApiKey)
-        }
-        
+        // 添加 Worker API Key 认证
         if (workerApiKey) {
           headers['X-API-Key'] = workerApiKey
+          // 开发环境：添加调试日志
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Rotate API] Worker URL:', workerApiUrl)
+            console.log('[Rotate API] API Key configured:', workerApiKey.substring(0, 8) + '...')
+          }
         } else {
           // 开发环境：如果没有设置 API key，记录警告
           if (process.env.NODE_ENV === 'development') {
@@ -173,7 +173,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             
             // 如果是认证错误，提供更友好的提示
             if (errorMsg.includes('API key') || errorMsg.includes('Unauthorized')) {
-              reprocessingError = `Worker API 认证失败。请确保 .env.local 中的 WORKER_API_KEY 与 Worker 服务配置一致。如果 Worker 服务未设置 API key，请移除 .env.local 中的 WORKER_API_KEY 或在 Worker 服务中也设置相同的值。`
+              reprocessingError = `Worker API 认证失败。请确保 .env.local 中的 WORKER_API_KEY 与 Worker 服务配置一致。当前 Worker URL: ${workerApiUrl}`
             } else {
               reprocessingError = errorMsg
             }
@@ -188,7 +188,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         
         // 如果是网络错误，提供更友好的提示
         if (errorMsg.includes('fetch failed') || errorMsg.includes('ECONNREFUSED')) {
-          reprocessingError = `无法连接到 Worker 服务 (${process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'})。请确保 Worker 服务正在运行。`
+          const workerApiUrl = process.env.WORKER_API_URL || process.env.WORKER_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+          reprocessingError = `无法连接到 Worker 服务 (${workerApiUrl})。请确保 Worker 服务正在运行。`
         } else {
           reprocessingError = errorMsg
         }
