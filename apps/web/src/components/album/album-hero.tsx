@@ -59,14 +59,18 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   }, [album.id, album.slug, mounted])
 
   // 获取封面图 URL（添加时间戳作为缓存破坏参数，旋转已在 Worker 处理时应用）
-  const timestamp = coverPhoto?.updated_at ? new Date(coverPhoto.updated_at).getTime() : Date.now()
+  // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
   // 优先使用海报图片，否则使用封面照片
   const coverUrl = album.poster_image_url && album.poster_image_url.trim()
     ? album.poster_image_url.trim()
     : (coverPhoto?.preview_key 
-        ? `${mediaUrl}/${coverPhoto.preview_key}${coverPhoto.updated_at ? `?t=${timestamp}` : ''}`
+        ? (coverPhoto.updated_at
+            ? `${mediaUrl}/${coverPhoto.preview_key}?t=${new Date(coverPhoto.updated_at).getTime()}`
+            : `${mediaUrl}/${coverPhoto.preview_key}`)
         : coverPhoto?.thumb_key 
-          ? `${mediaUrl}/${coverPhoto.thumb_key}${coverPhoto.updated_at ? `?t=${timestamp}` : ''}`
+          ? (coverPhoto.updated_at
+              ? `${mediaUrl}/${coverPhoto.thumb_key}?t=${new Date(coverPhoto.updated_at).getTime()}`
+              : `${mediaUrl}/${coverPhoto.thumb_key}`)
           : null)
 
   // 格式化日期 - 使用固定格式避免 hydration 不匹配

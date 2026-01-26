@@ -64,8 +64,10 @@ export function MasonryGrid({
       const photo = photos[startIndex + i]
       if (!photo?.thumb_key) continue
       
-      const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
-      const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
+      // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
+      const imageSrc = photo.updated_at 
+        ? `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?t=${new Date(photo.updated_at).getTime()}`
+        : `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`
       
       // 检查是否已存在预加载链接
       if (document.querySelector(`link[href="${imageSrc}"]`)) continue
@@ -147,8 +149,10 @@ export function MasonryGrid({
         const imageKey = photo.preview_key || photo.thumb_key
         if (!imageKey) return
         
-        const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
-        const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
+        // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
+        const imageSrc = photo.updated_at
+          ? `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}?t=${new Date(photo.updated_at).getTime()}`
+          : `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}`
         
         // 检查是否已存在预加载链接
         if (document.querySelector(`link[href="${imageSrc}"]`)) return

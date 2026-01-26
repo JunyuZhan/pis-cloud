@@ -786,7 +786,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                   priority={index < 6}
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || Date.now()}`}
+                  key={`${photo.id}-${photo.rotation ?? 'auto'}-${photo.updated_at || ''}`}
                   unoptimized // 跳过 Next.js Image Optimization，直接使用原始图片（避免 Vercel 无法访问 HTTP 媒体服务器）
                 />
               ) : (

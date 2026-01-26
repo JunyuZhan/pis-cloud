@@ -89,8 +89,10 @@ export function PhotoLightbox({
           const prevPhoto = photos[prevIndex]
           const prevImageKey = prevPhoto.preview_key || prevPhoto.thumb_key || prevPhoto.original_key
           if (prevImageKey && safeMediaUrl) {
-            const timestamp = prevPhoto.updated_at ? new Date(prevPhoto.updated_at).getTime() : Date.now()
-            const prevImageSrc = `${safeMediaUrl.replace(/\/$/, '')}/${prevImageKey.replace(/^\//, '')}${prevPhoto.updated_at ? `?t=${timestamp}` : ''}`
+            // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
+            const prevImageSrc = prevPhoto.updated_at
+              ? `${safeMediaUrl.replace(/\/$/, '')}/${prevImageKey.replace(/^\//, '')}?t=${new Date(prevPhoto.updated_at).getTime()}`
+              : `${safeMediaUrl.replace(/\/$/, '')}/${prevImageKey.replace(/^\//, '')}`
             preloadImage(prevImageSrc)
           }
         }
@@ -99,8 +101,10 @@ export function PhotoLightbox({
           const nextPhoto = photos[nextIndex]
           const nextImageKey = nextPhoto.preview_key || nextPhoto.thumb_key || nextPhoto.original_key
           if (nextImageKey && safeMediaUrl) {
-            const timestamp = nextPhoto.updated_at ? new Date(nextPhoto.updated_at).getTime() : Date.now()
-            const nextImageSrc = `${safeMediaUrl.replace(/\/$/, '')}/${nextImageKey.replace(/^\//, '')}${nextPhoto.updated_at ? `?t=${timestamp}` : ''}`
+            // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
+            const nextImageSrc = nextPhoto.updated_at
+              ? `${safeMediaUrl.replace(/\/$/, '')}/${nextImageKey.replace(/^\//, '')}?t=${new Date(nextPhoto.updated_at).getTime()}`
+              : `${safeMediaUrl.replace(/\/$/, '')}/${nextImageKey.replace(/^\//, '')}`
             preloadImage(nextImageSrc)
           }
         }
@@ -179,9 +183,11 @@ export function PhotoLightbox({
 
       // 构建图片 URL，确保格式正确并使用 HTTPS
       // 添加时间戳作为缓存破坏参数（旋转已在 Worker 处理时应用）
-      const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
+      // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
       const imageSrc = imageKey && safeMediaUrl 
-        ? `${safeMediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}` 
+        ? (photo.updated_at
+            ? `${safeMediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}?t=${new Date(photo.updated_at).getTime()}`
+            : `${safeMediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}`)
         : ''
 
       // 构建描述文本：EXIF信息 + 时间 + 图片质量提示
