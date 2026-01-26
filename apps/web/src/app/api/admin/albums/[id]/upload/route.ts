@@ -293,7 +293,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           ? errorData.error.details 
           : null) || errorData.details || errorText
         
-        console.error('[Upload API] Failed to get presigned URL:', presignResponse.status, errorMessage)
+        console.error('[Upload API] Failed to get presigned URL:', {
+          status: presignResponse.status,
+          statusText: presignResponse.statusText,
+          url: presignUrl,
+          errorMessage,
+          errorCode,
+          errorDetails,
+          errorText,
+          errorData
+        })
         
         try {
           await adminClient.from('photos').delete().eq('id', photoId)
