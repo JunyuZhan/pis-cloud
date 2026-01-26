@@ -120,6 +120,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       # Worker HTTP API 端口
       - HTTP_PORT=${HTTP_PORT:-3001}
+      # Worker API 认证密钥
+      - WORKER_API_KEY=${WORKER_API_KEY:-}
       # 存储公网 URL（用于生成 presigned URL，从环境变量读取）
       - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
       - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
