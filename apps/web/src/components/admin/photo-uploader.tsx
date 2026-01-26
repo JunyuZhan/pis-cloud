@@ -245,7 +245,16 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         xhrMapRef.current.delete(uploadFile.id)
         const elapsed = (Date.now() - uploadStartTime) / 1000
         const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
-        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`))
+        
+        // 检查是否是 HTTP/2 协议错误（ERR_HTTP2_PROTOCOL_ERROR）
+        const isHttp2Error = xhr.status === 0 && 
+          (xhr.responseText === '' || xhr.responseText.includes('HTTP2') || xhr.responseText.includes('protocol'))
+        
+        const errorMessage = isHttp2Error
+          ? `HTTP/2 协议错误（${fileSizeMb}MB），请重试（将自动降级到 HTTP/1.1）`
+          : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`
+        
+        reject(new Error(errorMessage))
       }
       
       xhr.onabort = () => {
