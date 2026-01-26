@@ -1,12 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@/types/database'
 
 // 类型宽松的 Supabase 客户端，避免类型推断问题
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
 
+/**
+ * 创建 Supabase 客户端（用于 Server Components）
+ */
 export async function createClient(): Promise<AnySupabaseClient> {
   const cookieStore = await cookies()
 
@@ -26,6 +30,36 @@ export async function createClient(): Promise<AnySupabaseClient> {
           } catch {
             // Server Component 中忽略
           }
+        },
+      },
+    }
+  )
+}
+
+/**
+ * 从 NextRequest 创建 Supabase 客户端（用于 API Routes）
+ * 这样可以正确读取请求中的 cookies
+ */
+export function createClientFromRequest(
+  request: NextRequest,
+  response?: NextResponse
+): AnySupabaseClient {
+  // 在 App Router 中，不能使用 NextResponse.next()，直接创建新的响应对象
+  let responseRef = response || new NextResponse()
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+            responseRef.cookies.set(name, value, options)
+          })
         },
       },
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -45,12 +45,75 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [imageError, setImageError] = useState(false)
   
+  // 当 src 改变时，重置错误状态，以便尝试加载新的图片
+  // 这确保了降级机制能正常工作：当切换到下一个后备图片时，会重新尝试加载
+  useEffect(() => {
+    setImageError(false)
+  }, [src])
+  
+  // 当 onError 回调改变时，也重置错误状态（用于父组件更新错误处理逻辑）
+  useEffect(() => {
+    setImageError(false)
+  }, [onError])
+  
   // 简化逻辑：优先图片立即加载，其他图片使用 Next.js 的 lazy loading
   // Next.js Image 组件已经内置了 Intersection Observer，不需要重复实现
 
-  const handleError = () => {
-    setImageError(true)
+  const handleError = (event?: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    // 收集所有错误信息到一个字符串中，确保所有信息都能显示
+    try {
+      const srcValue = src ?? '(undefined)'
+      const srcStr = typeof srcValue === 'string' && srcValue.length > 0
+        ? `"${srcValue.substring(0, 150)}${srcValue.length > 150 ? '...' : ''}"`
+        : '(empty or invalid)'
+      const altValue = alt ?? '(undefined)'
+      const altStr = typeof altValue === 'string' && altValue.length > 0 ? altValue : '(empty)'
+      
+      // 构建完整的错误信息字符串
+      let errorDetails = `[OptimizedImage] Image load failed\n`
+      errorDetails += `  src: ${srcStr}\n`
+      errorDetails += `  alt: ${altStr}\n`
+      errorDetails += `  src type: ${typeof src}, value: ${JSON.stringify(src)}\n`
+      errorDetails += `  alt type: ${typeof alt}, value: ${JSON.stringify(alt)}\n`
+      errorDetails += `  hasSrc: ${!!src}, srcLength: ${typeof src === 'string' ? src.length : 'N/A'}\n`
+      errorDetails += `  props: width=${width ?? 'undefined'}, height=${height ?? 'undefined'}, fill=${fill}, unoptimized=${unoptimized}\n`
+      
+      if (event?.target) {
+        const img = event.target as HTMLImageElement
+        errorDetails += `  image element: currentSrc=${img.currentSrc || '(empty)'}, naturalWidth=${img.naturalWidth}, naturalHeight=${img.naturalHeight}\n`
+      }
+      
+      // 使用单个 console.error 调用，包含所有信息
+      console.error(errorDetails)
+      
+      // 同时使用 console.group 提供更好的可读性（如果浏览器支持）
+      if (console.group) {
+        console.group('[OptimizedImage] Image load failed - Details')
+        console.log('src:', src)
+        console.log('alt:', alt)
+        console.log('props:', { width, height, fill, unoptimized })
+        if (event?.target) {
+          const img = event.target as HTMLImageElement
+          console.log('image element:', {
+            currentSrc: img.currentSrc,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+          })
+        }
+        console.groupEnd()
+      }
+    } catch (logError) {
+      // 如果日志记录本身出错，至少记录基本信息
+      console.error('[OptimizedImage] Image load failed (logging error):', logError)
+      console.error('[OptimizedImage] Raw values - src:', src, 'alt:', alt)
+    }
+    
+    // 先调用父组件的错误处理（可能切换到下一个后备方案）
     onError?.()
+    // 延迟设置错误状态，给父组件时间切换图片源
+    setTimeout(() => {
+      setImageError(true)
+    }, 200)
   }
 
   // 如果 src 存在且没有错误，直接渲染 Image 组件

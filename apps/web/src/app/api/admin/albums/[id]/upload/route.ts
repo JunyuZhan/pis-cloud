@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClientFromRequest, createAdminClient } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
 import { checkRateLimit } from '@/middleware-rate-limit'
 
@@ -7,27 +7,52 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-// MinIO 客户端（懒初始化）
-// Note: getMinioClient function removed as it's not currently used
-
 /**
  * 获取上传凭证 API
  * 返回 Presigned URL 用于直接上传到 MinIO
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  let response: NextResponse | null = null
+  let photoId: string | null = null
+  
   try {
-    const { id: albumId } = await params
-    const supabase = await createClient()
+    let albumId: string
+    try {
+      const paramsResult = await params
+      albumId = paramsResult.id
+    } catch (paramsError) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_PARAMS', message: '无效的请求参数' } },
+        { status: 400 }
+      )
+    }
+    
+    response = new NextResponse()
+    const supabase = createClientFromRequest(request, response)
 
     // 验证登录状态
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    let user
+    try {
+      const userResult = await supabase.auth.getUser()
+      user = userResult.data.user
+    } catch (authError) {
+      console.error('[Upload API] Auth error:', authError)
+      return NextResponse.json(
+        { error: { code: 'AUTH_ERROR', message: '认证失败' } },
+        { 
+          status: 401,
+          headers: response.headers,
+        }
+      )
+    }
 
     if (!user) {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: '请先登录' } },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: response ? response.headers : {},
+        }
       )
     }
 
@@ -47,6 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         {
           status: 429,
           headers: {
+            ...(response && response.headers ? Array.from(response.headers.entries()).reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}) : {}),
             'X-RateLimit-Limit': '20',
             'X-RateLimit-Remaining': rateLimit.remaining.toString(),
             'X-RateLimit-Reset': new Date(rateLimit.resetAt).toISOString(),
@@ -67,7 +93,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (albumError || !album) {
       return NextResponse.json(
         { error: { code: 'ALBUM_NOT_FOUND', message: '相册不存在' } },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: response.headers,
+        }
       )
     }
 
@@ -81,10 +110,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       body = await request.json()
     } catch {
-      console.error('Failed to parse request body:')
       return NextResponse.json(
         { error: { code: 'INVALID_REQUEST', message: '请求体格式错误，请提供有效的JSON' } },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: response.headers,
+        }
       )
     }
     
@@ -93,7 +124,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!filename || !contentType) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: '缺少必要参数' } },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: response.headers,
+        }
       )
     }
 
@@ -102,7 +136,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!allowedTypes.includes(contentType)) {
       return NextResponse.json(
         { error: { code: 'INVALID_FILE_TYPE', message: '不支持的文件格式' } },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: response.headers,
+        }
       )
     }
 
@@ -110,12 +147,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (fileSize && fileSize > 100 * 1024 * 1024) {
       return NextResponse.json(
         { error: { code: 'FILE_TOO_LARGE', message: '文件大小不能超过 100MB' } },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: response.headers,
+        }
       )
     }
 
     // 生成照片 ID 和存储路径
-    const photoId = uuidv4()
+    photoId = uuidv4()
     const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
     const originalKey = `raw/${albumId}/${photoId}.${ext}`
 
@@ -136,72 +176,216 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (insertError) {
       return NextResponse.json(
         { error: { code: 'DB_ERROR', message: insertError.message } },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: response.headers,
+        }
       )
     }
 
     // 获取 presigned URL 用于直接上传到 MinIO
-    // 浏览器 → MinIO (直接上传，绕过 Vercel 4.5MB 限制)
-    // 上传后，调用 /api/admin/photos/process 触发 Worker 处理
-    
-    // 通过 Worker API 代理获取 presigned URL（避免 CORS）
-    const presignUrl = new URL('/api/worker/presign', request.url)
-    const presignResponse = await fetch(presignUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: originalKey }),
-    })
-    
-    if (!presignResponse.ok) {
-      const errorText = await presignResponse.text()
-      let errorData: { error?: string; details?: string } = {}
+    try {
+      const workerUrl = process.env.WORKER_URL || process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+      const presignUrl = `${workerUrl}/api/presign`
+      const workerApiKey = process.env.WORKER_API_KEY
+      
+      let presignResponse: Response
       try {
-        errorData = JSON.parse(errorText)
-      } catch {
-        errorData = { error: errorText }
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        
+        if (workerApiKey) {
+          headers['X-API-Key'] = workerApiKey
+        }
+        
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+        
+        try {
+          presignResponse = await fetch(presignUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ key: originalKey }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
+        } catch (fetchErr) {
+          clearTimeout(timeoutId)
+          if (fetchErr instanceof Error && fetchErr.name === 'AbortError') {
+            throw new Error('请求超时：Worker 服务响应时间过长（超过30秒）')
+          }
+          throw fetchErr
+        }
+      } catch (fetchError) {
+        console.error('[Upload API] Fetch error when calling presign:', fetchError)
+        
+        // 确保 response 已初始化
+        if (!response) {
+          response = new NextResponse()
+        }
+        
+        try {
+          await adminClient.from('photos').delete().eq('id', photoId)
+        } catch (cleanupError) {
+          console.error('[Upload API] Failed to cleanup photo record:', cleanupError)
+        }
+        
+        const errorMsg = fetchError instanceof Error ? fetchError.message : '无法连接到 Worker 服务'
+        return NextResponse.json(
+          { 
+            error: { 
+              code: 'PRESIGN_FETCH_ERROR', 
+              message: '获取上传凭证失败',
+              details: `调用 Worker API 时出错: ${errorMsg}`
+            } 
+          },
+          { 
+            status: 500,
+            headers: response.headers,
+          }
+        )
       }
-      console.error('Failed to get presigned URL:', {
-        status: presignResponse.status,
-        statusText: presignResponse.statusText,
-        error: errorData,
-      })
-      await adminClient.from('photos').delete().eq('id', photoId)
+      
+      if (!presignResponse.ok) {
+        if (!response) {
+          response = new NextResponse()
+        }
+        
+        const errorText = await presignResponse.text()
+        let errorData: { error?: string | { code?: string; message?: string; details?: string }; details?: string } = {}
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText }
+        }
+        
+        // 处理嵌套的错误对象
+        const errorMessage = typeof errorData.error === 'string' 
+          ? errorData.error 
+          : (errorData.error && typeof errorData.error === 'object' ? errorData.error.message : null) || '获取上传凭证失败'
+        const errorCode = typeof errorData.error === 'string' 
+          ? 'PRESIGN_FAILED'
+          : (errorData.error && typeof errorData.error === 'object' ? errorData.error.code : null) || 'PRESIGN_FAILED'
+        const errorDetails = (typeof errorData.error === 'object' && errorData.error && 'details' in errorData.error 
+          ? errorData.error.details 
+          : null) || errorData.details || errorText
+        
+        console.error('[Upload API] Failed to get presigned URL:', presignResponse.status, errorMessage)
+        
+        try {
+          await adminClient.from('photos').delete().eq('id', photoId)
+        } catch (cleanupError) {
+          console.error('[Upload API] Failed to cleanup photo record:', cleanupError)
+        }
+        
+        return NextResponse.json(
+          { 
+            error: { 
+              code: errorCode, 
+              message: errorMessage,
+              details: errorDetails
+            } 
+          },
+          { 
+            status: presignResponse.status,
+            headers: response.headers,
+          }
+        )
+      }
+      
+      const presignData = await presignResponse.json()
+      const { url: presignedUrl } = presignData
+      
+      if (!presignedUrl) {
+        if (!response) {
+          response = new NextResponse()
+        }
+        
+        console.error('[Upload API] Presigned URL is missing in response')
+        
+        try {
+          await adminClient.from('photos').delete().eq('id', photoId)
+        } catch (cleanupError) {
+          console.error('[Upload API] Failed to cleanup photo record:', cleanupError)
+        }
+        
+        return NextResponse.json(
+          { error: { code: 'INVALID_RESPONSE', message: '服务器返回格式错误', details: 'Presigned URL 缺失' } },
+          { 
+            status: 500,
+            headers: response ? response.headers : {},
+          }
+        )
+      }
+      
+      return NextResponse.json(
+        {
+          photoId,
+          uploadUrl: presignedUrl,
+          originalKey,
+          albumId,
+        },
+        {
+          headers: response ? response.headers : {},
+        }
+      )
+    } catch (presignError) {
+      console.error('[Upload API] Error getting presigned URL:', presignError)
+      
+      if (!response) {
+        response = new NextResponse()
+      }
+      
+      try {
+        await adminClient.from('photos').delete().eq('id', photoId)
+      } catch (cleanupError) {
+        console.error('[Upload API] Failed to cleanup photo record:', cleanupError)
+      }
+      
+      const errorMessage = presignError instanceof Error ? presignError.message : '获取上传凭证时发生未知错误'
+      
       return NextResponse.json(
         { 
           error: { 
-            code: 'PRESIGN_FAILED', 
-            message: errorData.error || '获取上传凭证失败',
-            details: errorData.details || errorText
+            code: 'PRESIGN_ERROR', 
+            message: '获取上传凭证失败',
+            details: errorMessage
           } 
         },
-        { status: presignResponse.status }
+        { 
+          status: 500,
+          headers: response.headers,
+        }
       )
     }
-    
-    const presignData = await presignResponse.json()
-    const { url: presignedUrl } = presignData
-    
-    if (!presignedUrl) {
-      console.error('Presigned URL is missing in response:', presignData)
-      await adminClient.from('photos').delete().eq('id', photoId)
-      return NextResponse.json(
-        { error: { code: 'INVALID_RESPONSE', message: '服务器返回格式错误' } },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      photoId,
-      uploadUrl: presignedUrl,  // MinIO presigned URL（直接上传）
-      originalKey,
-      albumId,
-    })
   } catch (error) {
-    console.error('Upload API error:', error)
+    console.error('[Upload API] Unhandled error:', error)
+    
     const errorMessage = error instanceof Error ? error.message : '服务器错误'
+    
+    if (photoId) {
+      Promise.resolve().then(async () => {
+        try {
+          const adminClient = createAdminClient()
+          await adminClient.from('photos').delete().eq('id', photoId)
+        } catch (cleanupError) {
+          console.error('[Upload API] Failed to cleanup photo record:', cleanupError)
+        }
+      }).catch(() => {})
+    }
+    
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: errorMessage } },
-      { status: 500 }
+      { 
+        error: { 
+          code: 'INTERNAL_ERROR', 
+          message: errorMessage
+        } 
+      },
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
     )
   }
 }

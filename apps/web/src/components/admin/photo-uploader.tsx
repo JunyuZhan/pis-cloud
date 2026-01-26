@@ -8,7 +8,7 @@ import { cn, formatFileSize } from '@/lib/utils'
 // 上传配置
 // const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker (保留供将来使用)
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
-// MAX_RETRIES removed as it's not used
+const MAX_RETRIES = 3 // 最大重试次数
 
 // 根据文件大小计算超时时间（毫秒）
 // 基础超时：10分钟，每MB增加5秒，最大30分钟
@@ -49,7 +49,7 @@ interface UploadFile {
   respAlbumId?: string
 }
 
-export function PhotoUploader({ albumId }: PhotoUploaderProps) {
+export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
   const router = useRouter()
   const [files, setFiles] = useState<UploadFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -272,107 +272,172 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
     photoId: string,
     uploadUrl: string,
     originalKey: string,
-    respAlbumId: string
+    respAlbumId: string,
+    retryCount = 0
   ) => {
     let lastLoaded = 0
     let lastTime = Date.now()
     let uploadStartTime = Date.now()
 
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
-      xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
-      
-      // 设置超时时间（根据文件大小动态计算）
-      const timeout = calculateTimeout(uploadFile.file.size)
-      xhr.timeout = timeout
-      
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100)
-          const now = Date.now()
-          const timeDiff = (now - lastTime) / 1000
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhrMapRef.current.set(uploadFile.id, xhr) // 保存 XHR 引用
+        
+        // 设置超时时间（根据文件大小动态计算）
+        const timeout = calculateTimeout(uploadFile.file.size)
+        xhr.timeout = timeout
+        
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100)
+            const now = Date.now()
+            const timeDiff = (now - lastTime) / 1000
+            
+            let speed = 0
+            if (timeDiff >= 0.2) {
+              const bytesDiff = event.loaded - lastLoaded
+              speed = bytesDiff / timeDiff
+              lastLoaded = event.loaded
+              lastTime = now
+            }
+            
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadFile.id 
+                  ? { ...f, progress, ...(speed > 0 ? { speed } : {}) } 
+                  : f
+              )
+            )
+          }
+        }
+
+        xhr.onload = () => {
+          xhrMapRef.current.delete(uploadFile.id)
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            const errorText = xhr.responseText || ''
+            let errorMessage = `上传失败: HTTP ${xhr.status}`
+            try {
+              const errorData = JSON.parse(errorText)
+              if (errorData.error) {
+                errorMessage = errorData.error.message || errorData.error || errorMessage
+              }
+            } catch {
+              // 忽略解析错误，使用默认消息
+            }
+            reject(new Error(errorMessage))
+          }
+        }
+
+        xhr.onerror = () => {
+          xhrMapRef.current.delete(uploadFile.id)
+          const elapsed = (Date.now() - uploadStartTime) / 1000
+          const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
           
-          let speed = 0
-          if (timeDiff >= 0.2) {
-            const bytesDiff = event.loaded - lastLoaded
-            speed = bytesDiff / timeDiff
-            lastLoaded = event.loaded
-            lastTime = now
+          // 判断是否为可重试的网络错误（连接中断、超时等）
+          const isRetryableError = xhr.status === 0 || 
+            xhr.readyState === 0 || 
+            (xhr.statusText === '' && xhr.responseText === '')
+          
+          const error = new Error(
+            isRetryableError && retryCount < MAX_RETRIES
+              ? `网络连接中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒），正在重试...`
+              : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`
+          ) as Error & { retryable?: boolean }
+          
+          error.retryable = isRetryableError
+          reject(error)
+        }
+        
+        xhr.onabort = () => {
+          xhrMapRef.current.delete(uploadFile.id)
+          // 暂停时不 reject
+        }
+        
+        xhr.ontimeout = () => {
+          xhrMapRef.current.delete(uploadFile.id)
+          const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+          const timeoutMinutes = Math.round(timeout / 60000)
+          
+          const error = new Error(
+            retryCount < MAX_RETRIES
+              ? `上传超时（${fileSizeMb}MB，已等待 ${timeoutMinutes} 分钟），正在重试...`
+              : `上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`
+          ) as Error & { retryable?: boolean }
+          
+          error.retryable = true
+          reject(error)
+        }
+
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', uploadFile.file.type)
+        uploadStartTime = Date.now()
+        xhr.send(uploadFile.file)
+      })
+    } catch (error) {
+      // 检查是否为可重试的错误
+      const err = error as Error & { retryable?: boolean }
+      if (err.retryable && retryCount < MAX_RETRIES) {
+        // 更新状态显示重试信息
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadFile.id
+              ? { ...f, error: `正在重试 (${retryCount + 1}/${MAX_RETRIES})...` }
+              : f
+          )
+        )
+        
+        // 等待一段时间后重试（指数退避）
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000) // 最多10秒
+        await new Promise(resolve => setTimeout(resolve, delay))
+        
+        // 重新获取上传凭证（presigned URL 可能已过期）
+        try {
+          const credRes = await fetch(`/api/admin/albums/${albumId}/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: uploadFile.file.name,
+              contentType: uploadFile.file.type,
+              fileSize: uploadFile.file.size,
+            }),
+          })
+          
+          if (!credRes.ok) {
+            throw new Error('重新获取上传凭证失败')
           }
           
+          const credData = await credRes.json()
+          if (credData?.error || !credData?.uploadUrl) {
+            throw new Error('重新获取上传凭证失败：无效响应')
+          }
+          
+          // 重置进度并重试
           setFiles((prev) =>
             prev.map((f) =>
-              f.id === uploadFile.id 
-                ? { ...f, progress, ...(speed > 0 ? { speed } : {}) } 
-                : f
+              f.id === uploadFile.id ? { ...f, progress: 0, error: undefined } : f
             )
           )
+          
+          // 递归重试
+          return uploadDirectly(
+            uploadFile,
+            photoId,
+            credData.uploadUrl,
+            credData.originalKey || originalKey,
+            credData.albumId || respAlbumId,
+            retryCount + 1
+          )
+        } catch (retryError) {
+          throw new Error(`重试失败：${retryError instanceof Error ? retryError.message : '未知错误'}`)
         }
       }
-
-      xhr.onload = () => {
-        xhrMapRef.current.delete(uploadFile.id)
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve()
-        } else {
-          const errorText = xhr.responseText || ''
-          let errorMessage = `上传失败: HTTP ${xhr.status}`
-          try {
-            const errorData = JSON.parse(errorText)
-            if (errorData.error) {
-              errorMessage = errorData.error.message || errorData.error || errorMessage
-            }
-          } catch {
-            // 忽略解析错误，使用默认消息
-          }
-          reject(new Error(errorMessage))
-        }
-      }
-
-      xhr.onerror = () => {
-        xhrMapRef.current.delete(uploadFile.id)
-        const elapsed = (Date.now() - uploadStartTime) / 1000
-        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
-        
-        // 记录详细错误信息（用于调试）
-        console.error('[Upload] XHR error:', {
-          uploadUrl,
-          status: xhr.status,
-          statusText: xhr.statusText,
-          readyState: xhr.readyState,
-          responseText: xhr.responseText,
-          elapsed,
-          fileSizeMb,
-        })
-        
-        reject(new Error(`网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`))
-      }
       
-      xhr.onabort = () => {
-        xhrMapRef.current.delete(uploadFile.id)
-        // 暂停时不 reject
-      }
-      
-      xhr.ontimeout = () => {
-        xhrMapRef.current.delete(uploadFile.id)
-        const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
-        const timeoutMinutes = Math.round(timeout / 60000)
-        reject(new Error(`上传超时：文件过大（${fileSizeMb}MB）或网络较慢，已等待 ${timeoutMinutes} 分钟。请检查网络连接后重试`))
-      }
-
-      // 记录上传信息（用于调试）
-      console.log('[Upload] Starting upload:', {
-        uploadUrl,
-        fileSize: uploadFile.file.size,
-        fileName: uploadFile.file.name,
-        contentType: uploadFile.file.type,
-      })
-      
-      xhr.open('PUT', uploadUrl)
-      xhr.setRequestHeader('Content-Type', uploadFile.file.type)
-      uploadStartTime = Date.now()
-      xhr.send(uploadFile.file)
-    })
+      // 不可重试或已达到最大重试次数，抛出错误
+      throw error
+    }
 
     // 上传成功后才触发处理（避免上传失败时也触发处理）
     // 触发处理（不阻塞，异步执行）
@@ -501,15 +566,43 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       })
 
       if (!credRes.ok) {
-        throw new Error('获取上传凭证失败')
+        // 尝试解析错误信息
+        let errorMessage = '获取上传凭证失败'
+        try {
+          const errorData = await credRes.json()
+          if (errorData?.error?.message) {
+            errorMessage = errorData.error.message
+            // 如果有详细信息，也添加到错误消息中
+            if (errorData?.error?.details) {
+              errorMessage += `: ${errorData.error.details}`
+            }
+          } else if (errorData?.error) {
+            errorMessage = typeof errorData.error === 'string' ? errorData.error : errorMessage
+          }
+        } catch {
+          // 如果响应不是 JSON，使用状态文本
+          errorMessage = `获取上传凭证失败 (${credRes.status} ${credRes.statusText})`
+        }
+        throw new Error(errorMessage)
       }
 
       const credData = await credRes.json()
+      
+      // 检查响应中是否有错误
+      if (credData?.error) {
+        const errorMessage = credData.error.message || credData.error || '获取上传凭证失败'
+        throw new Error(errorMessage)
+      }
+      
       photoId = credData.photoId as string
       const { uploadUrl, originalKey, albumId: respAlbumId } = credData
 
       if (!photoId) {
         throw new Error('获取上传凭证失败：缺少photoId')
+      }
+      
+      if (!uploadUrl) {
+        throw new Error('获取上传凭证失败：缺少上传地址')
       }
 
       // 保存photoId到uploadFile，以便失败时清理
@@ -549,6 +642,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       // 上传失败：清理数据库记录和 MinIO 文件
       // 协调机制：前端失败 → 清理数据库 → 清理 MinIO → Worker 队列任务自动跳过
+      let cleanupSuccess = false
       if (photoId) {
         try {
           const cleanupRes = await fetch(`/api/admin/photos/${photoId}/cleanup`, {
@@ -557,6 +651,7 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
           
           if (cleanupRes.ok) {
             console.log(`[Upload] Cleaned up failed upload: ${photoId}`)
+            cleanupSuccess = true
           } else {
             const errorData = await cleanupRes.json().catch(() => ({}))
             console.error(`[Upload] Cleanup failed for ${photoId}:`, errorData)
@@ -583,6 +678,13 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
       
       // 从队列中移除失败的文件
       uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
+      
+      // 无论清理成功与否，都刷新页面数据以更新处理中的照片数量
+      // 这样即使清理失败，用户也能看到实际状态
+      router.refresh()
+      if (cleanupSuccess) {
+        onComplete?.()
+      }
     } finally {
       // 上传完成（无论成功失败），处理队列中的下一个文件
       setTimeout(processQueue, 100)

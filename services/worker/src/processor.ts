@@ -131,23 +131,26 @@ export class PhotoProcessor {
 
     // 2. 并行生成：BlurHash + 缩略图（优化性能）
     // 优化：BlurHash 使用已旋转的图像，避免重复旋转
+    // 支持通过环境变量配置缩略图标准，默认 400px（向后兼容）
+    const thumbSize = parseInt(process.env.THUMB_MAX_SIZE || '400', 10);
     const [blurHash, thumbBuffer] = await Promise.all([
       // 生成 BlurHash（基于已旋转的图片，避免重复旋转）
       this.generateBlurHashFromRotated(rotatedImage),
-      // 生成缩略图 (400px) - 自动根据 EXIF orientation 旋转
+      // 生成缩略图 - 自动根据 EXIF orientation 旋转
       rotatedImage
         .clone()
-        .resize(400, null, { withoutEnlargement: true })
+        .resize(thumbSize, null, { withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer()
     ]);
 
-    // 4. 生成预览图 (1920px) - 自动根据 EXIF orientation 旋转
+    // 4. 生成预览图 - 自动根据 EXIF orientation 旋转
     // 优化：直接从 metadata 获取尺寸，避免重复编码/解码
     const { width: originalWidth, height: originalHeight } = metadata;
     
     // 计算预览图尺寸（保持宽高比）
-    const maxPreviewSize = 1920;
+    // 支持通过环境变量配置预览图标准，默认 1920px（向后兼容）
+    const maxPreviewSize = parseInt(process.env.PREVIEW_MAX_SIZE || '1920', 10);
     let previewWidth = originalWidth || maxPreviewSize;
     let previewHeight = originalHeight || maxPreviewSize;
     

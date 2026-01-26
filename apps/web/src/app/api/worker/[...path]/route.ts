@@ -17,7 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClientFromRequest } from '@/lib/supabase/server'
 
 // Worker 服务 URL (服务端环境变量，不暴露给客户端)
 // 支持多个变量名，确保兼容性
@@ -60,14 +60,18 @@ async function proxyRequest(
     
     // 添加认证检查（除了 health 端点）
     // health 端点用于监控，不需要认证
+    let response = NextResponse.next({ request })
     if (pathSegments[0] !== 'health') {
-      const supabase = await createClient()
+      const supabase = createClientFromRequest(request, response)
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
         return NextResponse.json(
           { error: { code: 'UNAUTHORIZED', message: '请先登录' } },
-          { status: 401 }
+          { 
+            status: 401,
+            headers: response.headers,
+          }
         )
       }
     }
@@ -134,20 +138,43 @@ async function proxyRequest(
       }
     }
     
-    const response = await fetch(targetUrl, fetchOptions)
+    const workerResponse = await fetch(targetUrl, fetchOptions)
     
     // 读取响应
-    const responseContentType = response.headers.get('Content-Type') || ''
+    const responseContentType = workerResponse.headers.get('Content-Type') || ''
     
     if (responseContentType.includes('application/json')) {
-      const data = await response.json()
-      return NextResponse.json(data, { status: response.status })
+      const data = await workerResponse.json()
+      // 如果响应包含错误，统一错误格式
+      if (!workerResponse.ok && data.error) {
+        return NextResponse.json(
+          { 
+            error: { 
+              code: data.error.code || 'WORKER_ERROR',
+              message: typeof data.error === 'string' ? data.error : (data.error.message || data.error),
+              details: data.error.details || data.details
+            } 
+          },
+          { 
+            status: workerResponse.status,
+            headers: response.headers,
+          }
+        )
+      }
+      return NextResponse.json(
+        data, 
+        { 
+          status: workerResponse.status,
+          headers: response.headers,
+        }
+      )
     } else {
-      const data = await response.arrayBuffer()
+      const data = await workerResponse.arrayBuffer()
       return new NextResponse(data, {
-        status: response.status,
+        status: workerResponse.status,
         headers: {
           'Content-Type': responseContentType,
+          ...Object.fromEntries(response.headers.entries()),
         },
       })
     }
@@ -155,21 +182,37 @@ async function proxyRequest(
     console.error('[Worker Proxy] Error:', error)
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const response = NextResponse.next({ request })
     
     // 检查是否是连接错误
-    if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
+    if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed') || errorMessage.includes('ECONNRESET')) {
       return NextResponse.json(
         { 
-          error: 'Worker 服务不可用',
-          details: `无法连接到 ${WORKER_URL}`,
+          error: { 
+            code: 'WORKER_UNAVAILABLE',
+            message: 'Worker 服务不可用',
+            details: `无法连接到 Worker 服务 (${WORKER_URL})。请检查 Worker 服务是否正在运行，以及 WORKER_URL 环境变量是否正确配置。`
+          }
         },
-        { status: 503 }
+        { 
+          status: 503,
+          headers: response.headers,
+        }
       )
     }
     
     return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
+      { 
+        error: { 
+          code: 'PROXY_ERROR',
+          message: errorMessage,
+          details: '请求转发到 Worker 服务时发生错误'
+        } 
+      },
+      { 
+        status: 500,
+        headers: response.headers,
+      }
     )
   }
 }

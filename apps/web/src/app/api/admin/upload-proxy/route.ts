@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClientFromRequest } from '@/lib/supabase/server'
 
 /**
  * 上传代理 API
@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/server'
 export async function PUT(request: NextRequest) {
   try {
     // 验证登录状态
-    const supabase = await createClient()
+    const response = NextResponse.next({ request })
+    const supabase = createClientFromRequest(request, response)
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

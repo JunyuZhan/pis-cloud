@@ -239,7 +239,8 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
                   onClick={() => setSelectionMode(true)}
                   className="btn-secondary w-full md:w-auto"
                 >
-                  批量管理
+                  <span className="hidden sm:inline">批量管理</span>
+                  <span className="sm:hidden">批量</span>
                 </button>
             <button
               type="button"
@@ -247,7 +248,8 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
               className="btn-primary w-full md:w-auto"
             >
                   <Plus className="w-4 h-4" />
-                  新建相册
+                  <span className="hidden sm:inline">新建相册</span>
+                  <span className="sm:hidden">新建</span>
                 </button>
               </>
             )}

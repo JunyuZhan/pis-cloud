@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw } from 'lucide-react'
+import { Upload, Trash2, Check, Loader2, Heart, ImageIcon, Star, ArrowUp, ArrowDown, ChevronUp, ChevronDown, RotateCw, RotateCcw, RefreshCw } from 'lucide-react'
 import { PhotoGroupManager } from './photo-group-manager'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -42,6 +42,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(album.cover_photo_id)
   const [isReordering, setIsReordering] = useState(false)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
+  const [isReprocessing, setIsReprocessing] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     title: string
@@ -213,6 +214,79 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
 
   const handleUploadComplete = () => {
     router.refresh()
+  }
+
+  // 批量重新生成预览图
+  const handleReprocessSelected = async () => {
+    if (selectedPhotos.size === 0) return
+    
+    setConfirmDialog({
+      open: true,
+      title: '重新生成预览图',
+      message: `确定要重新生成选中的 ${selectedPhotos.size} 张照片的预览图吗？这将使用最新的预览图标准重新处理这些照片。`,
+      variant: 'default',
+      onConfirm: async () => {
+        await reprocessPhotos(Array.from(selectedPhotos))
+      },
+    })
+  }
+
+  // 重新生成整个相册的预览图
+  const handleReprocessAlbum = async () => {
+    setConfirmDialog({
+      open: true,
+      title: '重新生成预览图',
+      message: `确定要重新生成整个相册的预览图吗？这将使用最新的预览图标准重新处理所有照片。此操作可能需要较长时间。`,
+      variant: 'default',
+      onConfirm: async () => {
+        await reprocessPhotos(undefined, album.id)
+      },
+    })
+  }
+
+  const reprocessPhotos = async (photoIds?: string[], albumId?: string) => {
+    setIsReprocessing(true)
+    try {
+      const response = await fetch('/api/admin/photos/reprocess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoIds,
+          albumId,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || '重新生成预览图失败')
+      }
+
+      const result = await response.json()
+      showSuccess(result.message || `已排队 ${result.queued} 张照片重新处理`)
+      
+      // 更新本地状态：将相关照片状态设置为 pending
+      if (photoIds) {
+        setPhotos((prev) =>
+          prev.map((p) =>
+            photoIds.includes(p.id) ? { ...p, status: 'pending' as const } : p
+          )
+        )
+      } else {
+        // 如果是整个相册，更新所有照片状态
+        setPhotos((prev) =>
+          prev.map((p) => ({ ...p, status: 'pending' as const }))
+        )
+      }
+      
+      clearSelection()
+      
+      // processingCount 会自动更新，useEffect 会开始轮询检查处理状态
+    } catch (error) {
+      console.error(error)
+      handleApiError(error, '重新生成预览图失败，请重试')
+    } finally {
+      setIsReprocessing(false)
+    }
   }
 
   // 旋转照片（向左旋转，逆时针）
@@ -475,7 +549,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
               <button type="button" onClick={clearSelection} className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95">
                 取消
               </button>
-              {selectedPhotos.size > 0 && (
+                  {selectedPhotos.size > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {selectedPhotos.size === 1 && (
                     <button
@@ -528,6 +602,20 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                     </button>
                   )}
                   <button
+                    onClick={handleReprocessSelected}
+                    disabled={isReprocessing}
+                    className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95 disabled:opacity-50"
+                    title="使用最新的预览图标准重新生成预览图"
+                  >
+                    {isReprocessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">重新生成预览图</span>
+                    <span className="sm:hidden">重新生成</span>
+                  </button>
+                  <button
                     onClick={handleDeleteSelected}
                     disabled={isDeleting}
                     className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
@@ -547,12 +635,36 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 选择
               </button>
               <button
+                type="button"
+                onClick={handleReprocessAlbum}
+                disabled={isReprocessing}
+                className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95 disabled:opacity-50"
+                title="使用最新的预览图标准重新生成整个相册的预览图"
+                data-action="reprocess-album"
+              >
+                {isReprocessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="hidden sm:inline">处理中...</span>
+                    <span className="sm:hidden">处理中</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="hidden sm:inline">重新生成预览图</span>
+                    <span className="sm:hidden">重新生成</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsReordering(!isReordering)}
                 className={cn(
-                  "btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95",
-                  isReordering && "bg-accent/10 text-accent"
+                  "btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95 disabled:opacity-50",
+                  isReordering ? "bg-accent/10 text-accent" : ""
                 )}
                 disabled={isSavingOrder}
+                data-action="reorder-photos"
               >
                 {isSavingOrder ? (
                   <>
@@ -592,11 +704,45 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
 
       {/* 处理状态提示 */}
       {processingCount > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-accent/10 rounded-lg text-sm">
-          <Loader2 className="w-4 h-4 text-accent animate-spin" />
-          <span className="text-text-secondary">
-            {processingCount} 张照片正在处理中，将自动刷新...
-          </span>
+        <div className="flex items-center justify-between gap-2 p-3 bg-accent/10 rounded-lg text-sm">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-accent animate-spin" />
+            <span className="text-text-secondary">
+              {processingCount} 张照片正在处理中，将自动刷新...
+            </span>
+          </div>
+          <button
+            onClick={async () => {
+              // 清理所有 pending 或 processing 状态的照片
+              const stuckPhotos = photos.filter(p => p.status === 'pending' || p.status === 'processing')
+              if (stuckPhotos.length === 0) return
+              
+              if (!confirm(`确定要清理 ${stuckPhotos.length} 张卡住的照片吗？这将删除未完成的照片记录。`)) {
+                return
+              }
+              
+              let cleanedCount = 0
+              for (const photo of stuckPhotos) {
+                try {
+                  const res = await fetch(`/api/admin/photos/${photo.id}/cleanup`, {
+                    method: 'DELETE',
+                  })
+                  if (res.ok) {
+                    cleanedCount++
+                  }
+                } catch (err) {
+                  console.error(`Failed to cleanup photo ${photo.id}:`, err)
+                }
+              }
+              
+              if (cleanedCount > 0) {
+                router.refresh()
+              }
+            }}
+            className="text-xs text-text-secondary hover:text-text-primary underline"
+          >
+            清理卡住的照片
+          </button>
         </div>
       )}
 

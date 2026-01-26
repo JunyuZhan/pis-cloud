@@ -301,6 +301,7 @@ function PhotoCard({
   const [showCopied, setShowCopied] = useState(false)
   const [blurDataURL, setBlurDataURL] = useState<string | undefined>(undefined)
   const [isMobile, setIsMobile] = useState(true) // 默认移动端，避免 hydration mismatch
+  const [imageKeyIndex, setImageKeyIndex] = useState(0) // 当前使用的图片 key 索引
   
   // 客户端检测设备类型
   useEffect(() => {
@@ -320,6 +321,57 @@ function PhotoCard({
   
   // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
   const safeMediaUrl = mediaUrl
+  
+  // 图片 key 优先级：preview_key -> thumb_key -> original_key
+  // 预览图大小修改后，如果 preview_key 文件不存在，会自动降级到 thumb_key 或 original_key
+  // 这确保了向后兼容：即使预览图标准修改，旧图片仍能正常显示
+  const imageKeys = [
+    photo.preview_key,
+    photo.thumb_key,
+    photo.original_key,
+  ].filter(Boolean) as string[]
+  
+  // 当前使用的图片 key
+  const currentImageKey = imageKeys[imageKeyIndex] || null
+  
+  // 调试：记录图片 key 信息（仅在开发环境）
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && imageKeys.length > 0) {
+      console.log(`[PhotoCard] Photo ${photo.id} image keys:`, {
+        preview_key: photo.preview_key,
+        thumb_key: photo.thumb_key,
+        original_key: photo.original_key,
+        currentIndex: imageKeyIndex,
+        currentKey: currentImageKey,
+        availableKeys: imageKeys,
+      })
+    }
+  }, [photo.id, imageKeyIndex, currentImageKey, imageKeys, photo.preview_key, photo.thumb_key, photo.original_key])
+  
+  // 图片加载失败时的处理：切换到下一个后备方案
+  // 这确保了即使预览图标准修改后旧预览图文件不存在，也能正常显示
+  const handleImageError = useCallback(() => {
+    if (imageKeyIndex < imageKeys.length - 1) {
+      const currentKey = imageKeys[imageKeyIndex]
+      const nextKey = imageKeys[imageKeyIndex + 1]
+      console.warn(`[PhotoCard] Image load failed (${currentKey}), trying fallback: ${nextKey}`, {
+        photoId: photo.id,
+        currentIndex: imageKeyIndex,
+        totalKeys: imageKeys.length,
+      })
+      // 延迟切换，确保错误处理完成
+      setTimeout(() => {
+        setImageKeyIndex(imageKeyIndex + 1)
+      }, 100)
+    } else {
+      console.error(`[PhotoCard] All image sources failed for photo: ${photo.id}`, {
+        preview_key: photo.preview_key,
+        thumb_key: photo.thumb_key,
+        original_key: photo.original_key,
+        triedKeys: imageKeys,
+      })
+    }
+  }, [imageKeyIndex, imageKeys, photo.id])
 
   // 前 6 张图片优先加载（首屏可见区域）
   // 其他图片通过 Intersection Observer 在进入视口时加载
@@ -406,9 +458,9 @@ function PhotoCard({
           )}
           onClick={onClick}
         >
-          {photo.thumb_key ? (
+          {currentImageKey ? (
             <OptimizedImage
-              src={`${safeMediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
+              src={`${safeMediaUrl.replace(/\/$/, '')}/${currentImageKey.replace(/^\//, '')}?r=${photo.rotation ?? 'auto'}&t=${photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()}`}
               alt={photo.filename || 'Photo'}
               width={layout === 'grid' ? undefined : 400}
               height={layout === 'grid' ? undefined : Math.round(400 * aspectRatio)}
@@ -426,6 +478,7 @@ function PhotoCard({
               blurDataURL={blurDataURL}
               aspectRatio={layout !== 'grid' ? aspectRatio : undefined}
               unoptimized // 缩略图已优化(400px)，跳过 Vercel 处理，直接从 Cloudflare CDN 加载
+              onError={handleImageError}
             />
           ) : (
             <div
