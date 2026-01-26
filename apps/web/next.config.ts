@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
   // 图片优化配置
   images: {
     // Vercel 支持图片优化，无需禁用
+    // Next.js 16+ 要求：配置本地图片模式以支持查询字符串
+    localPatterns: [
+      {
+        pathname: '/icons/**',
+        search: '**', // 允许所有查询字符串（如 ?v=3）
+      },
+    ],
     remotePatterns: [
       // 本地开发环境
       {
