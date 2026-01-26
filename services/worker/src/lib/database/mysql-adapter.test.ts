@@ -8,12 +8,13 @@ import type { DatabaseConfig } from './types.js';
 
 // Mock mysql2 模块
 vi.mock('mysql2/promise', () => {
-  const mockPool = {
-    execute: vi.fn(),
-    end: vi.fn(),
-  };
-
-  const createPool = vi.fn(() => mockPool);
+  // vitest 4.x: 创建一个返回 mock pool 的函数
+  const createPool = vi.fn(() => {
+    return {
+      execute: vi.fn(),
+      end: vi.fn(),
+    };
+  });
 
   return {
     default: {

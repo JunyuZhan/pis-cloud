@@ -8,17 +8,17 @@ import type { DatabaseConfig } from './types.js';
 
 // Mock pg 模块
 vi.mock('pg', () => {
-  const mockPool = {
-    query: vi.fn(),
-    end: vi.fn(),
-    on: vi.fn(),
-  };
-
-  const Pool = vi.fn(() => mockPool);
+  // vitest 4.x: 创建一个可以被 new 调用的构造函数 mock
+  const MockPool = vi.fn(function MockPool() {
+    this.query = vi.fn();
+    this.end = vi.fn();
+    this.on = vi.fn();
+    return this;
+  });
 
   return {
-    Pool,
-    default: { Pool },
+    Pool: MockPool,
+    default: { Pool: MockPool },
   };
 });
 
@@ -41,7 +41,9 @@ describe('PostgreSQLAdapter', () => {
     };
 
     adapter = new PostgreSQLAdapter(config);
-    mockPool = (Pool as any).mock.results[0].value;
+    // vitest 4.x: 从 Pool mock 的最后一个调用结果获取实例
+    const poolCalls = (Pool as any).mock.results;
+    mockPool = poolCalls[poolCalls.length - 1].value;
   });
 
   describe('构造函数', () => {

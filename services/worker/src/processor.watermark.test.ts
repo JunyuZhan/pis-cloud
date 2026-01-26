@@ -30,9 +30,9 @@ describe('Watermark Security Tests', () => {
         }],
       }
 
-      // Mock metadata
+      // Mock metadata - vitest 4.x: 使用 Object.defineProperty 来 mock 属性
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -40,6 +40,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -64,7 +71,7 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -72,6 +79,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -103,7 +117,7 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -111,6 +125,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       // This will fail at sharp processing, but fetch should be called
@@ -149,7 +170,7 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -157,6 +178,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -194,7 +222,7 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -202,6 +230,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const startTime = Date.now()
@@ -240,7 +275,7 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -248,6 +283,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -281,7 +323,7 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -289,6 +331,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -315,7 +364,7 @@ describe('Watermark Security Tests', () => {
 
       // Mock invalid metadata
       const mockMetadata = { width: 0, height: 0 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -323,6 +372,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)
@@ -346,7 +402,7 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      vi.spyOn(processor as any, 'image').mockReturnValue({
+      const mockImage = {
         metadata: vi.fn().mockResolvedValue(mockMetadata),
         clone: vi.fn().mockReturnThis(),
         rotate: vi.fn().mockReturnThis(),
@@ -354,6 +410,13 @@ describe('Watermark Security Tests', () => {
         jpeg: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue(Buffer.from('preview')),
         composite: vi.fn().mockReturnThis(),
+        raw: vi.fn().mockReturnThis(),
+        ensureAlpha: vi.fn().mockReturnThis(),
+      }
+      Object.defineProperty(processor, 'image', {
+        value: mockImage,
+        writable: true,
+        configurable: true,
       })
 
       const result = await processor.process(watermarkConfig)

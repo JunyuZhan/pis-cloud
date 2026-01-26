@@ -25,15 +25,21 @@ class MockMySQLAdapter {
 }
 
 vi.mock('./supabase-adapter.js', () => ({
-  SupabaseAdapter: vi.fn().mockImplementation((config) => new MockSupabaseAdapter(config)),
+  SupabaseAdapter: vi.fn(function SupabaseAdapter(config: any) {
+    return new MockSupabaseAdapter(config);
+  }),
 }));
 
 vi.mock('./postgresql-adapter.js', () => ({
-  PostgreSQLAdapter: vi.fn().mockImplementation((config) => new MockPostgreSQLAdapter(config)),
+  PostgreSQLAdapter: vi.fn(function PostgreSQLAdapter(config: any) {
+    return new MockPostgreSQLAdapter(config);
+  }),
 }));
 
 vi.mock('./mysql-adapter.js', () => ({
-  MySQLAdapter: vi.fn().mockImplementation((config) => new MockMySQLAdapter(config)),
+  MySQLAdapter: vi.fn(function MySQLAdapter(config: any) {
+    return new MockMySQLAdapter(config);
+  }),
 }));
 
 describe('Database Adapter Factory', () => {
