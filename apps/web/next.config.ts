@@ -223,6 +223,28 @@ const nextConfig: NextConfig = {
         ].filter(header => header.value !== ''), // 过滤空值
       },
       {
+        // 微信验证文件：确保可访问且不被缓存
+        source: '/4dedffaa9e333b0d5a389c628935fa49.txt',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'text/plain; charset=utf-8',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+      {
         // 静态资源缓存优化
         // 注意：icon.svg 使用较短的缓存时间，方便更新 logo
         source: '/icons/:path*',
