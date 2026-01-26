@@ -22,12 +22,19 @@ const envPaths = [
 ];
 
 let envLoaded = false;
+let loadedEnvPath: string | null = null;
 for (const envPath of envPaths) {
   if (existsSync(envPath)) {
     config({ path: envPath });
     envLoaded = true;
+    loadedEnvPath = envPath;
+    console.log('✅ Loaded environment variables from:', envPath);
     break;
   }
+}
+if (!envLoaded) {
+  console.warn('⚠️  No .env.local file found. Tried paths:', envPaths.join(', '));
+  console.warn('   Environment variables will be read from system environment or process.env');
 }
 import http from 'http';
 import crypto from 'crypto';
@@ -83,16 +90,7 @@ interface PackageJobData {
 }
 
 // ============================================
-// API 认证配置
-// ============================================
-const WORKER_API_KEY = process.env.WORKER_API_KEY;
-if (!WORKER_API_KEY) {
-  console.warn('⚠️  WORKER_API_KEY not set, API endpoints are unprotected!');
-  console.warn('   Please set WORKER_API_KEY in .env.local for production use');
-}
-
-// ============================================
-// 配置常量
+// 配置常量（需要先定义，因为后面会用到）
 // ============================================
 const CONFIG = {
   // 请求大小限制
@@ -136,6 +134,20 @@ const CONFIG = {
   IS_DEVELOPMENT: (process.env.NODE_ENV || 'development') === 'development',
 } as const;
 
+// ============================================
+// API 认证配置
+// ============================================
+const WORKER_API_KEY = process.env.WORKER_API_KEY;
+if (!WORKER_API_KEY) {
+  console.warn('⚠️  WORKER_API_KEY not set, API endpoints are unprotected!');
+  console.warn('   Please set WORKER_API_KEY in .env.local for production use');
+} else {
+  console.log('✅ WORKER_API_KEY configured (length:', WORKER_API_KEY.length, 'chars)');
+  if (CONFIG.IS_DEVELOPMENT) {
+    console.log('   API key preview:', WORKER_API_KEY.substring(0, 8) + '...');
+  }
+}
+
 // CORS 配置
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
 
@@ -154,10 +166,26 @@ function authenticateRequest(req: http.IncomingMessage): boolean {
     return false;
   }
   
-  const apiKey = req.headers['x-api-key'] || 
-                 req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+  const apiKeyHeader = req.headers['x-api-key'] || req.headers['authorization'];
+  const apiKey = Array.isArray(apiKeyHeader) 
+    ? apiKeyHeader[0]?.replace(/^Bearer\s+/i, '') || apiKeyHeader[0]
+    : apiKeyHeader?.replace(/^Bearer\s+/i, '') || apiKeyHeader;
   
-  return apiKey === WORKER_API_KEY;
+  // 添加调试日志（仅在开发环境）
+  if (CONFIG.IS_DEVELOPMENT && !apiKey) {
+    console.warn('⚠️  API request without API key header. Worker requires WORKER_API_KEY but request did not include X-API-Key header.');
+    console.warn('   If you set WORKER_API_KEY in .env.local, make sure the frontend API route also sends it in the request.');
+  }
+  
+  const isValid = apiKey === WORKER_API_KEY;
+  
+  if (!isValid && CONFIG.IS_DEVELOPMENT) {
+    const apiKeyPreview = typeof apiKey === 'string' ? apiKey.substring(0, 8) + '...' : 'none';
+    console.warn('⚠️  API key mismatch. Expected:', WORKER_API_KEY?.substring(0, 8) + '...', 'Received:', apiKeyPreview);
+    console.warn('   Make sure WORKER_API_KEY in .env.local matches the value expected by the worker service.');
+  }
+  
+  return isValid;
 }
 
 /**
@@ -266,11 +294,13 @@ const worker = new Worker<PhotoJobData>(
       // 0. 使用条件更新（状态机锁）避免竞态条件
       // 注意：这不是标准的乐观锁（需要版本号字段），而是基于状态的条件更新
       // PostgreSQL/Supabase 的 UPDATE ... WHERE 是原子操作，可以安全地防止竞态条件
+      // 同时排除已删除的照片（deleted_at IS NULL）
       const { data: updatedPhoto, error: updateError } = await supabase
         .from('photos')
         .update({ status: 'processing' })
         .eq('id', photoId)
         .eq('status', 'pending') // 条件更新：只更新 pending 状态的照片（原子操作）
+        .is('deleted_at', null) // 排除已删除的照片
         .select('id, status, rotation')
         .single();
       

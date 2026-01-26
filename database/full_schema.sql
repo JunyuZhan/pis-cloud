@@ -208,11 +208,20 @@ CREATE TRIGGER photos_updated_at BEFORE UPDATE ON photos FOR EACH ROW EXECUTE FU
 CREATE TRIGGER album_templates_updated_at BEFORE UPDATE ON album_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER package_downloads_updated_at BEFORE UPDATE ON package_downloads FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- 照片计数函数
+-- 照片计数函数（排除已删除的照片）
 CREATE OR REPLACE FUNCTION increment_photo_count(album_id UUID)
 RETURNS void AS $$
 BEGIN
-  UPDATE albums SET photo_count = photo_count + 1 WHERE id = album_id;
+  -- 注意：此函数在 Worker 处理完成后调用，此时照片状态已经是 completed
+  -- 但为了安全，我们重新统计，确保只统计未删除的 completed 照片
+  UPDATE albums 
+  SET photo_count = (
+    SELECT COUNT(*) FROM photos 
+    WHERE photos.album_id = albums.id 
+    AND photos.status = 'completed' 
+    AND photos.deleted_at IS NULL
+  )
+  WHERE id = album_id;
 END;
 $$ LANGUAGE plpgsql;
 

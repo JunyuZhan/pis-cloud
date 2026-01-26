@@ -54,23 +54,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 验证照片存在且用户有权限访问
+    // 验证照片存在且用户有权限访问（排除已删除的照片）
     const { data: photo, error: photoError } = await supabase
       .from('photos')
       .select(`
         id,
         album_id,
+        deleted_at,
         albums!inner (
           id,
           deleted_at
         )
       `)
       .eq('id', id)
+      .is('deleted_at', null) // 排除已删除的照片
       .single()
 
     if (photoError || !photo) {
       return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: '照片不存在' } },
+        { error: { code: 'NOT_FOUND', message: '照片不存在或已被删除' } },
+        { status: 404 }
+      )
+    }
+    
+    // 双重检查：确保照片未删除
+    if (photo.deleted_at) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: '照片已被删除，无法旋转' } },
         { status: 404 }
       )
     }
@@ -92,21 +102,51 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 如果照片状态是 completed，需要重新处理图片以应用新的旋转角度
+    // 注意：只处理未删除的照片
     const { data: photoStatus } = await supabaseAdmin
       .from('photos')
-      .select('status, album_id, original_key')
+      .select('status, album_id, original_key, deleted_at')
       .eq('id', id)
+      .is('deleted_at', null) // 排除已删除的照片
       .single()
+    
+    // 如果照片已删除，不触发重新处理
+    if (!photoStatus || photoStatus.deleted_at) {
+      return NextResponse.json({
+        success: true,
+        data: updatedPhoto,
+        message: '旋转角度已保存，但照片已删除，无法重新处理',
+      })
+    }
 
-    if (photoStatus?.original_key) {
+    // 只有 completed 状态的照片才需要重新处理以应用旋转
+    // pending/processing 状态的照片会在处理时自动应用新的旋转角度
+    // failed 状态的照片需要手动重新处理
+    let needsReprocessing = false
+    let reprocessingError: string | null = null
+    
+    if (photoStatus.status === 'completed' && photoStatus.original_key) {
       // 触发重新处理
       try {
         const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
         const headers: HeadersInit = { 'Content-Type': 'application/json' }
         const workerApiKey = process.env.WORKER_API_KEY
+        
+        // 添加调试日志（仅在开发环境）
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Rotate API] Worker API URL:', workerApiUrl)
+          console.log('[Rotate API] Worker API Key configured:', !!workerApiKey)
+        }
+        
         if (workerApiKey) {
           headers['X-API-Key'] = workerApiKey
+        } else {
+          // 开发环境：如果没有设置 API key，记录警告
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[Rotate API] WORKER_API_KEY not set, worker may reject the request if it requires authentication')
+          }
         }
+        
         const processRes = await fetch(`${workerApiUrl}/api/process`, {
           method: 'POST',
           headers,
@@ -123,20 +163,56 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             .from('photos')
             .update({ status: 'pending' })
             .eq('id', id)
+          needsReprocessing = true
         } else {
-          console.error('Worker process error:', await processRes.text())
+          const errorText = await processRes.text()
+          console.error('[Rotate API] Worker process error:', errorText)
+          try {
+            const errorData = JSON.parse(errorText)
+            const errorMsg = errorData.message || errorData.error || 'Worker API 调用失败'
+            
+            // 如果是认证错误，提供更友好的提示
+            if (errorMsg.includes('API key') || errorMsg.includes('Unauthorized')) {
+              reprocessingError = `Worker API 认证失败。请确保 .env.local 中的 WORKER_API_KEY 与 Worker 服务配置一致。如果 Worker 服务未设置 API key，请移除 .env.local 中的 WORKER_API_KEY 或在 Worker 服务中也设置相同的值。`
+            } else {
+              reprocessingError = errorMsg
+            }
+          } catch {
+            reprocessingError = errorText || 'Worker API 调用失败'
+          }
           // Worker 调用失败，保持原状态，旋转角度已保存，下次处理时会应用
         }
-      } catch {
-        console.error('Failed to trigger reprocessing:')
+      } catch (err) {
+        console.error('[Rotate API] Failed to trigger reprocessing:', err)
+        const errorMsg = err instanceof Error ? err.message : 'Worker 服务不可用'
+        
+        // 如果是网络错误，提供更友好的提示
+        if (errorMsg.includes('fetch failed') || errorMsg.includes('ECONNREFUSED')) {
+          reprocessingError = `无法连接到 Worker 服务 (${process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'})。请确保 Worker 服务正在运行。`
+        } else {
+          reprocessingError = errorMsg
+        }
         // Worker 不可用时，保持原状态，旋转角度已保存
         // 可以通过手动重新处理或定时任务来应用旋转
       }
     }
 
+    // 如果需要重新处理但失败了，返回错误信息
+    if (photoStatus.status === 'completed' && !needsReprocessing && reprocessingError) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'WORKER_ERROR',
+          message: `旋转角度已保存，但无法触发重新处理：${reprocessingError}。请稍后手动重新生成预览图。`,
+        },
+        data: updatedPhoto,
+      }, { status: 500 })
+    }
+
     return NextResponse.json({
       success: true,
       data: updatedPhoto,
+      needsReprocessing,
     })
   } catch (err) {
     console.error('Photo rotation API error:', err)

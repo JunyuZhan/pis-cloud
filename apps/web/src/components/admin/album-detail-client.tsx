@@ -423,57 +423,75 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       })
 
       if (!response.ok) {
-        throw new Error('旋转失败')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error?.message || '旋转失败')
       }
 
+      const result = await response.json()
       const finalRotation = nextRotation === 0 ? null : nextRotation
       
-      // 先更新本地状态为处理中（显示加载动画）
+      // 更新旋转角度（无论是否需要重新处理）
       setPhotos((prev) =>
         prev.map((p) =>
           p.id === photoId 
-            ? { ...p, rotation: finalRotation, status: 'pending' as const } 
+            ? { ...p, rotation: finalRotation } 
             : p
         )
       )
       
-      // 等待图片处理完成后再更新
-      let attempts = 0
-      const maxAttempts = 30 // 最多等待30秒
-      const checkStatus = async () => {
-        try {
-          const statusRes = await fetch(`/api/admin/albums/${album.id}/photos`)
-          if (statusRes.ok) {
-            const { photos: updatedPhotos } = await statusRes.json()
-            const updatedPhoto = updatedPhotos.find((p: Photo) => p.id === photoId)
-            
-            if (updatedPhoto && updatedPhoto.status === 'completed') {
-              // 图片处理完成，用服务器返回的数据更新本地状态
-              setPhotos((prev) =>
-                prev.map((p) =>
-                  p.id === photoId ? { ...updatedPhoto } : p
+      // 只有在需要重新处理时才更新状态为 pending 并开始轮询
+      if (result.needsReprocessing) {
+        // 更新状态为处理中（显示加载动画）
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.id === photoId 
+              ? { ...p, status: 'pending' as const } 
+              : p
+          )
+        )
+        
+        // 等待图片处理完成后再更新
+        let attempts = 0
+        const maxAttempts = 30 // 最多等待30秒
+        const checkStatus = async () => {
+          try {
+            const statusRes = await fetch(`/api/admin/albums/${album.id}/photos`)
+            if (statusRes.ok) {
+              const { photos: updatedPhotos } = await statusRes.json()
+              const updatedPhoto = updatedPhotos.find((p: Photo) => p.id === photoId)
+              
+              if (updatedPhoto && updatedPhoto.status === 'completed') {
+                // 图片处理完成，用服务器返回的数据更新本地状态
+                setPhotos((prev) =>
+                  prev.map((p) =>
+                    p.id === photoId ? { ...updatedPhoto } : p
+                  )
                 )
-              )
-              showSuccess(finalRotation === null ? '已重置为自动旋转' : `已旋转 ${finalRotation}°`)
-              return
+                showSuccess(finalRotation === null ? '已重置为自动旋转' : `已旋转 ${finalRotation}°`)
+                return
+              }
             }
+            
+            attempts++
+            if (attempts < maxAttempts) {
+              setTimeout(checkStatus, 1000) // 每秒检查一次
+            } else {
+              // 超时后刷新页面
+              router.refresh()
+            }
+          } catch (error) {
+            console.error('Failed to check photo status:', error)
+            setTimeout(() => router.refresh(), 2000)
           }
-          
-          attempts++
-          if (attempts < maxAttempts) {
-            setTimeout(checkStatus, 1000) // 每秒检查一次
-          } else {
-            // 超时后刷新页面
-            router.refresh()
-          }
-        } catch (error) {
-          console.error('Failed to check photo status:', error)
-          setTimeout(() => router.refresh(), 2000)
         }
+        
+        // 延迟1秒后开始检查，给处理任务一些启动时间
+        setTimeout(checkStatus, 1000)
+      } else {
+        // 不需要重新处理（可能是 pending/processing/failed 状态，或者照片还未处理）
+        // 直接显示成功消息
+        showSuccess(finalRotation === null ? '已重置为自动旋转' : `已旋转 ${finalRotation}°`)
       }
-      
-      // 延迟1秒后开始检查，给处理任务一些启动时间
-      setTimeout(checkStatus, 1000)
     } catch (error) {
       console.error(error)
       handleApiError(error, '旋转失败，请重试')
@@ -1052,10 +1070,10 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   {coverPhotoId !== photo.id && (
                     <button
                       onClick={(e) => handleSetCover(photo.id, e)}
-                      className="flex-1 bg-black/60 hover:bg-black/80 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs md:text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-h-[44px] md:min-h-0"
+                      className="bg-black/60 hover:bg-black/80 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[100px] md:min-w-[80px] min-h-[44px] md:min-h-0"
                     >
-                      <ImageIcon className="w-4 h-4 md:w-3 md:h-3" />
-                      设为封面
+                      <ImageIcon className="w-4 h-4 md:w-3 md:h-3 flex-shrink-0" />
+                      <span>设为封面</span>
                     </button>
                   )}
                   {showDeleted ? (
