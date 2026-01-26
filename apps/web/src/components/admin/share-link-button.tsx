@@ -40,12 +40,14 @@ export function ShareLinkButton({
   const [isWeixin, setIsWeixin] = useState(false)
   const [generatingPoster, setGeneratingPoster] = useState(false)
   const [showPosterConfig, setShowPosterConfig] = useState(false)
+  const [mounted, setMounted] = useState(false)
   // 使用经典模板作为默认样式，确保海报质量
   const [posterStyle, setPosterStyle] = useState<PosterStyle>(POSTER_PRESETS.classic)
   const [posterPreview, setPosterPreview] = useState<string | null>(null)
   const timeoutRefs = useRef<Set<NodeJS.Timeout>>(new Set())
 
   useEffect(() => {
+    setMounted(true)
     setIsWeixin(isWeChat())
   }, [])
 
@@ -408,26 +410,26 @@ export function ShareLinkButton({
                 <button
                   type="button"
                   onClick={handleWeChatTimeline}
-                  className="flex flex-col items-center justify-center gap-2 p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[100px]"
+                  className="flex flex-col items-center justify-center gap-2 p-4 md:p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[120px] md:min-h-[100px]"
                   aria-label="分享到微信朋友圈"
                 >
-                  <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
-                    <Users className="w-6 h-6 text-white" />
+                  <div className="w-14 h-14 md:w-12 md:h-12 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
+                    <Users className="w-7 h-7 md:w-6 md:h-6 text-white" />
                   </div>
-                  <span className="text-xs text-text-secondary">朋友圈</span>
+                  <span className="text-sm md:text-xs text-text-secondary">朋友圈</span>
                 </button>
 
                 {/* 微信好友 */}
                 <button
                   type="button"
                   onClick={handleWeChatFriend}
-                  className="flex flex-col items-center justify-center gap-2 p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[100px]"
+                  className="flex flex-col items-center justify-center gap-2 p-4 md:p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[120px] md:min-h-[100px]"
                   aria-label="分享给微信好友"
                 >
-                  <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
-                    <MessageCircle className="w-6 h-6 text-white" />
+                  <div className="w-14 h-14 md:w-12 md:h-12 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
+                    <MessageCircle className="w-7 h-7 md:w-6 md:h-6 text-white" />
                   </div>
-                  <span className="text-xs text-text-secondary">微信好友</span>
+                  <span className="text-sm md:text-xs text-text-secondary">微信好友</span>
                 </button>
 
                 {/* 原生分享（移动端） */}
@@ -435,12 +437,12 @@ export function ShareLinkButton({
                   <button
                     type="button"
                     onClick={handleNativeShare}
-                    className="flex flex-col items-center justify-center gap-2 p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[100px]"
+                    className="flex flex-col items-center justify-center gap-2 p-4 md:p-4 bg-surface hover:bg-surface-elevated rounded-lg transition-colors min-h-[120px] md:min-h-[100px]"
                   >
-                    <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
-                      <Share2 className="w-6 h-6 text-background" />
+                    <div className="w-14 h-14 md:w-12 md:h-12 rounded-full bg-accent flex items-center justify-center">
+                      <Share2 className="w-7 h-7 md:w-6 md:h-6 text-background" />
                     </div>
-                    <span className="text-xs text-text-secondary">更多</span>
+                    <span className="text-sm md:text-xs text-text-secondary">更多</span>
                   </button>
                 )}
               </div>

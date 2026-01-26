@@ -484,7 +484,7 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                         handleSetCover(photoId)
                         clearSelection()
                       }}
-                      className="btn-ghost text-sm min-h-[44px] px-3 py-2.5 active:scale-95"
+                      className="btn-ghost text-xs min-h-[44px] px-3 py-2.5 active:scale-95"
                     >
                       <ImageIcon className="w-4 h-4" />
                       <span className="hidden sm:inline">设为封面</span>
@@ -680,12 +680,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       }}
                       disabled={index === 0 || isSavingOrder}
                       className={cn(
-                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        "bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "p-2 md:p-1.5 flex items-center justify-center",
+                        "min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-[32px]"
                       )}
                       title="置顶"
                     >
-                      <ChevronUp className="w-4 h-4 text-gray-800" />
+                      <ChevronUp className="w-5 h-5 md:w-4 md:h-4 text-gray-800" />
                     </button>
                     <button
                       onClick={(e) => {
@@ -694,12 +695,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       }}
                       disabled={index === 0 || isSavingOrder}
                       className={cn(
-                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        "bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "p-2 md:p-1.5 flex items-center justify-center",
+                        "min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-[32px]"
                       )}
                       title="上移"
                     >
-                      <ArrowUp className="w-3.5 h-3.5 text-gray-800" />
+                      <ArrowUp className="w-4 h-4 md:w-3.5 md:h-3.5 text-gray-800" />
                     </button>
                     <button
                       onClick={(e) => {
@@ -708,12 +710,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       }}
                       disabled={index === filteredPhotos.length - 1 || isSavingOrder}
                       className={cn(
-                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        "bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "p-2 md:p-1.5 flex items-center justify-center",
+                        "min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-[32px]"
                       )}
                       title="下移"
                     >
-                      <ArrowDown className="w-3.5 h-3.5 text-gray-800" />
+                      <ArrowDown className="w-4 h-4 md:w-3.5 md:h-3.5 text-gray-800" />
                     </button>
                     <button
                       onClick={(e) => {
@@ -722,8 +725,9 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       }}
                       disabled={index === filteredPhotos.length - 1 || isSavingOrder}
                       className={cn(
-                        "p-1.5 bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        "min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        "bg-white/90 hover:bg-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        "p-2 md:p-1.5 flex items-center justify-center",
+                        "min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-[32px]"
                       )}
                       title="置底"
                     >
@@ -738,17 +742,17 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                 <div className="absolute top-2 left-0 right-0 z-20 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <button
                     onClick={(e) => handleRotateLeft(photo.id, e)}
-                    className="bg-black/70 hover:bg-black/90 p-2 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto"
+                    className="bg-black/70 hover:bg-black/90 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto p-2.5 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center"
                     title="向左旋转（逆时针）"
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <RotateCcw className="w-5 h-5 md:w-4 md:h-4" />
                   </button>
                   <button
                     onClick={(e) => handleRotateRight(photo.id, e)}
-                    className="bg-black/70 hover:bg-black/90 p-2 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto"
+                    className="bg-black/70 hover:bg-black/90 rounded-full text-white transition-colors shadow-lg backdrop-blur-sm pointer-events-auto p-2.5 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center"
                     title="向右旋转（顺时针）"
                   >
-                    <RotateCw className="w-4 h-4" />
+                    <RotateCw className="w-5 h-5 md:w-4 md:h-4" />
                   </button>
                 </div>
               )}
@@ -759,18 +763,18 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                   {coverPhotoId !== photo.id && (
                     <button
                       onClick={(e) => handleSetCover(photo.id, e)}
-                      className="flex-1 bg-black/60 hover:bg-black/80 px-2 py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1"
+                      className="flex-1 bg-black/60 hover:bg-black/80 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs md:text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-h-[44px] md:min-h-0"
                     >
-                      <ImageIcon className="w-3 h-3" />
+                      <ImageIcon className="w-4 h-4 md:w-3 md:h-3" />
                       设为封面
                     </button>
                   )}
                   <button
                     onClick={(e) => handleDeletePhoto(photo.id, e)}
-                    className="bg-red-500/80 hover:bg-red-600 px-2 py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1 min-w-[60px]"
+                    className="bg-red-500/80 hover:bg-red-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
                     disabled={isDeleting}
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-4 h-4 md:w-3 md:h-3" />
                     删除
                   </button>
                 </div>

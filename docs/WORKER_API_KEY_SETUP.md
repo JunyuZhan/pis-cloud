@@ -40,14 +40,14 @@ WORKER_API_KEY=fcf95e5318090de961bbb099203778c982526d12bb72979d3c43c216cbc0ef5c
 
 **SSH 到服务器**:
 ```bash
-ssh root@192.168.50.10
+ssh user@your-server-ip
 ```
 
 **编辑环境变量文件**:
 ```bash
 # 找到 Worker 的环境变量文件（根据你的部署方式）
 # 如果使用 Docker Compose:
-nano /root/PIS/.env.local
+nano /path/to/PIS/.env.local
 
 # 如果使用 Docker 环境变量:
 # 需要修改 docker-compose.yml 或 Dockerfile
@@ -61,7 +61,7 @@ WORKER_API_KEY=fcf95e5318090de961bbb099203778c982526d12bb72979d3c43c216cbc0ef5c
 **重启 Worker 服务**:
 ```bash
 # 如果使用 Docker Compose:
-cd /root/PIS
+cd /path/to/PIS
 docker-compose restart worker
 
 # 如果使用单独的 Docker 容器:
@@ -93,16 +93,16 @@ docker logs pis-worker --tail 20
 
 ```bash
 # 测试未授权访问（应该返回 401）
-curl -X POST http://worker.albertzhan.top/api/process \
+curl -X POST http://your-worker-domain.com/api/process \
   -H "Content-Type: application/json" \
   -d '{"photoId":"test","albumId":"test","originalKey":"test"}'
 
 # 应该返回: {"error":"Unauthorized","message":"Invalid or missing API key"}
 
 # 测试带认证的访问（使用你的 API Key）
-curl -X POST http://worker.albertzhan.top/api/process \
+curl -X POST http://your-worker-domain.com/api/process \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: fcf95e5318090de961bbb099203778c982526d12bb72979d3c43c216cbc0ef5c" \
+  -H "X-API-Key: your-generated-api-key" \
   -d '{"photoId":"test","albumId":"test","originalKey":"test"}'
 
 # 应该返回: {"success":true,"message":"Job queued"}
@@ -111,7 +111,7 @@ curl -X POST http://worker.albertzhan.top/api/process \
 ### 3. 测试健康检查（不需要认证）
 
 ```bash
-curl http://worker.albertzhan.top/health
+curl http://your-worker-domain.com/health
 
 # 应该返回: {"status":"ok","timestamp":"...","services":{...}}
 ```

@@ -30,6 +30,7 @@ for (const envPath of envPaths) {
   }
 }
 import http from 'http';
+import crypto from 'crypto';
 import { Worker, Job, Queue } from 'bullmq';
 import { createClient } from '@supabase/supabase-js';
 import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
@@ -50,6 +51,7 @@ import {
 } from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
+import { getAlbumCache } from './lib/album-cache.js';
 
 // 检查必要的环境变量 (支持两种变量名)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -88,9 +90,45 @@ if (!WORKER_API_KEY) {
   console.warn('   Please set WORKER_API_KEY in .env.local for production use');
 }
 
-// 请求大小限制
-const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB for JSON requests
-const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB for file uploads (统一限制，照片最多几十MB)
+// ============================================
+// 配置常量
+// ============================================
+const CONFIG = {
+  // 请求大小限制
+  MAX_BODY_SIZE: 10 * 1024 * 1024, // 10MB for JSON requests
+  MAX_UPLOAD_SIZE: 100 * 1024 * 1024, // 100MB for file uploads
+  MAX_PART_SIZE: 100 * 1024 * 1024, // 100MB per part (S3 standard)
+  
+  // 队列配置
+  PHOTO_PROCESSING_CONCURRENCY: parseInt(process.env.PHOTO_PROCESSING_CONCURRENCY || '5'),
+  PHOTO_PROCESSING_LIMIT_MAX: parseInt(process.env.PHOTO_PROCESSING_LIMIT_MAX || '10'),
+  PHOTO_PROCESSING_LIMIT_DURATION: parseInt(process.env.PHOTO_PROCESSING_LIMIT_DURATION || '1000'),
+  PACKAGE_PROCESSING_CONCURRENCY: parseInt(process.env.PACKAGE_PROCESSING_CONCURRENCY || '2'),
+  
+  // 恢复配置
+  STUCK_PHOTO_THRESHOLD_HOURS: parseInt(process.env.STUCK_PHOTO_THRESHOLD_HOURS || '1'),
+  
+  // 打包下载配置
+  PACKAGE_DOWNLOAD_EXPIRY_DAYS: parseInt(process.env.PACKAGE_DOWNLOAD_EXPIRY_DAYS || '15'),
+  
+  // 扫描配置
+  MAX_SCAN_BATCH_SIZE: parseInt(process.env.MAX_SCAN_BATCH_SIZE || '1000'),
+  SCAN_BATCH_SIZE: parseInt(process.env.SCAN_BATCH_SIZE || '10'),
+  
+  // 打包配置
+  MAX_PACKAGE_PHOTOS: parseInt(process.env.MAX_PACKAGE_PHOTOS || '500'),
+  
+  // 性能优化配置
+  ENABLE_ALBUM_CACHE: process.env.ENABLE_ALBUM_CACHE !== 'false', // 默认启用缓存
+  ALBUM_CACHE_TTL_MS: parseInt(process.env.ALBUM_CACHE_TTL_MS || '300000'), // 5分钟缓存
+  
+  // 优雅退出配置
+  SHUTDOWN_TIMEOUT_MS: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '30000'),
+  
+  // 开发模式
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  IS_DEVELOPMENT: (process.env.NODE_ENV || 'development') === 'development',
+} as const;
 
 // CORS 配置
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
@@ -100,14 +138,40 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean)
  */
 function authenticateRequest(req: http.IncomingMessage): boolean {
   if (!WORKER_API_KEY) {
-    // 如果没有配置 API Key，允许访问（开发环境）
-    return true;
+    // 开发环境：允许访问但记录警告
+    if (CONFIG.IS_DEVELOPMENT) {
+      // 开发环境允许访问，但建议设置 API Key
+      return true;
+    }
+    // 生产环境：如果没有配置 API Key，拒绝访问
+    console.error('❌ WORKER_API_KEY not set in production! Denying access.');
+    return false;
   }
   
   const apiKey = req.headers['x-api-key'] || 
                  req.headers['authorization']?.replace(/^Bearer\s+/i, '');
   
   return apiKey === WORKER_API_KEY;
+}
+
+/**
+ * 验证 UUID 格式
+ */
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+/**
+ * 验证输入参数
+ */
+function validateInput(data: any, requiredFields: string[]): { valid: boolean; error?: string } {
+  for (const field of requiredFields) {
+    if (data[field] === undefined || data[field] === null || data[field] === '') {
+      return { valid: false, error: `Missing required field: ${field}` };
+    }
+  }
+  return { valid: true };
 }
 
 /**
@@ -142,7 +206,7 @@ function parseRequestBody(
       bodySize += chunk.length;
       if (bodySize > maxSize) {
         req.destroy();
-        reject(new Error(`Request body too large (max: ${maxSize} bytes)`));
+        reject(new Error(`Request body too large (max: ${maxSize} bytes, received: ${bodySize} bytes)`));
         return;
       }
       body += chunk.toString('utf8');
@@ -154,6 +218,12 @@ function parseRequestBody(
     
     req.on('error', (err) => {
       reject(err);
+    });
+    
+    // 设置超时（防止慢速攻击）
+    req.setTimeout(30000, () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
     });
   });
 }
@@ -167,10 +237,14 @@ async function parseJsonBody(
 ): Promise<any> {
   const body = await parseRequestBody(req, maxSize);
   
+  if (!body || body.trim().length === 0) {
+    throw new Error('Request body is empty');
+  }
+  
   try {
     return JSON.parse(body);
   } catch (parseError) {
-    throw new Error('Invalid JSON format');
+    throw new Error(`Invalid JSON format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
   }
 }
 
@@ -183,77 +257,115 @@ const worker = new Worker<PhotoJobData>(
     console.log(`[${job.id}] Processing photo ${photoId} for album ${albumId}`);
 
     try {
-      // 0. 先检查数据库记录是否存在（可能在上传失败时已被清理）
-      const { data: existingPhoto, error: checkError } = await supabase
-        .from('photos')
-        .select('id, status')
-        .eq('id', photoId)
-        .single();
-      
-      // 如果记录不存在，说明上传失败后已被清理，直接返回
-      if (checkError || !existingPhoto) {
-        console.log(`[${job.id}] Photo record not found (likely cleaned up after upload failure), skipping`);
-        return; // 不抛出错误，避免重试
-      }
-      
-      // 如果状态已经是 completed 或 failed，跳过处理
-      if (existingPhoto.status === 'completed' || existingPhoto.status === 'failed') {
-        console.log(`[${job.id}] Photo already ${existingPhoto.status}, skipping`);
-        return;
-      }
-
-      // 1. 更新状态为 processing
-      const { error: updateError } = await supabase
+      // 0. 使用条件更新（状态机锁）避免竞态条件
+      // 注意：这不是标准的乐观锁（需要版本号字段），而是基于状态的条件更新
+      // PostgreSQL/Supabase 的 UPDATE ... WHERE 是原子操作，可以安全地防止竞态条件
+      const { data: updatedPhoto, error: updateError } = await supabase
         .from('photos')
         .update({ status: 'processing' })
-        .eq('id', photoId);
+        .eq('id', photoId)
+        .eq('status', 'pending') // 条件更新：只更新 pending 状态的照片（原子操作）
+        .select('id, status, rotation')
+        .single();
       
-      // 如果更新失败（记录可能已被删除），直接返回
-      if (updateError) {
-        console.log(`[${job.id}] Failed to update status (record may have been deleted), skipping`);
+      // 如果更新失败或没有影响行数，说明照片已被其他 worker 处理或不存在
+      if (updateError || !updatedPhoto) {
+        // 检查照片是否存在以及当前状态
+        const { data: existingPhoto } = await supabase
+          .from('photos')
+          .select('id, status')
+          .eq('id', photoId)
+          .single();
+        
+        if (!existingPhoto) {
+          console.log(`[${job.id}] Photo record not found (likely cleaned up after upload failure), skipping`);
+          return;
+        }
+        
+        if (existingPhoto.status === 'completed' || existingPhoto.status === 'failed') {
+          console.log(`[${job.id}] Photo already ${existingPhoto.status}, skipping`);
+          return;
+        }
+        
+        // 如果状态是 processing，说明被其他 worker 处理中
+        if (existingPhoto.status === 'processing') {
+          console.log(`[${job.id}] Photo is being processed by another worker, skipping`);
+          return;
+        }
+        
+        console.log(`[${job.id}] Failed to update status, skipping`);
         return;
       }
+      
+      // 获取照片的旋转角度（已在更新时查询）
+      const photoRotation = updatedPhoto.rotation ?? null;
 
-      // 2. 从存储下载原图
-      // 如果文件不存在，说明上传失败，会抛出 NoSuchKey 错误，在 catch 中处理
-      console.time(`[${job.id}] Download`);
+      // 2. 并行执行：下载原图 + 获取相册配置（减少等待时间）
+      // 优化：使用缓存减少数据库查询
+      console.time(`[${job.id}] Download+Config`);
       let originalBuffer: Buffer;
+      let album: any;
+      
       try {
-        originalBuffer = await downloadFile(originalKey);
-      } catch (downloadErr: any) {
-        // 如果下载失败且是文件不存在错误，清理数据库记录
-        const isFileNotFound = downloadErr?.code === 'NoSuchKey' || 
-                              downloadErr?.message?.includes('does not exist') ||
-                              downloadErr?.message?.includes('NoSuchKey');
+        // 先检查缓存
+        const albumCache = getAlbumCache();
+        let cachedAlbum = CONFIG.ENABLE_ALBUM_CACHE ? albumCache.get(albumId) : null;
         
-        if (isFileNotFound) {
-          console.log(`[${job.id}] File not found during download, cleaning up database record`);
-          try {
-            await supabase
-              .from('photos')
-              .delete()
-              .eq('id', photoId);
-          } catch {
-          }
-          return; // 不抛出错误，避免重试
+        const [downloadResult, albumResult] = await Promise.all([
+          // 下载原图
+          downloadFile(originalKey).catch(async (downloadErr: any) => {
+            const isFileNotFound = downloadErr?.code === 'NoSuchKey' || 
+                                  downloadErr?.message?.includes('does not exist') ||
+                                  downloadErr?.message?.includes('NoSuchKey');
+            
+            if (isFileNotFound) {
+              console.log(`[${job.id}] File not found during download, cleaning up database record`);
+              try {
+                await supabase
+                  .from('photos')
+                  .delete()
+                  .eq('id', photoId);
+              } catch {
+              }
+              throw new Error('FILE_NOT_FOUND');
+            }
+            throw downloadErr;
+          }),
+          // 获取相册配置（如果缓存未命中）
+          cachedAlbum 
+            ? Promise.resolve({ data: cachedAlbum, error: null })
+            : supabase
+                .from('albums')
+                .select('id, watermark_enabled, watermark_type, watermark_config')
+                .eq('id', albumId)
+                .single()
+        ]);
+        
+        originalBuffer = downloadResult;
+        const { data: albumData, error: albumError } = albumResult;
+        
+        if (albumError || !albumData) {
+          throw new Error(`Album not found: ${albumId}`);
         }
-        throw downloadErr; // 其他错误继续抛出
+        
+        album = albumData;
+        
+        // 更新缓存（如果是从数据库查询的）
+        if (!cachedAlbum && CONFIG.ENABLE_ALBUM_CACHE) {
+          albumCache.set(albumId, {
+            id: albumData.id,
+            watermark_enabled: albumData.watermark_enabled,
+            watermark_type: albumData.watermark_type,
+            watermark_config: albumData.watermark_config,
+          });
+        }
+      } catch (err: any) {
+        if (err.message === 'FILE_NOT_FOUND') {
+          return; // 文件不存在，已清理，不重试
+        }
+        throw err;
       }
-      console.timeEnd(`[${job.id}] Download`);
-
-      // 3. 获取照片的手动旋转角度
-      const { data: photo } = await supabase
-        .from('photos')
-        .select('rotation')
-        .eq('id', photoId)
-        .single();
-
-      // 4. 获取相册水印配置
-      const { data: album } = await supabase
-        .from('albums')
-        .select('watermark_enabled, watermark_type, watermark_config')
-        .eq('id', albumId)
-        .single();
+      console.timeEnd(`[${job.id}] Download+Config`);
 
       // 构建水印配置（支持新旧格式）
       const watermarkConfigRaw = (album?.watermark_config as any) || {};
@@ -269,13 +381,13 @@ const worker = new Worker<PhotoJobData>(
         position: watermarkConfigRaw.position ?? 'center',
       };
 
-      // 5. 处理图片 (Sharp)
+      // 4. 处理图片 (Sharp)
       console.time(`[${job.id}] Process`);
       const processor = new PhotoProcessor(originalBuffer);
-      const result = await processor.process(watermarkConfig, photo?.rotation ?? null);
+      const result = await processor.process(watermarkConfig, photoRotation);
       console.timeEnd(`[${job.id}] Process`);
 
-      // 6. 上传处理后的图片到存储
+      // 5. 上传处理后的图片到存储
       const thumbKey = `processed/thumbs/${albumId}/${photoId}.jpg`;
       const previewKey = `processed/previews/${albumId}/${photoId}.jpg`;
 
@@ -308,7 +420,7 @@ const worker = new Worker<PhotoJobData>(
 
       if (error) throw error;
 
-      // 8. 优化：使用数据库函数增量更新相册照片数量，避免每次 COUNT 查询
+      // 7. 优化：使用数据库函数增量更新相册照片数量，避免每次 COUNT 查询
       // 这样可以减少数据库负载，特别是在批量上传时
       const { error: countError } = await supabase.rpc('increment_photo_count', {
         album_id: albumId
@@ -355,21 +467,30 @@ const worker = new Worker<PhotoJobData>(
         return;
       }
       
-      // 其他错误，更新状态为 failed
-      await supabase
-        .from('photos')
-        .update({ status: 'failed' })
-        .eq('id', photoId);
+      // 其他错误，更新状态为 failed（尝试更新，但不阻塞）
+      try {
+        const { error: updateError } = await supabase
+          .from('photos')
+          .update({ status: 'failed' })
+          .eq('id', photoId);
+        
+        if (updateError) {
+          console.warn(`[${job.id}] Failed to update status to failed:`, updateError.message);
+        }
+      } catch (updateErr) {
+        console.warn(`[${job.id}] Error updating status to failed:`, updateErr);
+        // 不抛出错误，继续抛出原始错误
+      }
       
       throw err; // 让 BullMQ 知道任务失败 (以便重试)
     }
   },
   {
     connection,
-    concurrency: 5, // 适当增加并发
+    concurrency: CONFIG.PHOTO_PROCESSING_CONCURRENCY,
     limiter: {
-      max: 10,
-      duration: 1000,
+      max: CONFIG.PHOTO_PROCESSING_LIMIT_MAX,
+      duration: CONFIG.PHOTO_PROCESSING_LIMIT_DURATION,
     },
   }
 );
@@ -398,12 +519,16 @@ const packageWorker = new Worker<PackageJobData>(
         .update({ status: 'processing' })
         .eq('id', packageId);
 
-      // 2. 获取相册水印配置和标题
-      const { data: album } = await supabase
+      // 2. 获取相册水印配置和标题（验证相册存在）
+      const { data: album, error: albumError } = await supabase
         .from('albums')
-        .select('title, watermark_enabled, watermark_type, watermark_config')
+        .select('id, title, watermark_enabled, watermark_type, watermark_config')
         .eq('id', albumId)
         .single();
+      
+      if (albumError || !album) {
+        throw new Error(`Album not found: ${albumId}`);
+      }
 
       // 构建水印配置（与照片处理逻辑保持一致，支持新旧格式）
       const watermarkConfigRaw = (album?.watermark_config as any) || {};
@@ -458,10 +583,10 @@ const packageWorker = new Worker<PackageJobData>(
       });
       console.timeEnd(`[Package ${job.id}] Upload ZIP`);
 
-      // 6. 生成下载链接（15天有效期）
+      // 6. 生成下载链接
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 15);
-      const downloadUrl = await getPresignedGetUrl(zipKey, 15 * 24 * 60 * 60); // 15天
+      expiresAt.setDate(expiresAt.getDate() + CONFIG.PACKAGE_DOWNLOAD_EXPIRY_DAYS);
+      const downloadUrl = await getPresignedGetUrl(zipKey, CONFIG.PACKAGE_DOWNLOAD_EXPIRY_DAYS * 24 * 60 * 60);
 
       // 7. 更新数据库
       await supabase
@@ -491,7 +616,7 @@ const packageWorker = new Worker<PackageJobData>(
   },
   {
     connection,
-    concurrency: 2, // 打包任务并发数较低，因为资源消耗大
+    concurrency: CONFIG.PACKAGE_PROCESSING_CONCURRENCY,
   }
 );
 
@@ -579,7 +704,7 @@ const server = http.createServer(async (req, res) => {
   // 获取预签名上传 URL (保留兼容)
   if (url.pathname === '/api/presign' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { key } = body;
         if (!key) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -593,9 +718,13 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('Presign error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -615,45 +744,96 @@ const server = http.createServer(async (req, res) => {
 
     const chunks: Buffer[] = [];
     let uploadSize = 0;
+    let isAborted = false;
+    
+    // 设置请求超时（防止慢速攻击）
+    req.setTimeout(300000, () => { // 5分钟超时
+      if (!isAborted) {
+        isAborted = true;
+        req.destroy();
+        res.writeHead(408, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Upload timeout' }));
+      }
+    });
     
     req.on('data', (chunk: Buffer) => {
+      if (isAborted) return;
+      
       uploadSize += chunk.length;
-      if (uploadSize > MAX_UPLOAD_SIZE) {
+      if (uploadSize > CONFIG.MAX_UPLOAD_SIZE) {
+        isAborted = true;
         req.destroy();
         res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `File too large (max: ${MAX_UPLOAD_SIZE} bytes)` }));
+        res.end(JSON.stringify({ error: `File too large (max: ${CONFIG.MAX_UPLOAD_SIZE} bytes)` }));
         return;
       }
       chunks.push(chunk);
     });
     
+    req.on('aborted', () => {
+      isAborted = true;
+    });
+    
     req.on('end', async () => {
+      if (isAborted) return;
       try {
         const buffer = Buffer.concat(chunks);
         console.log(`[Upload] Uploading ${buffer.length} bytes to storage: ${key}`);
         await uploadFile(key, buffer, { 'Content-Type': contentType });
         console.log(`[Upload] Successfully uploaded: ${key}`);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, key }));
+        
+        if (!isAborted) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, key }));
+        }
       } catch (err: any) {
-        console.error('Upload error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        if (!isAborted) {
+          console.error('Upload error:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
       }
     });
+    
+    req.on('error', (err) => {
+      if (!isAborted) {
+        isAborted = true;
+        console.error('Upload request error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Request error' }));
+      }
+    });
+    
     return;
   }
 
   // 触发照片处理
   if (url.pathname === '/api/process' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { photoId, albumId, originalKey } = body;
-        if (!photoId || !albumId || !originalKey) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing required fields' }));
-          return;
-        }
+      
+      // 输入验证
+      const validation = validateInput(body, ['photoId', 'albumId', 'originalKey']);
+      if (!validation.valid) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: validation.error }));
+        return;
+      }
+      
+      // UUID 格式验证
+      if (!isValidUUID(photoId) || !isValidUUID(albumId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid UUID format for photoId or albumId' }));
+        return;
+      }
+      
+      // Key 格式验证（基本检查）
+      if (typeof originalKey !== 'string' || originalKey.length === 0 || originalKey.length > 500) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid originalKey format' }));
+        return;
+      }
 
       // 添加到处理队列
       await photoQueue.add('process-photo', { photoId, albumId, originalKey });
@@ -663,9 +843,13 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('Process queue error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -673,13 +857,21 @@ const server = http.createServer(async (req, res) => {
   // 清理文件（用于 cleanup API）
   if (url.pathname === '/api/cleanup-file' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { key } = body;
-        if (!key) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing key parameter' }));
-          return;
-        }
+      
+      const validation = validateInput(body, ['key']);
+      if (!validation.valid) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: validation.error }));
+        return;
+      }
+      
+      if (typeof key !== 'string' || key.length === 0 || key.length > 500) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid key format' }));
+        return;
+      }
 
         // 尝试删除文件（如果不存在也不会报错）
         try {
@@ -700,9 +892,13 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('[Cleanup] File cleanup error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -714,7 +910,7 @@ const server = http.createServer(async (req, res) => {
   // 初始化分片上传
   if (url.pathname === '/api/multipart/init' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { key } = body;
         if (!key) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -758,20 +954,39 @@ const server = http.createServer(async (req, res) => {
 
     const chunks: Buffer[] = [];
     let partSize = 0;
+    let isAborted = false;
+    
+    // 设置请求超时
+    req.setTimeout(300000, () => { // 5分钟超时
+      if (!isAborted) {
+        isAborted = true;
+        req.destroy();
+        res.writeHead(408, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Part upload timeout' }));
+      }
+    });
     
     req.on('data', (chunk: Buffer) => {
+      if (isAborted) return;
+      
       partSize += chunk.length;
-      // 单个分片限制为 100MB（S3 标准）
-      if (partSize > 100 * 1024 * 1024) {
+      // 单个分片限制（S3 标准）
+      if (partSize > CONFIG.MAX_PART_SIZE) {
+        isAborted = true;
         req.destroy();
         res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Part too large (max: 100MB)' }));
+        res.end(JSON.stringify({ error: `Part too large (max: ${CONFIG.MAX_PART_SIZE} bytes)` }));
         return;
       }
       chunks.push(chunk);
     });
     
+    req.on('aborted', () => {
+      isAborted = true;
+    });
+    
     req.on('end', async () => {
+      if (isAborted) return;
       try {
         const buffer = Buffer.concat(chunks);
         console.log(`[Multipart] Uploading part ${partNumber} for ${key}, size: ${buffer.length}`);
@@ -779,21 +994,35 @@ const server = http.createServer(async (req, res) => {
         const { etag } = await uploadPart(key, uploadId, partNumber, buffer);
         console.log(`[Multipart] Part ${partNumber} uploaded, etag: ${etag}`);
         
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ etag, partNumber }));
+        if (!isAborted) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ etag, partNumber }));
+        }
       } catch (err: any) {
-        console.error('Multipart upload error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        if (!isAborted) {
+          console.error('Multipart upload error:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
       }
     });
+    
+    req.on('error', (err) => {
+      if (!isAborted) {
+        isAborted = true;
+        console.error('Multipart request error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Request error' }));
+      }
+    });
+    
     return;
   }
 
   // 完成分片上传
   if (url.pathname === '/api/multipart/complete' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { key, uploadId, parts } = body;
         if (!key || !uploadId || !parts || !Array.isArray(parts)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -809,9 +1038,13 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('Multipart complete error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -819,7 +1052,7 @@ const server = http.createServer(async (req, res) => {
   // 取消分片上传
   if (url.pathname === '/api/multipart/abort' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { key, uploadId } = body;
         if (!key || !uploadId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -835,9 +1068,82 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('Multipart abort error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
+    }
+    return;
+  }
+
+  // ============================================
+  // 打包下载 API
+  // ============================================
+
+  // 创建打包下载任务
+  if (url.pathname === '/api/package' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { packageId, albumId, photoIds, includeWatermarked, includeOriginal } = body;
+      
+      if (!packageId || !albumId || !photoIds || !Array.isArray(photoIds) || photoIds.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing required fields: packageId, albumId, photoIds (non-empty array)' }));
+        return;
+      }
+
+      // 验证UUID格式
+      if (!isValidUUID(packageId) || !isValidUUID(albumId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid UUID format for packageId or albumId' }));
+        return;
+      }
+
+      // 验证photoIds数组中的每个ID都是有效的UUID
+      const invalidPhotoIds = photoIds.filter(id => typeof id !== 'string' || !isValidUUID(id));
+      if (invalidPhotoIds.length > 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Invalid UUID format in photoIds array (${invalidPhotoIds.length} invalid IDs)` }));
+        return;
+      }
+
+      // 限制打包数量（与前端保持一致）
+      if (photoIds.length > CONFIG.MAX_PACKAGE_PHOTOS) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Too many photos (${photoIds.length} > ${CONFIG.MAX_PACKAGE_PHOTOS}). Maximum ${CONFIG.MAX_PACKAGE_PHOTOS} photos per package.` }));
+        return;
+      }
+
+      if (typeof includeWatermarked !== 'boolean' || typeof includeOriginal !== 'boolean') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'includeWatermarked and includeOriginal must be boolean' }));
+        return;
+      }
+
+      // 添加到打包队列
+      await packageQueue.add('create-package', {
+        packageId,
+        albumId,
+        photoIds,
+        includeWatermarked,
+        includeOriginal,
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: 'Package job queued' }));
+    } catch (err: any) {
+      console.error('Package queue error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -849,13 +1155,21 @@ const server = http.createServer(async (req, res) => {
   // 扫描同步
   if (url.pathname === '/api/scan' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
       const { albumId } = body;
-        if (!albumId) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing albumId' }));
-          return;
-        }
+      
+      const validation = validateInput(body, ['albumId']);
+      if (!validation.valid) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: validation.error }));
+        return;
+      }
+      
+      if (!isValidUUID(albumId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid UUID format for albumId' }));
+        return;
+      }
 
         console.log(`[Scan] Starting scan for album: ${albumId}`);
         
@@ -863,14 +1177,31 @@ const server = http.createServer(async (req, res) => {
         const prefix = `sync/${albumId}/`;
         const objects = await listObjects(prefix);
         
-        // 2. 过滤出图片和视频文件
-        const mediaExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp', '.mp4', '.mov', '.avi', '.mkv', '.webm'];
+        // 2. 过滤出图片文件
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp'];
         const imageObjects = objects.filter(obj => {
-          const ext = obj.key.toLowerCase().slice(obj.key.lastIndexOf('.'));
-          return mediaExtensions.includes(ext);
+          const keyLower = obj.key.toLowerCase();
+          const lastDotIndex = keyLower.lastIndexOf('.');
+          // 检查是否有扩展名（. 不在开头或结尾）
+          if (lastDotIndex === -1 || lastDotIndex === 0 || lastDotIndex === keyLower.length - 1) {
+            return false;
+          }
+          const ext = keyLower.slice(lastDotIndex);
+          return imageExtensions.includes(ext);
         });
 
         console.log(`[Scan] Found ${imageObjects.length} images in ${prefix}`);
+
+        // 限制批量处理大小，避免超时
+        if (imageObjects.length > CONFIG.MAX_SCAN_BATCH_SIZE) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: `Too many images to process (${imageObjects.length} > ${CONFIG.MAX_SCAN_BATCH_SIZE}). Please reduce the number of files or increase MAX_SCAN_BATCH_SIZE.`,
+            found: imageObjects.length,
+            maxBatchSize: CONFIG.MAX_SCAN_BATCH_SIZE
+          }));
+          return;
+        }
 
         if (imageObjects.length === 0) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -894,72 +1225,83 @@ const server = http.createServer(async (req, res) => {
           (existingPhotos || []).map(p => p.filename)
         );
 
-        // 4. 处理新图片
+        // 4. 处理新图片（批量并行处理，提高性能）
         let addedCount = 0;
         let skippedCount = 0;
-        for (const obj of imageObjects) {
-          const filename = obj.key.split('/').pop() || '';
+        
+        for (let i = 0; i < imageObjects.length; i += CONFIG.SCAN_BATCH_SIZE) {
+          const batch = imageObjects.slice(i, i + CONFIG.SCAN_BATCH_SIZE);
           
-          // 跳过已存在的文件
-          if (existingFilenames.has(filename)) {
-            console.log(`[Scan] Skipping existing: ${filename}`);
-            skippedCount++;
-            continue;
-          }
-
-          // 生成新的 photo_id
-          const photoId = crypto.randomUUID();
-          const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
-          const newKey = `raw/${albumId}/${photoId}.${ext}`;
-
-          try {
-            // 复制文件到标准路径
-            await copyFile(obj.key, newKey);
-            console.log(`[Scan] Copied ${obj.key} -> ${newKey}`);
-
-            // 创建数据库记录
-            const { error: insertError } = await supabase
-              .from('photos')
-              .insert({
-                id: photoId,
-                album_id: albumId,
-                original_key: newKey,
-                filename: filename,
-                file_size: obj.size,
-                status: 'pending',
-              });
-
-            if (insertError) {
-              console.error(`[Scan] Failed to insert photo: ${insertError.message}`);
-              // 如果数据库插入失败，删除已复制的文件
-              try {
-                await deleteFile(newKey);
-              } catch (deleteErr) {
-                console.error(`[Scan] Failed to cleanup copied file: ${deleteErr}`);
+          // 并行处理一批文件
+          await Promise.all(
+            batch.map(async (obj) => {
+              const filename = obj.key.split('/').pop() || '';
+              
+              // 跳过已存在的文件
+              if (existingFilenames.has(filename)) {
+                console.log(`[Scan] Skipping existing: ${filename}`);
+                skippedCount++;
+                return;
               }
-              continue;
-            }
 
-            // 添加到处理队列
-            await photoQueue.add('process-photo', { 
-              photoId, 
-              albumId, 
-              originalKey: newKey 
-            });
+              // 生成新的 photo_id
+              const photoId = crypto.randomUUID();
+              const lastDotIndex = filename.lastIndexOf('.');
+              const ext = lastDotIndex !== -1 && lastDotIndex < filename.length - 1
+                ? filename.slice(lastDotIndex + 1).toLowerCase()
+                : 'jpg'; // 默认扩展名
+              const newKey = `raw/${albumId}/${photoId}.${ext}`;
 
-            // 删除原始文件（可选，或保留备份）
-            try {
-              await deleteFile(obj.key);
-            } catch (deleteErr) {
-              console.warn(`[Scan] Failed to delete source file ${obj.key}: ${deleteErr}`);
-              // 不阻止流程继续
-            }
-            
-            addedCount++;
-          } catch (err: any) {
-            console.error(`[Scan] Error processing ${filename}:`, err.message);
-            // 继续处理下一个文件
-          }
+              try {
+                // 复制文件到标准路径
+                await copyFile(obj.key, newKey);
+                console.log(`[Scan] Copied ${obj.key} -> ${newKey}`);
+
+                // 创建数据库记录
+                const { error: insertError } = await supabase
+                  .from('photos')
+                  .insert({
+                    id: photoId,
+                    album_id: albumId,
+                    original_key: newKey,
+                    filename: filename,
+                    file_size: obj.size,
+                    status: 'pending',
+                  });
+
+                if (insertError) {
+                  console.error(`[Scan] Failed to insert photo: ${insertError.message}`);
+                  // 如果数据库插入失败，删除已复制的文件
+                  try {
+                    await deleteFile(newKey);
+                  } catch (deleteErr) {
+                    console.error(`[Scan] Failed to cleanup copied file: ${deleteErr}`);
+                  }
+                  return;
+                }
+
+                // 添加到处理队列
+                await photoQueue.add('process-photo', { 
+                  photoId, 
+                  albumId, 
+                  originalKey: newKey 
+                });
+
+                // 删除原始文件（可选，或保留备份）
+                try {
+                  await deleteFile(obj.key);
+                } catch (deleteErr) {
+                  console.warn(`[Scan] Failed to delete source file ${obj.key}: ${deleteErr}`);
+                  // 不阻止流程继续
+                }
+                
+                addedCount++;
+              } catch (err: any) {
+                console.error(`[Scan] Error processing ${filename}:`, err.message);
+                // 继续处理下一个文件
+              }
+            })
+          );
         }
 
         console.log(`[Scan] Added ${addedCount} new photos, skipped ${skippedCount}`);
@@ -977,9 +1319,13 @@ const server = http.createServer(async (req, res) => {
     } catch (err: any) {
       console.error('[Scan] Error:', err);
       const statusCode = err.message?.includes('too large') ? 413 : 
-                        err.message?.includes('Invalid JSON') ? 400 : 500;
+                        err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
     }
     return;
   }
@@ -996,11 +1342,14 @@ async function recoverStuckProcessingPhotos() {
   try {
     console.log('🔍 Checking for stuck processing photos...');
     
-    // 1. 查询所有状态为 processing 的照片
+    // 1. 查询所有状态为 processing 且超过阈值时间的照片
+    const thresholdMs = CONFIG.STUCK_PHOTO_THRESHOLD_HOURS * 60 * 60 * 1000;
+    const thresholdTime = new Date(Date.now() - thresholdMs).toISOString();
     const { data: stuckPhotos, error } = await supabase
       .from('photos')
       .select('id, album_id, original_key, thumb_key, preview_key, status, updated_at')
-      .eq('status', 'processing');
+      .eq('status', 'processing')
+      .lt('updated_at', thresholdTime);
     
     if (error) {
       console.error('❌ Failed to query stuck photos:', error);
@@ -1015,11 +1364,17 @@ async function recoverStuckProcessingPhotos() {
     console.log(`📋 Found ${stuckPhotos.length} photos stuck in processing state`);
     
     // 2. 检查队列中是否有对应的任务
-    const waitingJobs = await photoQueue.getWaiting();
-    const activeJobs = await photoQueue.getActive();
-    const waitingPhotoIds = new Set(
-      [...waitingJobs, ...activeJobs].map(job => job.data.photoId)
-    );
+    let waitingPhotoIds = new Set<string>();
+    try {
+      const waitingJobs = await photoQueue.getWaiting();
+      const activeJobs = await photoQueue.getActive();
+      waitingPhotoIds = new Set(
+        [...waitingJobs, ...activeJobs].map(job => job.data.photoId)
+      );
+    } catch (queueError: any) {
+      console.warn('⚠️ Failed to query queue jobs, proceeding with recovery:', queueError.message);
+      // 继续执行恢复，即使无法查询队列状态
+    }
     
     let recoveredCount = 0;
     let alreadyCompletedCount = 0;
@@ -1102,17 +1457,28 @@ async function gracefulShutdown(signal: string) {
     console.log('✅ HTTP server closed');
   });
   
-  // 等待正在处理的任务完成
+  // 等待正在处理的任务完成（设置超时，避免无限等待）
+  const shutdownPromise = Promise.all([
+    worker.close(),
+    packageWorker.close(),
+    photoQueue.close(),
+    packageQueue.close(),
+  ]);
+  
   try {
-    await Promise.all([
-      worker.close(),
-      packageWorker.close(),
-      photoQueue.close(),
-      packageQueue.close(),
+    await Promise.race([
+      shutdownPromise,
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Shutdown timeout')), CONFIG.SHUTDOWN_TIMEOUT_MS)
+      )
     ]);
     console.log('✅ All workers and queues closed');
-  } catch (err) {
-    console.error('❌ Error closing workers:', err);
+  } catch (err: any) {
+    if (err.message === 'Shutdown timeout') {
+      console.warn('⚠️ Shutdown timeout, forcing exit');
+    } else {
+      console.error('❌ Error closing workers:', err);
+    }
   }
   
   console.log('✅ Graceful shutdown completed');

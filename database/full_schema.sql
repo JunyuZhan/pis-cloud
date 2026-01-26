@@ -25,6 +25,7 @@ CREATE TABLE albums (
   sort_rule TEXT DEFAULT 'capture_desc' CHECK (sort_rule IN ('capture_desc', 'capture_asc', 'manual')),
   allow_download BOOLEAN DEFAULT false,
   show_exif BOOLEAN DEFAULT true,
+  allow_share BOOLEAN DEFAULT true,
   
   -- 水印配置
   watermark_enabled BOOLEAN DEFAULT false,

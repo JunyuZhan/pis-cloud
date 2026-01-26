@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings, ImageIcon } from 'lucide-react'
+import { Plus, FolderOpen, Trash2, Check, Loader2, Copy, Settings, ImageIcon, Share2, Filter, Link2 } from 'lucide-react'
 import { useSwipeable } from 'react-swipeable'
-import { formatRelativeTime, formatDate } from '@/lib/utils'
+import { formatRelativeTime, formatDate, getAlbumShareUrl } from '@/lib/utils'
 import { CreateAlbumDialog } from './create-album-dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { PullToRefresh } from '@/components/ui/pull-to-refresh'
@@ -30,6 +30,7 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [shareFilter, setShareFilter] = useState<'all' | 'shared' | 'not_shared'>('all')
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
     title: string
@@ -41,6 +42,14 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
   useEffect(() => {
     setAlbums(initialAlbums)
   }, [initialAlbums])
+
+  // 筛选相册
+  const filteredAlbums = albums.filter((album) => {
+    if (shareFilter === 'all') return true
+    if (shareFilter === 'shared') return album.allow_share !== false
+    if (shareFilter === 'not_shared') return album.allow_share === false
+    return true
+  })
 
   const toggleSelection = (albumId: string) => {
     const newSelected = new Set(selectedAlbums)
@@ -183,55 +192,73 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
             管理您的所有摄影作品集
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {selectionMode ? (
-            <>
-              <span className="text-sm text-text-secondary">
-                已选择 {selectedAlbums.size} 个
-              </span>
-              <button onClick={clearSelection} className="btn-ghost text-sm">
-                取消
-              </button>
-              {selectedAlbums.size > 0 && (
-                <button
-                  onClick={handleBatchDelete}
-                  disabled={isDeleting}
-                  className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                  删除
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setSelectionMode(true)}
-                className="btn-secondary w-full md:w-auto"
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* 筛选器 */}
+          {!selectionMode && (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Filter className="w-4 h-4 text-text-muted" />
+              <select
+                value={shareFilter}
+                onChange={(e) => setShareFilter(e.target.value as 'all' | 'shared' | 'not_shared')}
+                className="px-3 py-2 md:py-1.5 text-sm bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent min-h-[44px] md:min-h-0"
               >
-                批量管理
-              </button>
-          <button
-            type="button"
-            onClick={() => setCreateDialogOpen(true)}
-            className="btn-primary w-full md:w-auto"
-          >
-                <Plus className="w-4 h-4" />
-                新建相册
-              </button>
-            </>
+                <option value="all">全部相册</option>
+                <option value="shared">已分享</option>
+                <option value="not_shared">未分享</option>
+              </select>
+            </div>
           )}
+          
+          <div className="flex items-center gap-3 ml-auto">
+            {selectionMode ? (
+              <>
+                <span className="text-xs md:text-sm text-text-secondary hidden sm:inline">
+                  已选择 {selectedAlbums.size} 个
+                </span>
+                <button onClick={clearSelection} className="btn-ghost text-xs md:text-sm min-h-[44px] px-3 py-2 md:px-4 md:py-2">
+                  取消
+                </button>
+                {selectedAlbums.size > 0 && (
+                  <button
+                    onClick={handleBatchDelete}
+                    disabled={isDeleting}
+                    className="btn-ghost text-xs md:text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2 md:px-4 md:py-2"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    删除
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setSelectionMode(true)}
+                  className="btn-secondary w-full md:w-auto"
+                >
+                  批量管理
+                </button>
+            <button
+              type="button"
+              onClick={() => setCreateDialogOpen(true)}
+              className="btn-primary w-full md:w-auto"
+            >
+                  <Plus className="w-4 h-4" />
+                  新建相册
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* 相册网格 */}
-      {albums.length > 0 ? (
+      {filteredAlbums.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {albums.map((album, index) => (
+          {filteredAlbums.map((album, index) => (
             <AlbumCard
               key={album.id}
               album={album}
@@ -245,6 +272,15 @@ export function AlbumList({ initialAlbums }: AlbumListProps) {
               isDeleting={isDeleting}
             />
           ))}
+        </div>
+      ) : albums.length > 0 ? (
+        <div className="text-center py-20">
+          <Filter className="w-16 h-16 text-text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">没有符合条件的相册</h3>
+          <p className="text-text-secondary mb-6">请尝试调整筛选条件</p>
+          <button onClick={() => setShareFilter('all')} className="btn-secondary">
+            清除筛选
+          </button>
         </div>
       ) : (
         <div className="text-center py-20">
@@ -302,6 +338,35 @@ function AlbumCard({
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [shareUrlCopied, setShareUrlCopied] = useState(false)
+  
+  // 生成分享链接
+  let shareUrl: string = ''
+  if (album.allow_share !== false) {
+    try {
+      shareUrl = getAlbumShareUrl(album.slug)
+    } catch (error) {
+      console.error('Failed to generate share URL:', error)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      shareUrl = `${appUrl}/album/${encodeURIComponent(album.slug || '')}`
+    }
+  }
+  
+  const handleCopyShareUrl = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (!shareUrl) return
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareUrlCopied(true)
+      showSuccess('分享链接已复制')
+      setTimeout(() => setShareUrlCopied(false), 2000)
+    } catch (error) {
+      console.error('Copy failed:', error)
+      handleApiError(error, '复制失败，请重试')
+    }
+  }
   
   // 确保客户端 hydration 后显示相对时间
   useEffect(() => {
@@ -499,6 +564,29 @@ function AlbumCard({
             <p className="text-text-secondary text-sm">
               {album.photo_count} 张照片
             </p>
+            {/* 分享链接 */}
+            {album.allow_share !== false && shareUrl && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <div className="flex-1 min-w-0 px-2 py-1 bg-surface-elevated rounded text-xs text-text-muted truncate">
+                  {shareUrl}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyShareUrl}
+                  className={cn(
+                    'p-1.5 rounded hover:bg-surface transition-colors shrink-0',
+                    shareUrlCopied ? 'text-green-400' : 'text-text-muted hover:text-text-primary'
+                  )}
+                  title="复制分享链接"
+                >
+                  {shareUrlCopied ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Link2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            )}
             {album.event_date && (() => {
               try {
                 const date = new Date(album.event_date)
@@ -526,18 +614,31 @@ function AlbumCard({
           </div>
         </div>
         <div className="text-right shrink-0 ml-4">
-          <span
-            className={`inline-block px-2 py-1 text-xs rounded-full ${
-              album.is_public
-                ? 'bg-green-500/10 text-green-400'
-                : 'bg-surface text-text-muted'
-            }`}
-          >
-            {album.is_public ? '公开' : '私有'}
-          </span>
-          <p className="text-text-muted text-xs mt-2">
-            {isMounted ? formatRelativeTime(album.created_at) : formatDate(album.created_at)}
-          </p>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`inline-block px-2 py-1 text-xs rounded-full ${
+                  album.is_public
+                    ? 'bg-green-500/10 text-green-400'
+                    : 'bg-surface text-text-muted'
+                }`}
+              >
+                {album.is_public ? '公开' : '私有'}
+              </span>
+              {album.allow_share !== false && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400"
+                  title="已允许分享"
+                >
+                  <Share2 className="w-3 h-3" />
+                  已分享
+                </span>
+              )}
+            </div>
+            <p className="text-text-muted text-xs">
+              {isMounted ? formatRelativeTime(album.created_at) : formatDate(album.created_at)}
+            </p>
+          </div>
         </div>
       </div>
     </div>

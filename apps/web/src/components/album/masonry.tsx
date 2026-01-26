@@ -53,6 +53,30 @@ export function MasonryGrid({
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const photoRefs = useRef<Array<HTMLDivElement | null>>([])
   const lastViewedIndexRef = useRef<number | null>(null)
+  
+  // 图片预加载：预加载即将可见的图片（优化性能）
+  const preloadImages = useCallback((startIndex: number, count: number = 3) => {
+    const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+    if (!mediaUrl) return
+    
+    for (let i = 0; i < count && startIndex + i < photos.length; i++) {
+      const photo = photos[startIndex + i]
+      if (!photo?.thumb_key) continue
+      
+      const rotation = photo.rotation ?? 'auto'
+      const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
+      const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?r=${rotation}&t=${timestamp}`
+      
+      // 使用 link preload 预加载图片
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.href = imageSrc
+      if (!document.querySelector(`link[href="${imageSrc}"]`)) {
+        document.head.appendChild(link)
+      }
+    }
+  }, [photos])
 
   useEffect(() => {
     if (!hasMore || isLoading || !onLoadMore) return
@@ -72,6 +96,19 @@ export function MasonryGrid({
 
     return () => observer.disconnect()
   }, [hasMore, isLoading, onLoadMore])
+  
+  // 预加载即将可见的图片（当照片列表更新时）
+  useEffect(() => {
+    if (photos.length === 0) return
+    
+    // 预加载前 6 张图片（优先显示区域）
+    preloadImages(0, 6)
+    
+    // 如果用户已经滚动到某个位置，预加载该位置附近的图片
+    if (lastViewedIndexRef.current !== null && lastViewedIndexRef.current < photos.length) {
+      preloadImages(lastViewedIndexRef.current, 3)
+    }
+  }, [photos, preloadImages])
 
   // 同步新照片的选中状态
   useEffect(() => {
@@ -91,7 +128,34 @@ export function MasonryGrid({
   const handlePhotoClick = useCallback((index: number) => {
     lastViewedIndexRef.current = index
     setLightboxIndex(index)
-  }, [])
+    
+    // 预加载 Lightbox 中相邻的图片（优化 Lightbox 切换速度）
+    const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+    if (mediaUrl && photos.length > 0) {
+      // 预加载前一张和后一张的预览图
+      const indices: number[] = []
+      if (index > 0) indices.push(index - 1)
+      if (index < photos.length - 1) indices.push(index + 1)
+      
+      indices.forEach((idx) => {
+        const photo = photos[idx]
+        const imageKey = photo.preview_key || photo.thumb_key
+        if (!imageKey) return
+        
+        const rotation = photo.rotation ?? 'auto'
+        const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
+        const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}?r=${rotation}&t=${timestamp}`
+        
+        const link = document.createElement('link')
+        link.rel = 'preload'
+        link.as = 'image'
+        link.href = imageSrc
+        if (!document.querySelector(`link[href="${imageSrc}"]`)) {
+          document.head.appendChild(link)
+        }
+      })
+    }
+  }, [photos])
 
   const handleCardSelect = useCallback(
     async (photoId: string, currentSelected: boolean) => {
@@ -236,6 +300,17 @@ function PhotoCard({
 }: PhotoCardProps) {
   const [showCopied, setShowCopied] = useState(false)
   const [blurDataURL, setBlurDataURL] = useState<string | undefined>(undefined)
+  const [isMobile, setIsMobile] = useState(true) // 默认移动端，避免 hydration mismatch
+  
+  // 客户端检测设备类型
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   // 计算图片高度比例 (Masonry 模式使用)
   const aspectRatio =
@@ -375,7 +450,13 @@ function PhotoCard({
           </div>
 
           {/* 底部操作栏 - 悬浮在图片上 */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+          {/* 移动端始终显示，桌面端 hover 显示 */}
+          <div className={cn(
+            'absolute bottom-0 left-0 right-0 flex items-center justify-between transition-opacity duration-300 z-10',
+            isMobile 
+              ? 'p-1.5 opacity-100' 
+              : 'p-3 opacity-0 group-hover:opacity-100'
+          )}>
             {/* 左侧：选片按钮 */}
             {showSelect && (
               <button
@@ -384,27 +465,36 @@ function PhotoCard({
                   onSelect?.(e)
                 }}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-md',
+                  'flex items-center rounded-full font-medium transition-all duration-200 backdrop-blur-md',
+                  isMobile 
+                    ? 'gap-1 px-2 py-1 text-xs' 
+                    : 'gap-1.5 px-3 py-1.5 text-sm',
                   isSelected
                     ? 'bg-red-500/90 text-white hover:bg-red-600/90'
                     : 'bg-black/40 text-white hover:bg-black/60'
                 )}
               >
-                <Heart className={cn('w-4 h-4', isSelected && 'fill-current')} />
+                <Heart className={cn(
+                  isMobile ? 'w-3 h-3' : 'w-4 h-4',
+                  isSelected && 'fill-current'
+                )} />
                 <span>{isSelected ? '已选' : '选片'}</span>
               </button>
             )}
 
             {/* 右侧：操作按钮 */}
-            <div className="flex items-center gap-2">
+            <div className={cn('flex items-center', isMobile ? 'gap-1' : 'gap-2')}>
               {/* 下载按钮 */}
               {allowDownload && (
                 <button
                   onClick={handleDownload}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
-                  title="下载原图"
+                  className={cn(
+                    'rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors',
+                    isMobile ? 'p-1.5' : 'p-2'
+                  )}
+                  title="下载原图（当前为预览图，下载获取高清原图）"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                 </button>
               )}
               
@@ -412,10 +502,13 @@ function PhotoCard({
               <div className="relative">
                 <button
                   onClick={handleShare}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
+                  className={cn(
+                    'rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors',
+                    isMobile ? 'p-1.5' : 'p-2'
+                  )}
                   title="分享"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                 </button>
                 {showCopied && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded shadow-lg whitespace-nowrap backdrop-blur-md">
@@ -428,9 +521,18 @@ function PhotoCard({
 
           {/* 始终显示的选中状态（右上角红心） */}
           {isSelected && (
-            <div className="absolute top-2 right-2 z-10">
-              <div className="p-2 bg-red-500/90 rounded-full shadow-lg backdrop-blur-sm">
-                <Heart className="w-4 h-4 text-white fill-current" />
+            <div className={cn(
+              'absolute z-10',
+              isMobile ? 'top-1.5 right-1.5' : 'top-2 right-2'
+            )}>
+              <div className={cn(
+                'bg-red-500/90 rounded-full shadow-lg backdrop-blur-sm',
+                isMobile ? 'p-1.5' : 'p-2'
+              )}>
+                <Heart className={cn(
+                  'text-white fill-current',
+                  isMobile ? 'w-3 h-3' : 'w-4 h-4'
+                )} />
               </div>
             </div>
           )}

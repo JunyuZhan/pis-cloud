@@ -187,18 +187,27 @@ export function PhotoLightbox({
         ? `${safeMediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}?r=${rotation}&t=${timestamp}` 
         : ''
 
+      // 构建描述文本：EXIF信息 + 时间 + 图片质量提示
+      let description = exifString || formattedDateTime || ''
+      if (allowDownload && photo.preview_key && photo.original_key) {
+        const qualityHint = '💡 当前为预览图，点击下载按钮获取高清原图'
+        description = description 
+          ? `${description} · ${qualityHint}`
+          : qualityHint
+      }
+
       return {
         src: imageSrc,
         width: photo.width || 0,
         height: photo.height || 0,
         title: photo.filename || '',
-        description: exifString || formattedDateTime || '',
+        description: description,
         photoId: photo.id,
         originalKey: photo.original_key || null,
         previewKey: photo.preview_key || null,
       }
       })
-    }, [photos, safeMediaUrl])
+    }, [photos, safeMediaUrl, allowDownload])
 
   // 加载当前照片的原图 - 已移除
   // const handleLoadOriginal = useCallback(() => {
@@ -318,8 +327,10 @@ export function PhotoLightbox({
           onClick={handleDownload}
           className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
           aria-label="下载原图"
+          title="下载原图（当前为预览图，下载获取高清原图）"
         >
           <Download className="w-5 h-5" />
+          <span className="hidden sm:inline text-sm">下载原图</span>
         </button>
       )
     }

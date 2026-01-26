@@ -168,6 +168,11 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     notFound() // 过期相册返回 404，不暴露过期信息
   }
 
+  // 检查相册是否允许分享
+  if (album.allow_share === false) {
+    notFound() // 不允许分享的相册返回 404，不暴露分享状态
+  }
+
   // 注意：密码验证应该在客户端组件中处理
   // 如果相册设置了密码，需要在客户端验证后才能显示照片
   
@@ -307,7 +312,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
       </div>
 
       {/* 浮动操作按钮组 */}
-      <FloatingActions album={album} currentSort={currentSort} />
+      <FloatingActions album={album} currentSort={currentSort} currentLayout={currentLayout} />
     </main>
   )
 }

@@ -200,4 +200,3 @@
 ## 🔗 相关文档
 
 - [Worker 功能清单](./WORKER_FEATURES.md)
-- [Worker 扩展评估](./WORKER_EXTENSION_EVALUATION.md)

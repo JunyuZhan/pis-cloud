@@ -7,10 +7,13 @@ import {
   ArrowUpDown, 
   ChevronUp,
   Share2,
-  X
+  X,
+  LayoutGrid,
+  Grid
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { SortRule } from './sort-toggle'
+import type { LayoutMode } from './layout-toggle'
 import { showInfo, showError } from '@/lib/toast'
 import type { Album } from '@/types/database'
 import { cn, getAlbumShareUrl } from '@/lib/utils'
@@ -18,9 +21,10 @@ import { cn, getAlbumShareUrl } from '@/lib/utils'
 interface FloatingActionsProps {
   album: Album
   currentSort: SortRule
+  currentLayout: LayoutMode
 }
 
-export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
+export function FloatingActions({ album, currentSort, currentLayout }: FloatingActionsProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -87,6 +91,15 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
     }
   }
 
+  // 切换布局
+  const handleLayoutToggle = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    const newLayout: LayoutMode = currentLayout === 'masonry' ? 'grid' : 'masonry'
+    params.set('layout', newLayout)
+    router.replace(`?${params.toString()}`, { scroll: false })
+    setIsExpanded(false)
+  }
+
   return (
     <>
       {/* 浮动操作按钮组 - 只在客户端挂载后显示 */}
@@ -102,6 +115,26 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-2 mb-2"
             >
+              {/* 布局切换按钮 */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleLayoutToggle}
+                className={cn(
+                  'w-10 h-10 rounded-full shadow-lg flex items-center justify-center',
+                  'bg-surface border border-border hover:bg-surface-elevated',
+                  'text-text-primary transition-all backdrop-blur-sm',
+                  currentLayout === 'grid' && 'bg-accent/20 border-accent/30'
+                )}
+                title={currentLayout === 'masonry' ? '切换到网格布局' : '切换到瀑布流布局'}
+              >
+                {currentLayout === 'masonry' ? (
+                  <Grid className="w-4 h-4" />
+                ) : (
+                  <LayoutGrid className="w-4 h-4" />
+                )}
+              </motion.button>
+
               {/* 排序按钮 */}
               <motion.button
                 whileHover={{ scale: 1.05 }}

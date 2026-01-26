@@ -17,7 +17,6 @@ on:
       - 'AUTHORS.md'
       - 'CONTRIBUTING.md'
       - 'LEGAL.md'
-      - 'SECURITY_CHECKLIST.md'
 
 env:
   NODE_VERSION: '20'

@@ -120,6 +120,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'allow_download',
       'allow_batch_download',
       'show_exif',
+      'allow_share',
       'watermark_enabled',
       'watermark_type',
       'watermark_config',

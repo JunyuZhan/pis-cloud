@@ -75,8 +75,12 @@ TURNSTILE_SECRET_KEY=你的Secret Key
 
 ## 📚 详细文档
 
-- [如何获取密钥](./TURNSTILE_GET_KEYS.md) - 详细步骤
-- [配置指南](./TURNSTILE_SETUP.md) - 完整配置说明
+需要更多信息？查看 [完整配置指南](./TURNSTILE_SETUP.md)，包含：
+- 详细配置步骤
+- 工作原理说明
+- 故障排除指南
+- 安全特性说明
+- 最佳实践建议
 
 ---
 

@@ -1,7 +1,7 @@
 # Worker 安全修复说明
 
 > 修复时间: 2026-01-26  
-> 修复原因: Worker 服务通过 frpc 暴露到公网（worker.albertzhan.top），存在安全风险
+> 修复原因: Worker 服务暴露到公网时，存在安全风险
 
 ## 🔒 修复内容
 
@@ -53,8 +53,8 @@ CORS_ORIGINS=https://yourdomain.com,https://admin.yourdomain.com
 **方法1: 使用快速设置脚本（推荐）**
 ```bash
 # 在生产服务器上运行
-ssh root@192.168.50.10
-cd /root/PIS
+ssh user@your-server-ip
+cd /path/to/PIS
 bash scripts/setup-worker-api-key.sh
 ```
 
@@ -80,11 +80,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ```bash
 # SSH 到服务器
-ssh root@192.168.50.10
+ssh user@your-server-ip
 
 # 编辑环境变量文件（根据你的部署方式）
 # 如果使用 Docker Compose:
-nano /root/PIS/.env.local
+nano /path/to/PIS/.env.local
 
 # 添加或更新:
 WORKER_API_KEY=your-generated-secret-key
@@ -138,14 +138,14 @@ const MAX_UPLOAD_SIZE = 500 * 1024 * 1024; // 500MB
 
 ```bash
 # 测试未授权访问（应该返回 401）
-curl -X POST http://worker.albertzhan.top/api/process \
+curl -X POST http://your-worker-domain.com/api/process \
   -H "Content-Type: application/json" \
   -d '{"photoId":"test","albumId":"test","originalKey":"test"}'
 
 # 应该返回: {"error":"Unauthorized","message":"Invalid or missing API key"}
 
 # 测试带认证的访问（应该成功）
-curl -X POST http://worker.albertzhan.top/api/process \
+curl -X POST http://your-worker-domain.com/api/process \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{"photoId":"test","albumId":"test","originalKey":"test"}'
@@ -155,7 +155,7 @@ curl -X POST http://worker.albertzhan.top/api/process \
 
 ```bash
 # 测试超大 JSON（应该返回 413）
-curl -X POST http://worker.albertzhan.top/api/process \
+curl -X POST http://your-worker-domain.com/api/process \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d "$(python3 -c "print('x' * 11 * 1024 * 1024)")"
@@ -165,7 +165,7 @@ curl -X POST http://worker.albertzhan.top/api/process \
 
 ```bash
 # 应该返回健康状态
-curl http://worker.albertzhan.top/health
+curl http://your-worker-domain.com/health
 ```
 
 ---

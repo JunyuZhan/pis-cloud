@@ -25,10 +25,10 @@ Cloudflare Turnstile 是一个免费的、隐私友好的验证码服务，用�
    - **Widget Mode**: 选择 **Invisible**（推荐）或 **Managed**
 5. 点击 **Create**
 6. 获取两个密钥：
-   - **Site Key**（公开密钥，用于前端）- 在站点详情页面顶部
-   - **Secret Key**（私密密钥，用于后端验证）- 点击 "Reveal" 显示后复制
-
-**详细步骤**：参见 [如何获取 Turnstile 密钥](./TURNSTILE_GET_KEYS.md)
+   - **Site Key**（公开密钥，用于前端）- 在站点详情页面顶部，直接复制
+   - **Secret Key**（私密密钥，用于后端验证）- 点击 "Reveal" 或 "显示" 按钮显示后复制
+   
+**提示**：如果找不到 Turnstile 选项，直接访问：https://dash.cloudflare.com/?to=/:account/turnstile
 
 ### 2. 配置环境变量
 

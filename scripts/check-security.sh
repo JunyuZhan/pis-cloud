@@ -124,14 +124,14 @@ PUBLIC_DOMAINS="github\.com|npmjs\.com|npm\.com|vercel\.app|netlify\.app|supabas
 # 查找可能的真实域名（排除示例域名和公共域名）
 # 匹配 http:// 或 https:// 开头的 URL，但排除示例域名和公共域名
 # 排除二进制文件（jpg, png, jpeg, gif, svg, ico, pdf 等）
-PRIVATE_DOMAINS=$(grep -rE "https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared \
+PRIVATE_DOMAINS=$(grep -rE "https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude-dir=coverage \
     --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" --exclude="*.test.*" --exclude="*.spec.*" \
     --exclude="pnpm-lock.yaml" --exclude="package-lock.json" --exclude="yarn.lock" \
     --exclude="*.jpg" --exclude="*.jpeg" --exclude="*.png" --exclude="*.gif" --exclude="*.svg" --exclude="*.ico" --exclude="*.pdf" \
     --exclude="*.d.ts" . 2>/dev/null | \
     grep -vE "$EXCLUDE_DOMAINS" | \
     grep -vE "$PUBLIC_DOMAINS" | \
-    grep -vE "\.example\.|example\.|your-|placeholder|schema\.json|yourname" || true)
+    grep -vE "\.example\.|example\.|your-|placeholder|schema\.json|yourname|istanbul\.js\.org" || true)
 
 if [ -n "$PRIVATE_DOMAINS" ]; then
     echo -e "${RED}❌ 发现可能的硬编码私人域名：${NC}"

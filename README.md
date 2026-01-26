@@ -23,6 +23,8 @@
   <img src="https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/MinIO-Object%20Storage-C72E49?style=flat-square&logo=minio" alt="MinIO" />
+  <img src="https://img.shields.io/badge/BullMQ-Redis-FF6B6B?style=flat-square&logo=redis" alt="BullMQ" />
+  <img src="https://img.shields.io/badge/Sharp-Image%20Processing-99CC00?style=flat-square" alt="Sharp" />
 </p>
 
 <p align="center">
@@ -31,52 +33,46 @@
 
 ---
 
-## 🌟 Why Choose PIS?
+## 🌟 Features
 
-### ⚡ **Instant Delivery**
-- **Minutes-level delivery** - Clients see photos immediately after shooting
-- **Real-time sync** - Upload and view instantly with Supabase Realtime
-- **Professional workflow** - Streamlined photo delivery process
+### ⚡ **Instant Delivery & Sync**
+- Minutes-level photo delivery with real-time sync
+- Scan & sync via FTP/command line for bulk imports
+- Multipart upload for large files
 
-### 🔒 **Complete Privacy Control**
-- **Self-hosted** - Full control over your data and client privacy
-- **No third-party dependencies** - Store everything on your own servers
-- **GDPR compliant** - Perfect for professional photographers who value privacy
-
-### 💰 **Cost-Effective & Flexible**
-- **Multiple storage options** - Choose the best fit for your needs:
-  - MinIO (Self-hosted, zero cost)
-  - Alibaba Cloud OSS (China)
-  - Tencent Cloud COS (China)
-  - AWS S3 (Global)
-- **Pay-as-you-go** - Only pay for what you use
-- **No vendor lock-in** - Easy to switch storage providers
-
-### 🖼️ **Advanced Watermarking**
-- **Multi-position support** - Up to 6 watermarks simultaneously
-- **9-position grid** - Flexible placement options
-- **Text & Logo** - Support both text and image watermarks
-- **Copyright protection** - Professional-grade watermarking
+### 🖼️ **Advanced Image Processing**
+- Automatic EXIF rotation + manual rotation
+- Multiple sizes: thumbnails (400px), previews (2560px), originals
+- BlurHash placeholders for smooth loading
+- Parallel processing with BullMQ queues (13-33% faster)
 
 ### 🎨 **Professional Presentation**
-- **Dark mode interface** - Immersive viewing experience
-- **Photo-first design** - Beautiful masonry layout
-- **Mobile optimized** - Perfect viewing on all devices
-- **Lightbox mode** - Full-screen photo viewing with keyboard navigation
-- **Dynamic poster generation** - Auto-generate shareable posters with QR codes, customizable styles
-- **Album poster images** - Set custom poster images for better branding and presentation
+- Beautiful masonry and grid layouts
+- Dark mode interface, mobile optimized
+- Lightbox mode with keyboard navigation
+- Custom splash screens and dynamic poster generation
+
+### 🖼️ **Watermarking & Protection**
+- Up to 6 watermarks simultaneously
+- Text & logo support, 9-position grid
+- EXIF privacy protection (auto-removes GPS data)
+- Batch watermarking
+
+### 📦 **Client Features**
+- Photo selection and batch ZIP download
+- Password protection and expiration dates
+- Album templates and view tracking
+
+### 💰 **Flexible Infrastructure**
+- **Storage**: MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
+- **Database**: Supabase (recommended), PostgreSQL, MySQL
+- **CDN**: Cloudflare, Alibaba Cloud, Tencent Cloud
+- No vendor lock-in, easy to switch providers
 
 ### 🚀 **Production Ready**
-- **One-click deployment** - Docker Compose setup
-- **Auto-scaling** - Queue-based image processing
-- **Health monitoring** - Built-in health check endpoints
-- **CI/CD ready** - GitHub Actions integration
-
-### 🔧 **Developer Friendly**
-- **Modern stack** - Next.js 15, TypeScript, Supabase
-- **Well documented** - Comprehensive guides in English & Chinese
-- **Easy to extend** - Modular architecture
-- **Open source** - MIT License
+- One-click deployment with Docker Compose
+- Queue-based auto-scaling
+- Health monitoring and CI/CD ready
 
 ---
 
@@ -232,12 +228,21 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 ---
 
+## 🏗️ Architecture
+
+**Frontend** (Next.js) → **Worker** (BullMQ + Sharp) → **Storage** (MinIO/OSS/COS/S3)  
+**Database** (Supabase/PostgreSQL/MySQL) + **Queue** (Redis) + **CDN** (Optional)
+
+---
+
 ## 🛠️ Quick Commands
 
 ```bash
 pnpm setup      # Guided setup
 pnpm dev        # Start development
-pnpm docker:up  # Start Docker services
+pnpm build      # Build for production
+pnpm docker:up  # Start Docker services (MinIO + Redis)
+pnpm lint       # Run linter
 ```
 
 ---
@@ -247,6 +252,8 @@ pnpm docker:up  # Start Docker services
 Key variables: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`
 
 > 📖 **Full configuration guide**: See [.env.example](.env.example) and [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
+
+---
 
 ---
 
@@ -263,6 +270,12 @@ See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
 
 **Q: Supported storage/databases?**  
 Storage: MinIO, OSS, COS, S3 | Database: Supabase (recommended), PostgreSQL, MySQL
+
+**Q: How to configure CDN?**  
+See [CDN Setup Guide](docs/CDN_SETUP_GUIDE.md)
+
+**Q: How does scan & sync work?**  
+Upload to `sync/{albumId}/` via FTP/command line, then call scan API. See [Scan & Sync Feature](docs/SCAN_SYNC_FEATURE.md)
 
 ---
 
@@ -288,6 +301,8 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 
 ---
 
+---
+
 ## 🙏 Acknowledgments
 
 - [Next.js](https://nextjs.org/) - React framework
@@ -295,10 +310,13 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 - [MinIO](https://min.io/) - Object storage
 - [Sharp](https://sharp.pixelplumbing.com/) - Image processing
 - [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+- [BullMQ](https://docs.bullmq.io/) - Queue management
 
 ---
 
 ## 📚 Documentation
+
+> 📖 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation index.
 
 ### Getting Started
 - [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy with one command on your server
@@ -309,10 +327,12 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 
 ### Development & Security
 - [Development Guide](docs/DEVELOPMENT.md) - Development setup, code standards, and feature documentation
-- [Security Guide](docs/SECURITY.md) - Security best practices, deployment checklist, and pre-open source security checklist
+- [Security Guide](docs/SECURITY.md) - Security best practices, deployment checklist
 - [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) - Performance optimization guide
+- [CDN Setup Guide](docs/CDN_SETUP_GUIDE.md) - Cloudflare/阿里云/腾讯云 CDN configuration
 
 ### Features
+- [Worker Features](docs/WORKER_FEATURES.md) - Complete Worker service functionality
 - [Poster Feature](docs/POSTER_FEATURE.md) - Album poster images and dynamic poster generation guide
 - [Share Image URL](docs/SHARE_IMAGE_URL_EXPLANATION.md) - Share preview image configuration
 

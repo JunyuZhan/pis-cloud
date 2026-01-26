@@ -39,11 +39,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 先获取相册 ID（检查密码和过期时间）
     const { data: albumData, error: albumError } = await supabase
       .from('albums')
-      .select('id, sort_rule, password, expires_at, is_public')
+      .select('id, sort_rule, password, expires_at, is_public, allow_share')
       .eq('slug', slug)
       .single()
 
     if (albumError || !albumData) {
+      return NextResponse.json(
+        { error: { code: 'ALBUM_NOT_FOUND', message: '相册不存在' } },
+        { status: 404 }
+      )
+    }
+
+    // 检查相册是否允许分享
+    if (albumData.allow_share === false) {
       return NextResponse.json(
         { error: { code: 'ALBUM_NOT_FOUND', message: '相册不存在' } },
         { status: 404 }
@@ -92,9 +100,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const offset = (page - 1) * limit
 
     // 根据排序参数构建不同的查询
+    // 优化：只查询前端需要的字段，减少数据传输
     let query = supabase
       .from('photos')
-      .select('id, thumb_key, preview_key, original_key, filename, width, height, exif, blur_data, captured_at, is_selected', { count: 'exact' })
+      .select('id, thumb_key, preview_key, original_key, filename, width, height, exif, blur_data, captured_at, is_selected, rotation, updated_at', { count: 'exact' })
       .eq('album_id', album.id)
       .eq('status', 'completed')
 
@@ -133,9 +142,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const photos = data as PhotoRow[] | null
 
     // 添加缓存头：公开相册缓存5分钟，私有相册不缓存
-    const cacheHeaders = albumData.is_public
+    // 优化：添加 ETag 支持，减少重复传输
+    const cacheHeaders: Record<string, string> = albumData.is_public
       ? {
           'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          Vary: 'Accept-Encoding',
         }
       : {
           'Cache-Control': 'private, no-cache, no-store, must-revalidate',

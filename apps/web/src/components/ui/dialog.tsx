@@ -36,14 +36,24 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] z-50 w-[calc(100%-2rem)] max-w-lg bg-surface border border-border rounded-xl p-4 sm:p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 max-h-[85vh] overflow-y-auto',
+        // 移动端：全屏显示，桌面端：居中显示
+        'fixed z-50 bg-surface border border-border shadow-xl duration-200',
+        'data-[state=open]:animate-in data-[state=closed]:animate-out',
+        'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+        // 移动端样式
+        'inset-0 md:inset-auto md:left-[50%] md:top-[50%] md:translate-x-[-50%] md:translate-y-[-50%]',
+        'w-full md:w-[calc(100%-2rem)] md:max-w-lg',
+        'rounded-none md:rounded-xl',
+        'max-h-screen md:max-h-[85vh] overflow-y-auto',
+        'p-4 sm:p-6',
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none">
-        <X className="h-4 w-4" />
+      <DialogPrimitive.Close className="absolute right-3 top-3 md:right-4 md:top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none p-1.5 md:p-1 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center">
+        <X className="h-5 w-5 md:h-4 md:w-4" />
         <span className="sr-only">关闭</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>

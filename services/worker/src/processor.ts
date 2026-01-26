@@ -129,22 +129,25 @@ export class PhotoProcessor {
     }
     const metadata = await rotatedImage.metadata();
 
-    // 2. 生成 BlurHash（基于旋转后的图片）
-    const blurHash = await this.generateBlurHash(manualRotation);
+    // 2. 并行生成：BlurHash + 缩略图（优化性能）
+    // 优化：BlurHash 使用已旋转的图像，避免重复旋转
+    const [blurHash, thumbBuffer] = await Promise.all([
+      // 生成 BlurHash（基于已旋转的图片，避免重复旋转）
+      this.generateBlurHashFromRotated(rotatedImage),
+      // 生成缩略图 (400px) - 自动根据 EXIF orientation 旋转
+      rotatedImage
+        .clone()
+        .resize(400, null, { withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer()
+    ]);
 
-    // 3. 生成缩略图 (400px) - 自动根据 EXIF orientation 旋转
-    const thumbBuffer = await rotatedImage
-      .clone()
-      .resize(400, null, { withoutEnlargement: true })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-
-    // 4. 生成预览图 (2560px) - 自动根据 EXIF orientation 旋转
+    // 4. 生成预览图 (1920px) - 自动根据 EXIF orientation 旋转
     // 优化：直接从 metadata 获取尺寸，避免重复编码/解码
     const { width: originalWidth, height: originalHeight } = metadata;
     
     // 计算预览图尺寸（保持宽高比）
-    const maxPreviewSize = 2560;
+    const maxPreviewSize = 1920;
     let previewWidth = originalWidth || maxPreviewSize;
     let previewHeight = originalHeight || maxPreviewSize;
     
@@ -154,6 +157,8 @@ export class PhotoProcessor {
       previewHeight = Math.floor(previewHeight * ratio);
     }
     
+    // 优化：复用 rotatedImage，减少 clone 操作
+    // 注意：previewPipeline 会在后面被修改（添加水印），所以需要 clone
     let previewPipeline = rotatedImage
       .clone()
       .resize(maxPreviewSize, null, { withoutEnlargement: true });
@@ -506,6 +511,24 @@ export class PhotoProcessor {
     return sanitized;
   }
 
+  /**
+   * 从已旋转的图像生成 BlurHash（性能优化：避免重复旋转）
+   */
+  private async generateBlurHashFromRotated(rotatedImage: sharp.Sharp): Promise<string> {
+    const { data, info } = await rotatedImage
+      .clone()
+      .raw()
+      .ensureAlpha()
+      .resize(32, 32, { fit: 'inside' })
+      .toBuffer({ resolveWithObject: true });
+
+    return encode(new Uint8ClampedArray(data), info.width, info.height, 4, 4);
+  }
+
+  /**
+   * 生成 BlurHash（旧方法，保留用于兼容）
+   * @deprecated 使用 generateBlurHashFromRotated 代替，性能更好
+   */
   private async generateBlurHash(manualRotation?: number | null): Promise<string> {
     let image = this.image.clone();
     

@@ -59,6 +59,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       allow_download: album.allow_download,
       allow_batch_download: album.allow_batch_download,
       show_exif: album.show_exif,
+      allow_share: album.allow_share ?? true,
       password: album.password || null,
       expires_at: album.expires_at || null,
       watermark_enabled: album.watermark_enabled,

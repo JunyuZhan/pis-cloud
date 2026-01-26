@@ -10,6 +10,9 @@
  * - /api/worker/multipart/abort -> WORKER_URL/api/multipart/abort
  * - /api/worker/upload -> WORKER_URL/api/upload
  * - /api/worker/presign -> WORKER_URL/api/presign
+ * - /api/worker/package -> WORKER_URL/api/package
+ * - /api/worker/scan -> WORKER_URL/api/scan
+ * - /api/worker/process -> WORKER_URL/api/process
  * - /api/worker/health -> WORKER_URL/health
  */
 

@@ -227,6 +227,7 @@ export async function POST(request: NextRequest) {
       sort_rule: sort_rule || 'capture_desc',
       allow_download: allow_download ?? true,
       show_exif: show_exif ?? true,
+      allow_share: true, // 默认允许分享
       watermark_enabled: watermark_enabled ?? false,
       watermark_type: watermark_type || null,
       watermark_config: (watermark_config || {}) as Json,

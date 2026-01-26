@@ -34,6 +34,7 @@ export interface Database {
           allow_download: boolean
           allow_batch_download: boolean
           show_exif: boolean
+          allow_share: boolean
           // 水印设置
           watermark_enabled: boolean
           watermark_type: 'text' | 'logo' | null
@@ -72,6 +73,7 @@ export interface Database {
           allow_download?: boolean
           allow_batch_download?: boolean
           show_exif?: boolean
+          allow_share?: boolean
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
@@ -103,6 +105,7 @@ export interface Database {
           allow_download?: boolean
           allow_batch_download?: boolean
           show_exif?: boolean
+          allow_share?: boolean
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json

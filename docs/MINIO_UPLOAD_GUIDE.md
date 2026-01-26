@@ -5,11 +5,11 @@
 ## 📋 前置条件
 
 1. **获取 MinIO 连接信息**
-   - 内网地址：`192.168.50.10`（你的服务器 IP）
-   - MinIO API 端口：`19000`（或通过 FRP 代理的公网地址）
-   - MinIO Console 端口：`19001`
-   - Access Key：查看服务器上的 `.env` 文件中的 `MINIO_ACCESS_KEY`
-   - Secret Key：查看服务器上的 `.env` 文件中的 `MINIO_SECRET_KEY`
+   - 内网地址：`your-server-ip`（你的服务器 IP）
+   - MinIO API 端口：`9000`（默认端口，或通过代理的公网地址）
+   - MinIO Console 端口：`9001`（默认端口）
+   - Access Key：查看服务器上的 `.env` 文件中的 `STORAGE_ACCESS_KEY`
+   - Secret Key：查看服务器上的 `.env` 文件中的 `STORAGE_SECRET_KEY`
    - Bucket 名称：`pis-photos`（默认）
 
 2. **获取相册 ID**
@@ -43,20 +43,20 @@ sudo mv mc /usr/local/bin/
 
 ```bash
 # 配置别名（替换为你的实际 IP 和端口）
-mc alias set pis http://192.168.50.10:19000 minioadmin minioadmin
+mc alias set pis http://your-server-ip:9000 your-access-key your-secret-key
 
 # 测试连接
 mc ls pis
 ```
 
-#### 方式 B：连接到公网 MinIO（通过 FRP 代理）
+#### 方式 B：连接到公网 MinIO（通过代理）
 
 ```bash
-# 如果 MinIO 通过 FRP 代理到公网（如 media.yourdomain.com）
-mc alias set pis http://media.yourdomain.com minioadmin minioadmin
+# 如果 MinIO 通过代理到公网（如 media.yourdomain.com）
+mc alias set pis http://media.yourdomain.com your-access-key your-secret-key
 
 # 或使用 HTTPS（如果配置了 SSL）
-mc alias set pis https://media.yourdomain.com minioadmin minioadmin
+mc alias set pis https://media.yourdomain.com your-access-key your-secret-key
 ```
 
 ### 上传图片到扫描目录
@@ -106,13 +106,13 @@ mc stat pis/pis-photos/sync/{album_id}/photo.jpg
 
 ### 访问控制台
 
-1. **内网访问**：`http://192.168.50.10:19001`
-2. **公网访问**（如果配置了 FRP）：`http://minio-console.yourdomain.com`
+1. **内网访问**：`http://your-server-ip:9001`
+2. **公网访问**（如果配置了代理）：`http://minio-console.yourdomain.com`
 
 ### 登录
 
-- Username: `minioadmin`（或你的 `MINIO_ACCESS_KEY`）
-- Password: `minioadmin`（或你的 `MINIO_SECRET_KEY`）
+- Username: 你的 Access Key（查看 `.env` 文件中的 `STORAGE_ACCESS_KEY`）
+- Password: 你的 Secret Key（查看 `.env` 文件中的 `STORAGE_SECRET_KEY`）
 
 ### 上传步骤
 
@@ -148,9 +148,9 @@ rclone config
 # Name: pis
 # Storage: s3 (MinIO 兼容 S3)
 # Provider: MinIO
-# Access Key ID: minioadmin
-# Secret Access Key: minioadmin
-# Endpoint: http://192.168.50.10:19000
+# Access Key ID: your-access-key
+# Secret Access Key: your-secret-key
+# Endpoint: http://your-server-ip:9000
 # Region: us-east-1（任意）
 ```
 
@@ -181,9 +181,9 @@ rclone copy /path/to/photo.jpg pis:pis-photos/sync/{album_id}/
 1. 下载：https://cyberduck.io/
 2. 新建连接：
    - Protocol: **S3 (MinIO)**
-   - Server: `192.168.50.10:19000`
-   - Access Key ID: `minioadmin`
-   - Secret Access Key: `minioadmin`
+   - Server: `your-server-ip:9000`
+   - Access Key ID: `your-access-key`
+   - Secret Access Key: `your-secret-key`
 3. 连接后，导航到 `pis-photos/sync/{album_id}/`
 4. 拖拽文件上传
 
@@ -192,11 +192,11 @@ rclone copy /path/to/photo.jpg pis:pis-photos/sync/{album_id}/
 1. 下载 FileZilla Pro：https://filezilla-project.org/
 2. 新建站点：
    - Protocol: **Amazon S3**
-   - Host: `192.168.50.10`
-   - Port: `19000`
+   - Host: `your-server-ip`
+   - Port: `9000`
    - Logon Type: **Normal**
-   - User: `minioadmin`
-   - Password: `minioadmin`
+   - User: `your-access-key`
+   - Password: `your-secret-key`
 3. 连接后上传文件
 
 ---
@@ -215,11 +215,11 @@ rclone copy /path/to/photo.jpg pis:pis-photos/sync/{album_id}/
 
 ## 📝 完整示例
 
-假设相册 ID 是 `550e8400-e29b-41d4-a716-446655440000`，服务器 IP 是 `192.168.50.10`：
+假设相册 ID 是 `550e8400-e29b-41d4-a716-446655440000`，服务器 IP 是 `your-server-ip`：
 
 ```bash
 # 1. 配置连接
-mc alias set pis http://192.168.50.10:19000 minioadmin minioadmin
+mc alias set pis http://your-server-ip:9000 your-access-key your-secret-key
 
 # 2. 创建扫描目录
 mc mb pis/pis-photos/sync/550e8400-e29b-41d4-a716-446655440000 --ignore-existing
@@ -251,10 +251,10 @@ mc ls pis/pis-photos/sync/550e8400-e29b-41d4-a716-446655440000/
 
 ```bash
 # 检查网络连接
-ping 192.168.50.10
+ping your-server-ip
 
 # 检查端口是否开放
-telnet 192.168.50.10 19000
+telnet your-server-ip 9000
 
 # 检查防火墙
 # Linux: sudo ufw status
@@ -265,11 +265,11 @@ telnet 192.168.50.10 19000
 
 ```bash
 # 检查 Access Key 和 Secret Key
-# 在服务器上查看：cat /opt/pis/.env | grep MINIO
+# 在服务器上查看：cat /path/to/PIS/.env | grep STORAGE
 
 # 重新配置连接
 mc alias remove pis
-mc alias set pis http://192.168.50.10:19000 <正确的AccessKey> <正确的SecretKey>
+mc alias set pis http://your-server-ip:9000 <正确的AccessKey> <正确的SecretKey>
 ```
 
 ### 上传失败

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download, Radio } from 'lucide-react'
+import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download, Radio, Share2 } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { MultiWatermarkManager, type WatermarkItem } from './multi-watermark-manager'
 import { showSuccess, handleApiError } from '@/lib/toast'
@@ -109,6 +109,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     allow_download: album.allow_download ?? false,
     allow_batch_download: album.allow_batch_download ?? true,
     show_exif: album.show_exif ?? true,
+    allow_share: album.allow_share ?? true,
     // 水印设置
     watermark_enabled: album.watermark_enabled ?? false,
     watermark_config: initialWatermarkConfig,
@@ -352,12 +353,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           <button
             type="button"
             onClick={() => handleChange('is_public', !formData.is_public)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
               formData.is_public ? 'bg-accent' : 'bg-surface-elevated'
-            }`}
+            } w-12 h-7 md:w-11 md:h-6`}
           >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.is_public ? 'translate-x-5' : 'translate-x-0'
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.is_public ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>
@@ -374,12 +375,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           <button
             type="button"
             onClick={() => handleChange('is_live', !formData.is_live)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
               formData.is_live ? 'bg-red-500' : 'bg-surface-elevated'
-            }`}
+            } w-12 h-7 md:w-11 md:h-6`}
           >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.is_live ? 'translate-x-5' : 'translate-x-0'
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.is_live ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>
@@ -393,12 +394,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           <button
             type="button"
             onClick={() => handleChange('allow_download', !formData.allow_download)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
               formData.allow_download ? 'bg-accent' : 'bg-surface-elevated'
-            }`}
+            } w-12 h-7 md:w-11 md:h-6`}
           >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.allow_download ? 'translate-x-5' : 'translate-x-0'
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.allow_download ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>
@@ -415,12 +416,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           <button
             type="button"
             onClick={() => handleChange('allow_batch_download', !formData.allow_batch_download)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
               formData.allow_batch_download ? 'bg-accent' : 'bg-surface-elevated'
-            }`}
+            } w-12 h-7 md:w-11 md:h-6`}
           >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.allow_batch_download ? 'translate-x-5' : 'translate-x-0'
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.allow_batch_download ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>
@@ -434,12 +435,34 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
           <button
             type="button"
             onClick={() => handleChange('show_exif', !formData.show_exif)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
               formData.show_exif ? 'bg-accent' : 'bg-surface-elevated'
-            }`}
+            } w-12 h-7 md:w-11 md:h-6`}
           >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.show_exif ? 'translate-x-5' : 'translate-x-0'
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.show_exif ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
+        {/* 允许分享 */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1 pr-4">
+            <p className="font-medium flex items-center gap-2">
+              <Share2 className="w-4 h-4" />
+              允许分享
+            </p>
+            <p className="text-sm text-text-secondary">关闭后，分享链接将无法访问此相册</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleChange('allow_share', !formData.allow_share)}
+            className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
+              formData.allow_share ? 'bg-accent' : 'bg-surface-elevated'
+            } w-12 h-7 md:w-11 md:h-6`}
+          >
+            <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+              formData.allow_share ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
             }`} />
           </button>
         </div>
@@ -493,7 +516,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
                 handleWatermarksChange([getDefaultWatermark()])
                 handleChange('watermark_enabled', true)
               }}
-              className="btn-secondary text-xs px-3 py-1.5"
+              className="btn-secondary text-xs md:text-xs px-4 py-2.5 md:px-3 md:py-1.5 min-h-[44px] md:min-h-0"
               title="重置为默认水印配置（右下角文字水印）"
             >
               重置默认水印
@@ -501,12 +524,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
             <button
               type="button"
               onClick={() => handleChange('watermark_enabled', !formData.watermark_enabled)}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+              className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
                 formData.watermark_enabled ? 'bg-accent' : 'bg-surface-elevated'
-              }`}
+              } w-12 h-7 md:w-11 md:h-6`}
             >
-              <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-                formData.watermark_enabled ? 'translate-x-5' : 'translate-x-0'
+              <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+                formData.watermark_enabled ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
               }`} />
             </button>
           </div>

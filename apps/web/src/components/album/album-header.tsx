@@ -90,6 +90,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
                   onClick={handleBatchDownload}
                   disabled={downloading}
                   className="btn-secondary text-sm hidden sm:flex"
+                  title="下载已选照片的原图（当前浏览为预览图）"
                 >
                   {downloading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -147,6 +148,7 @@ export function AlbumHeader({ album, currentSort, currentLayout }: AlbumHeaderPr
                     onClick={handleBatchDownload}
                     disabled={downloading}
                     className="btn-secondary text-xs py-1"
+                    title="下载已选照片的原图（当前浏览为预览图）"
                   >
                     {downloading ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
