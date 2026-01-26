@@ -356,6 +356,47 @@ const worker = new Worker<PhotoJobData>(
                                   downloadErr?.message?.includes('NoSuchKey');
             
             if (isFileNotFound) {
+              // 文件不存在，但可能是 MinIO 最终一致性问题（文件刚上传但还没完全写入）
+              // 查询照片的创建时间，如果是最近创建的，等待后重试一次
+              const { data: photoRecord } = await supabase
+                .from('photos')
+                .select('created_at')
+                .eq('id', photoId)
+                .single();
+              
+              if (photoRecord?.created_at) {
+                const createdAt = new Date(photoRecord.created_at);
+                const now = new Date();
+                const ageSeconds = (now.getTime() - createdAt.getTime()) / 1000;
+                
+                // 如果照片是最近创建的（30秒内），等待5秒后重试一次
+                if (ageSeconds < 30) {
+                  console.log(`[${job.id}] File not found during download but photo is recent (${Math.round(ageSeconds)}s old), waiting 5s before retry...`);
+                  await new Promise(resolve => setTimeout(resolve, 5000));
+                  
+                  // 重试下载
+                  try {
+                    return await downloadFile(originalKey);
+                  } catch (retryErr: any) {
+                    const retryIsFileNotFound = retryErr?.code === 'NoSuchKey' || 
+                                              retryErr?.message?.includes('does not exist') ||
+                                              retryErr?.message?.includes('NoSuchKey');
+                    if (retryIsFileNotFound) {
+                      console.log(`[${job.id}] File still not found after retry, cleaning up database record`);
+                      try {
+                        await supabase
+                          .from('photos')
+                          .delete()
+                          .eq('id', photoId);
+                      } catch {
+                      }
+                      throw new Error('FILE_NOT_FOUND');
+                    }
+                    throw retryErr;
+                  }
+                }
+              }
+              
               console.log(`[${job.id}] File not found during download, cleaning up database record`);
               try {
                 await supabase
@@ -490,7 +531,37 @@ const worker = new Worker<PhotoJobData>(
                             err?.message?.includes('NoSuchKey');
       
       if (isFileNotFound) {
-        // 文件不存在，说明上传失败，尝试删除数据库记录（如果还存在）
+        // 文件不存在，但可能是 MinIO 最终一致性问题（文件刚上传但还没完全写入）
+        // 查询照片的创建时间，如果是最近创建的，等待后重试一次
+        const { data: photoRecord } = await supabase
+          .from('photos')
+          .select('created_at')
+          .eq('id', photoId)
+          .single();
+        
+        if (photoRecord?.created_at) {
+          const createdAt = new Date(photoRecord.created_at);
+          const now = new Date();
+          const ageSeconds = (now.getTime() - createdAt.getTime()) / 1000;
+          
+          // 如果照片是最近创建的（30秒内），等待5秒后重试一次
+          if (ageSeconds < 30) {
+            console.log(`[${job.id}] File not found but photo is recent (${Math.round(ageSeconds)}s old), waiting 5s before retry...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // 重试检查文件是否存在
+            const adapter = getStorageAdapter();
+            const retryFileExists = await adapter.exists(originalKey);
+            
+            if (retryFileExists) {
+              // 文件现在存在了，重新抛出错误让 BullMQ 重试处理
+              console.log(`[${job.id}] File exists after retry, rethrowing error to trigger retry`);
+              throw err;
+            }
+          }
+        }
+        
+        // 文件不存在（或重试后仍然不存在），说明上传失败，尝试删除数据库记录（如果还存在）
         console.log(`[${job.id}] File not found, deleting database record for photo ${photoId}`);
         const { error: deleteError } = await supabase
           .from('photos')
@@ -1656,17 +1727,59 @@ async function checkPendingPhotos(albumId?: string) {
               console.error(`❌ Failed to requeue photo ${photo.id}:`, queueError);
             }
           } else {
-            // 文件不存在，说明上传失败，清理数据库记录
-            const { error: deleteError } = await supabase
-              .from('photos')
-              .delete()
-              .eq('id', photo.id);
+            // 文件不存在，但可能是 MinIO 最终一致性问题（文件刚上传但还没完全写入）
+            // 检查照片创建时间，如果是最近创建的（30秒内），等待后重试一次
+            const createdAt = photo.created_at ? new Date(photo.created_at) : null;
+            const now = new Date();
+            const ageSeconds = createdAt ? (now.getTime() - createdAt.getTime()) / 1000 : Infinity;
             
-            if (deleteError) {
-              console.error(`❌ Failed to cleanup pending photo ${photo.id}:`, deleteError);
+            // 如果照片是最近创建的（30秒内），等待5秒后重试一次
+            if (ageSeconds < 30) {
+              console.log(`⏳ Photo ${photo.id} is recent (${Math.round(ageSeconds)}s old), waiting 5s before retry...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              // 重试检查文件是否存在
+              const retryFileExists = await checkFileExists(photo.original_key);
+              if (retryFileExists) {
+                // 文件现在存在了，重新加入处理队列
+                try {
+                  await photoQueue.add('process-photo', {
+                    photoId: photo.id,
+                    albumId: photo.album_id,
+                    originalKey: photo.original_key,
+                  });
+                  console.log(`🔄 Requeued pending photo after retry: ${photo.id}`);
+                  requeuedCount++;
+                } catch (queueError) {
+                  console.error(`❌ Failed to requeue photo ${photo.id} after retry:`, queueError);
+                }
+              } else {
+                // 重试后文件仍然不存在，且照片创建时间超过30秒，清理数据库记录
+                console.log(`🧹 Cleaned up pending photo without file (age: ${Math.round(ageSeconds)}s): ${photo.id}`);
+                const { error: deleteError } = await supabase
+                  .from('photos')
+                  .delete()
+                  .eq('id', photo.id);
+                
+                if (deleteError) {
+                  console.error(`❌ Failed to cleanup pending photo ${photo.id}:`, deleteError);
+                } else {
+                  cleanedCount++;
+                }
+              }
             } else {
-              console.log(`🧹 Cleaned up pending photo without file: ${photo.id}`);
-              cleanedCount++;
+              // 照片创建时间超过30秒，文件不存在，说明上传失败，清理数据库记录
+              console.log(`🧹 Cleaned up pending photo without file (age: ${Math.round(ageSeconds)}s): ${photo.id}`);
+              const { error: deleteError } = await supabase
+                .from('photos')
+                .delete()
+                .eq('id', photo.id);
+              
+              if (deleteError) {
+                console.error(`❌ Failed to cleanup pending photo ${photo.id}:`, deleteError);
+              } else {
+                cleanedCount++;
+              }
             }
           }
           
