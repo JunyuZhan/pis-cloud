@@ -562,11 +562,18 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
         xhr.onerror = () => {
           xhrMapRef.current.delete(uploadFile.id)
+          // 强制关闭连接，释放资源
+          try {
+            xhr.abort()
+          } catch {
+            // 忽略 abort 错误
+          }
+          
           const elapsed = (Date.now() - uploadStartTime) / 1000
           const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
           
           // 检查是否是 HTTP/2 协议错误（ERR_HTTP2_PROTOCOL_ERROR）
-          // 这通常发生在 MinIO 不支持 HTTP/2 时，重试可能会降级到 HTTP/1.1
+          // 这通常发生在 Cloudflare 使用 HTTP/2 但连接不稳定时
           const isHttp2Error = xhr.status === 0 && 
             (xhr.responseText === '' || xhr.responseText.includes('HTTP2') || xhr.responseText.includes('protocol'))
           
@@ -582,9 +589,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
               ? `网络连接中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒），正在重试...`
               : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`)
           
-          const error = new Error(errorMessage) as Error & { retryable?: boolean }
+          const error = new Error(errorMessage) as Error & { retryable?: boolean; isHttp2Error?: boolean }
           
           error.retryable = isRetryableError
+          error.isHttp2Error = isHttp2Error
           reject(error)
         }
         
@@ -627,7 +635,10 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         )
         
         // 等待一段时间后重试（指数退避）
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000) // 最多10秒
+        // HTTP/2 错误需要更长的延迟，让浏览器有机会重置连接
+        const isHttp2Error = (err as Error & { isHttp2Error?: boolean }).isHttp2Error
+        const baseDelay = isHttp2Error ? 3000 : 1000 // HTTP/2 错误基础延迟 3 秒
+        const delay = Math.min(baseDelay * Math.pow(2, retryCount), isHttp2Error ? 30000 : 10000) // HTTP/2 错误最多30秒，其他最多10秒
         await new Promise(resolve => setTimeout(resolve, delay))
         
         // 重新获取上传凭证（presigned URL 可能已过期）
