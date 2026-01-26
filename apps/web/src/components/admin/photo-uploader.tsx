@@ -126,9 +126,11 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)
     const validFiles = fileArray.filter((file) => {
-      const isValidType = ['image/jpeg', 'image/png', 'image/heic', 'image/webp'].includes(
-        file.type
-      )
+      // 支持图片和视频类型
+      const isValidType = [
+        'image/jpeg', 'image/png', 'image/heic', 'image/webp',
+        'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'
+      ].includes(file.type)
       const isValidSize = file.size <= 100 * 1024 * 1024 // 100MB
       return isValidType && isValidSize
     })
@@ -647,17 +649,17 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
           type="file"
           id="file-input"
           multiple
-          accept="image/jpeg,image/png,image/heic,image/webp"
+          accept="image/jpeg,image/png,image/heic,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm"
           onChange={(e) => e.target.files && addFiles(e.target.files)}
           className="hidden"
         />
         <label htmlFor="file-input" className="cursor-pointer">
           <Upload className="w-10 h-10 md:w-12 md:h-12 text-text-muted mx-auto mb-3 md:mb-4" />
           <p className="text-base md:text-lg font-medium mb-1 md:mb-2">
-            点击选择文件<span className="hidden md:inline">，或拖拽照片到此处</span>
+            点击选择文件<span className="hidden md:inline">，或拖拽文件到此处</span>
           </p>
           <p className="text-text-secondary text-xs md:text-sm">
-            支持 JPG、PNG、HEIC、WebP 格式，单文件最大 100MB
+            支持 JPG、PNG、HEIC、WebP、MP4、MOV、AVI 格式，单文件最大 100MB
           </p>
         </label>
       </div>

@@ -97,8 +97,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 验证文件类型
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
+    // 验证文件类型（支持图片和视频）
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/heic', 'image/webp',
+      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'
+    ]
     if (!allowedTypes.includes(contentType)) {
       return NextResponse.json(
         { error: { code: 'INVALID_FILE_TYPE', message: '不支持的文件格式' } },

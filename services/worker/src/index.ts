@@ -863,11 +863,11 @@ const server = http.createServer(async (req, res) => {
         const prefix = `sync/${albumId}/`;
         const objects = await listObjects(prefix);
         
-        // 2. 过滤出图片文件
-        const imageExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp'];
+        // 2. 过滤出图片和视频文件
+        const mediaExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp', '.mp4', '.mov', '.avi', '.mkv', '.webm'];
         const imageObjects = objects.filter(obj => {
           const ext = obj.key.toLowerCase().slice(obj.key.lastIndexOf('.'));
-          return imageExtensions.includes(ext);
+          return mediaExtensions.includes(ext);
         });
 
         console.log(`[Scan] Found ${imageObjects.length} images in ${prefix}`);
