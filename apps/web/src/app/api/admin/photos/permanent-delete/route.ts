@@ -143,24 +143,44 @@ export async function POST(request: NextRequest) {
     })
 
     // 2. 清除 Cloudflare CDN 缓存（如果配置了）
+    // 注意：即使清除失败也不阻止删除操作，但会等待清除完成以确保执行
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
-    if (mediaUrl) {
-      Promise.all(
-        validPhotos.map((photo) =>
-          purgePhotoCache(mediaUrl, {
-            original_key: photo.original_key,
-            thumb_key: photo.thumb_key,
-            preview_key: photo.preview_key,
-          }).catch((error) => {
-            console.warn(
-              `[Permanent Delete] Failed to purge CDN cache for photo ${photo.id}:`,
-              error
-            )
-          })
+    const zoneId = process.env.CLOUDFLARE_ZONE_ID
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN
+    
+    if (mediaUrl && zoneId && apiToken) {
+      try {
+        const purgeResults = await Promise.allSettled(
+          validPhotos.map((photo) =>
+            purgePhotoCache(mediaUrl, {
+              original_key: photo.original_key,
+              thumb_key: photo.thumb_key,
+              preview_key: photo.preview_key,
+            }, zoneId, apiToken)
+          )
         )
-      ).catch((error) => {
+        
+        // 统计清除结果
+        const successCount = purgeResults.filter(r => r.status === 'fulfilled' && r.value.success).length
+        const failCount = purgeResults.length - successCount
+        
+        if (failCount > 0) {
+          console.warn(`[Permanent Delete] CDN cache purge: ${successCount} succeeded, ${failCount} failed`)
+          // 记录失败的详情
+          purgeResults.forEach((result, index) => {
+            if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success)) {
+              console.warn(`[Permanent Delete] Failed to purge cache for photo ${validPhotos[index]?.id}:`, 
+                result.status === 'rejected' ? result.reason : result.value.error)
+            }
+          })
+        } else {
+          console.log(`[Permanent Delete] Successfully purged CDN cache for ${successCount} photos`)
+        }
+      } catch (error) {
         console.warn('[Permanent Delete] Error purging CDN cache:', error)
-      })
+      }
+    } else if (mediaUrl) {
+      console.warn('[Permanent Delete] Cloudflare API not configured (missing CLOUDFLARE_ZONE_ID or CLOUDFLARE_API_TOKEN), skipping cache purge')
     }
 
     // 3. 删除数据库记录

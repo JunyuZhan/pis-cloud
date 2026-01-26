@@ -44,22 +44,71 @@ export function OptimizedImage({
   unoptimized = false, // 默认使用 Next.js 优化；CDN 已优化的图片可设为 true
 }: OptimizedImageProps) {
   const [imageError, setImageError] = useState(false)
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const [useNativeImg, setUseNativeImg] = useState(false) // 用于 HTTP/2 错误时回退到原生 img 标签
   
   // 当 src 改变时，重置错误状态，以便尝试加载新的图片
   // 这确保了降级机制能正常工作：当切换到下一个后备图片时，会重新尝试加载
   useEffect(() => {
     setImageError(false)
+    setDiagnosticInfo(null)
+    setRetryCount(0)
+    setUseNativeImg(false)
   }, [src])
   
   // 当 onError 回调改变时，也重置错误状态（用于父组件更新错误处理逻辑）
   useEffect(() => {
     setImageError(false)
+    setDiagnosticInfo(null)
+    setRetryCount(0)
+    setUseNativeImg(false)
   }, [onError])
+  
+  // 可选的预检查：在开发环境或优先级图片时，尝试诊断 URL 可访问性
+  useEffect(() => {
+    if (priority && typeof src === 'string' && src.startsWith('http') && !imageError) {
+      // 仅在开发环境或优先级图片时进行诊断
+      const checkUrl = async () => {
+        try {
+          // 使用 fetch 检查 URL（注意：可能受 CORS 限制）
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+          
+          const response = await fetch(src, {
+            method: 'HEAD',
+            signal: controller.signal,
+            cache: 'no-cache',
+          })
+          
+          clearTimeout(timeoutId)
+          
+          if (!response.ok) {
+            setDiagnosticInfo(`HTTP ${response.status}: ${response.statusText}`)
+            if (response.status === 404) {
+              console.warn(`[OptimizedImage] Image not found (404): ${src}`)
+            } else if (response.status === 403) {
+              console.warn(`[OptimizedImage] Access forbidden (403): ${src} - Check CORS/referrer settings`)
+            }
+          }
+        } catch (error: any) {
+          // 忽略 CORS 错误（这是预期的，如果服务器不允许 CORS）
+          if (error.name !== 'AbortError' && !error.message?.includes('CORS')) {
+            setDiagnosticInfo(`Network error: ${error.message}`)
+          }
+        }
+      }
+      
+      // 延迟检查，避免影响正常加载
+      const timer = setTimeout(checkUrl, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [src, priority, imageError])
   
   // 简化逻辑：优先图片立即加载，其他图片使用 Next.js 的 lazy loading
   // Next.js Image 组件已经内置了 Intersection Observer，不需要重复实现
 
-  const handleError = (event?: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  const handleError = async (event?: React.SyntheticEvent<HTMLImageElement, Event>) => {
     // 收集所有错误信息到一个字符串中，确保所有信息都能显示
     try {
       const srcValue = src ?? '(undefined)'
@@ -69,18 +118,74 @@ export function OptimizedImage({
       const altValue = alt ?? '(undefined)'
       const altStr = typeof altValue === 'string' && altValue.length > 0 ? altValue : '(empty)'
       
+      // 检测 HTTP/2 协议错误
+      // ERR_HTTP2_PROTOCOL_ERROR 通常表现为：状态码 200 但图片无法加载（naturalWidth/Height 为 0）
+      // 当使用 Next.js Image 组件且 unoptimized=true 时，如果出现这种情况，可能是 HTTP/2 协议问题
+      let http2Error = false
+      if (event?.target && unoptimized) {
+        const img = event.target as HTMLImageElement
+        // 检查是否是 HTTP/2 协议错误：图片标记为完成但尺寸为 0，且有有效的 src
+        if (img.naturalWidth === 0 && img.naturalHeight === 0 && img.complete && img.currentSrc) {
+          http2Error = true
+        }
+      }
+      
+      // 如果是 HTTP/2 错误且未重试过，尝试使用原生 img 标签（绕过 Next.js Image 的 HTTP/2）
+      if (http2Error && retryCount === 0 && typeof src === 'string') {
+        console.warn('[OptimizedImage] HTTP/2 protocol error detected, retrying with native img tag')
+        setRetryCount(1)
+        setUseNativeImg(true)
+        setImageError(false) // 重置错误状态以重试
+        return // 不调用 onError，让重试机制处理
+      }
+      
+      // 检测协议不匹配
+      let protocolMismatch = ''
+      if (typeof src === 'string' && src.startsWith('http://')) {
+        const httpsUrl = src.replace('http://', 'https://')
+        protocolMismatch = `\n  ⚠️ Protocol mismatch detected: URL uses HTTP but browser may be upgrading to HTTPS.\n  Try using HTTPS: ${httpsUrl}`
+      }
+      
       // 构建完整的错误信息字符串
       let errorDetails = `[OptimizedImage] Image load failed\n`
+      if (http2Error) {
+        errorDetails += `  ⚠️ HTTP/2 Protocol Error detected - This may be a Cloudflare/frpc compatibility issue\n`
+      }
       errorDetails += `  src: ${srcStr}\n`
       errorDetails += `  alt: ${altStr}\n`
       errorDetails += `  src type: ${typeof src}, value: ${JSON.stringify(src)}\n`
       errorDetails += `  alt type: ${typeof alt}, value: ${JSON.stringify(alt)}\n`
       errorDetails += `  hasSrc: ${!!src}, srcLength: ${typeof src === 'string' ? src.length : 'N/A'}\n`
-      errorDetails += `  props: width=${width ?? 'undefined'}, height=${height ?? 'undefined'}, fill=${fill}, unoptimized=${unoptimized}\n`
+      errorDetails += `  props: width=${width ?? 'undefined'}, height=${height ?? 'undefined'}, fill=${fill}, unoptimized=${unoptimized}`
+      if (protocolMismatch) {
+        errorDetails += protocolMismatch
+      }
       
       if (event?.target) {
         const img = event.target as HTMLImageElement
-        errorDetails += `  image element: currentSrc=${img.currentSrc || '(empty)'}, naturalWidth=${img.naturalWidth}, naturalHeight=${img.naturalHeight}\n`
+        errorDetails += `\n  image element: currentSrc=${img.currentSrc || '(empty)'}, naturalWidth=${img.naturalWidth}, naturalHeight=${img.naturalHeight}`
+        
+        // 检测协议不匹配（比较原始 src 和 currentSrc）
+        if (src && img.currentSrc && src !== img.currentSrc) {
+          errorDetails += `\n  ⚠️ URL changed: original="${src.substring(0, 100)}" -> current="${img.currentSrc.substring(0, 100)}"`
+        }
+      }
+      
+      // 添加诊断信息（如果有）
+      if (diagnosticInfo) {
+        errorDetails += `\n  Diagnostic: ${diagnosticInfo}`
+      }
+      
+      // 添加故障排除建议
+      errorDetails += `\n  Troubleshooting:`
+      if (typeof src === 'string') {
+        if (src.startsWith('http://')) {
+          errorDetails += `\n    1. Check if server supports HTTPS (try https:// instead)`
+          errorDetails += `\n    2. Verify NEXT_PUBLIC_MEDIA_URL uses correct protocol`
+        }
+        errorDetails += `\n    3. Verify image exists at: ${src}`
+        errorDetails += `\n    4. Check browser console Network tab for HTTP status code`
+        errorDetails += `\n    5. Check server CORS/referrer settings (nginx/media.conf)`
       }
       
       // 使用单个 console.error 调用，包含所有信息
@@ -92,6 +197,12 @@ export function OptimizedImage({
         console.log('src:', src)
         console.log('alt:', alt)
         console.log('props:', { width, height, fill, unoptimized })
+        if (diagnosticInfo) {
+          console.log('Diagnostic:', diagnosticInfo)
+        }
+        if (protocolMismatch) {
+          console.warn('Protocol mismatch:', protocolMismatch)
+        }
         if (event?.target) {
           const img = event.target as HTMLImageElement
           console.log('image element:', {
@@ -99,6 +210,10 @@ export function OptimizedImage({
             naturalWidth: img.naturalWidth,
             naturalHeight: img.naturalHeight,
           })
+          if (src && img.currentSrc && src !== img.currentSrc) {
+            console.warn('URL changed:', { original: src, current: img.currentSrc })
+            console.warn('💡 This suggests a protocol redirect (HTTP -> HTTPS) or URL rewrite')
+          }
         }
         console.groupEnd()
       }
@@ -116,9 +231,28 @@ export function OptimizedImage({
     }, 200)
   }
 
-  // 如果 src 存在且没有错误，直接渲染 Image 组件
-  // Next.js Image 组件已经内置了优化的懒加载机制
+  // 如果 src 存在且没有错误，渲染图片
+  // HTTP/2 错误时使用原生 img 标签绕过 Next.js Image 组件
   if (!imageError && src) {
+    // HTTP/2 错误回退：使用原生 img 标签
+    if (useNativeImg) {
+      return (
+        <div className={cn('relative', fill ? 'w-full h-full' : '')}>
+          <img
+            src={src}
+            alt={alt}
+            width={width}
+            height={height}
+            className={cn(className, fill ? 'w-full h-full object-cover' : '')}
+            loading={priority ? 'eager' : 'lazy'}
+            onError={handleError}
+            style={fill ? { objectFit: 'cover' } : undefined}
+          />
+        </div>
+      )
+    }
+    
+    // 正常情况：使用 Next.js Image 组件
     return (
       <div className={cn('relative', fill ? 'w-full h-full' : '')}>
         <Image
