@@ -617,6 +617,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     let lastLoaded = 0
     let lastTime = Date.now()
     let uploadStartTime = Date.now()
+    let finalProgress = 0 // 记录最终进度
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -630,6 +631,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             const progress = Math.round((event.loaded / event.total) * 100)
+            finalProgress = progress // 更新最终进度
             const now = Date.now()
             const timeDiff = (now - lastTime) / 1000
             
@@ -672,15 +674,16 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
         xhr.onerror = () => {
           xhrMapRef.current.delete(uploadFile.id)
+          
+          const elapsed = (Date.now() - uploadStartTime) / 1000
+          const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
+          
           // 强制关闭连接，释放资源
           try {
             xhr.abort()
           } catch {
             // 忽略 abort 错误
           }
-          
-          const elapsed = (Date.now() - uploadStartTime) / 1000
-          const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
           
           // 检查是否是 HTTP/2 协议错误（ERR_HTTP2_PROTOCOL_ERROR）
           // 这通常发生在 Cloudflare 使用 HTTP/2 但连接不稳定时
@@ -699,10 +702,11 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
               ? `网络连接中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒），正在重试...`
               : `网络错误：文件上传中断（${fileSizeMb}MB，已用时 ${Math.round(elapsed)}秒）。请检查网络连接或 Worker 服务状态`)
           
-          const error = new Error(errorMessage) as Error & { retryable?: boolean; isHttp2Error?: boolean }
+          const error = new Error(errorMessage) as Error & { retryable?: boolean; isHttp2Error?: boolean; progress?: number }
           
           error.retryable = isRetryableError
           error.isHttp2Error = isHttp2Error
+          error.progress = finalProgress // 记录进度，用于后续检查
           reject(error)
         }
         
@@ -732,8 +736,46 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         xhr.send(uploadFile.file)
       })
     } catch (error) {
+      // 检查上传进度，如果已经到95%以上，可能是实际上传成功了但连接被关闭
+      const err = error as Error & { retryable?: boolean; progress?: number }
+      const progress = err.progress || 0
+      const isNearComplete = progress >= 95
+      
+      // 如果进度接近100%且连接被关闭，先检查文件是否真的上传成功
+      // 这种情况通常发生在文件上传完成后，服务器关闭连接但浏览器没有收到响应
+      if (isNearComplete && err.retryable) {
+        try {
+          // 等待2秒后检查照片是否已经在数据库中（给 Worker 一些时间处理）
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          
+          const checkRes = await fetch(`/api/admin/albums/${albumId}/photos?status=completed`)
+          if (checkRes.ok) {
+            const data = await checkRes.json() as { photos?: Array<{ id: string }> }
+            const photoExists = data?.photos?.some((p) => p.id === photoId)
+            if (photoExists) {
+              // 文件已存在，上传成功，直接返回（不抛出错误）
+              console.log(`[Upload] File upload completed but connection closed, photo ${photoId} exists in database`)
+              return
+            }
+          }
+          
+          // 也检查 pending 状态的照片（可能正在处理中）
+          const pendingRes = await fetch(`/api/admin/albums/${albumId}/photos?status=pending`)
+          if (pendingRes.ok) {
+            const pendingData = await pendingRes.json() as { photos?: Array<{ id: string }> }
+            const photoPending = pendingData?.photos?.some((p) => p.id === photoId)
+            if (photoPending) {
+              // 照片在 pending 状态，说明上传成功但还在处理中，认为上传成功
+              console.log(`[Upload] File upload completed but connection closed, photo ${photoId} is pending processing`)
+              return
+            }
+          }
+        } catch {
+          // 检查失败，继续错误处理流程
+        }
+      }
+      
       // 检查是否为可重试的错误
-      const err = error as Error & { retryable?: boolean }
       if (err.retryable && retryCount < MAX_RETRIES) {
         // 更新状态显示重试信息
         setFiles((prev) =>
