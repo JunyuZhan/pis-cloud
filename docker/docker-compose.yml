@@ -22,7 +22,7 @@ networks:
 services:
   # MinIO 对象存储 (独立端口部署)
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: pis-minio
     ports:
       - "19000:9000"  # API (绑定到所有接口，允许局域网访问)
