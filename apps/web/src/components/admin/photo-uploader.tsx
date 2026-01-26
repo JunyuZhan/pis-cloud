@@ -6,16 +6,17 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Pause, Play }
 import { cn, formatFileSize } from '@/lib/utils'
 
 // 上传配置
-// const PRESIGN_THRESHOLD = 4 * 1024 * 1024 // 4MB 以上直接上传到 Worker (保留供将来使用)
+const MULTIPART_THRESHOLD = 10 * 1024 * 1024 // 10MB 以上使用分片上传
+const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB 分片大小（Vercel 限制约 4.5MB，使用 4MB 更安全）
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 const MAX_RETRIES = 3 // 最大重试次数
 
 // 根据文件大小计算超时时间（毫秒）
-// 基础超时：10分钟，每MB增加5秒，最大30分钟
+// 基础超时：10分钟，每MB增加10秒（大文件需要更多时间），最大60分钟
 function calculateTimeout(fileSize: number): number {
   const baseTimeout = 10 * 60 * 1000 // 10分钟
-  const perMbTimeout = 5 * 1000 // 每MB 5秒
-  const maxTimeout = 30 * 60 * 1000 // 30分钟
+  const perMbTimeout = 10 * 1000 // 每MB 10秒（增加超时时间，提高大文件成功率）
+  const maxTimeout = 60 * 60 * 1000 // 60分钟（增加最大超时时间）
   const fileSizeMb = fileSize / (1024 * 1024)
   const timeout = baseTimeout + fileSizeMb * perMbTimeout
   return Math.min(timeout, maxTimeout)
@@ -292,6 +293,205 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         })
       }, 3000)
     })
+  }
+
+  // 分片上传（大文件）
+  const uploadMultipart = async (
+    uploadFile: UploadFile,
+    photoId: string,
+    originalKey: string,
+    respAlbumId: string,
+    retryCount = 0
+  ) => {
+    try {
+      // 1. 初始化分片上传
+      const initRes = await fetch('/api/worker/multipart/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: originalKey }),
+      })
+
+      if (!initRes.ok) {
+        throw new Error('初始化分片上传失败')
+      }
+
+      const { uploadId } = await initRes.json()
+
+      // 2. 计算分片数量
+      const totalChunks = Math.ceil(uploadFile.file.size / CHUNK_SIZE)
+      const parts: Array<{ partNumber: number; etag: string }> = []
+
+      // 更新状态为上传中
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === uploadFile.id ? { ...f, status: 'uploading' as const } : f
+        )
+      )
+
+      // 3. 并行上传分片（每批 3 个）
+      const batchSize = 3
+      for (let i = 0; i < totalChunks; i += batchSize) {
+        const batch = []
+        for (let j = i; j < Math.min(i + batchSize, totalChunks); j++) {
+          const start = j * CHUNK_SIZE
+          const end = Math.min(start + CHUNK_SIZE, uploadFile.file.size)
+          const chunk = uploadFile.file.slice(start, end)
+
+          batch.push(
+            (async () => {
+              // 检查是否被暂停
+              const currentFile = files.find(f => f.id === uploadFile.id)
+              if (currentFile?.status === 'paused') {
+                throw new Error('上传已暂停')
+              }
+
+              let partRetryCount = 0
+              const maxPartRetries = 3
+              
+              while (partRetryCount < maxPartRetries) {
+                try {
+                  const partRes = await fetch(
+                    `/api/worker/multipart/upload?key=${encodeURIComponent(originalKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${j + 1}`,
+                    {
+                      method: 'PUT',
+                      body: chunk,
+                      headers: {
+                        'Content-Type': 'application/octet-stream',
+                      },
+                    }
+                  )
+
+                  if (!partRes.ok) {
+                    const errorText = await partRes.text()
+                    throw new Error(`上传分片 ${j + 1} 失败: HTTP ${partRes.status} ${errorText}`)
+                  }
+
+                  const partData = await partRes.json()
+                  return { partNumber: j + 1, etag: partData.etag }
+                } catch (partError) {
+                  partRetryCount++
+                  if (partRetryCount >= maxPartRetries) {
+                    throw partError
+                  }
+                  // 指数退避重试
+                  await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, partRetryCount)))
+                }
+              }
+              
+              throw new Error(`上传分片 ${j + 1} 失败：重试次数用尽`)
+            })()
+          )
+        }
+
+        const batchResults = await Promise.all(batch)
+        parts.push(...batchResults)
+
+        // 更新进度
+        const progress = Math.round(((i + batch.length) / totalChunks) * 100)
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadFile.id ? { ...f, progress } : f
+          )
+        )
+      }
+
+      // 4. 完成分片上传
+      const completeRes = await fetch('/api/worker/multipart/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: originalKey,
+          uploadId,
+          parts: parts.sort((a, b) => a.partNumber - b.partNumber),
+        }),
+      })
+
+      if (!completeRes.ok) {
+        throw new Error('完成分片上传失败')
+      }
+
+      // 5. 触发处理
+      fetch('/api/admin/photos/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId, albumId: respAlbumId, originalKey }),
+      }).catch((err) => {
+        console.error('Failed to trigger photo processing:', err)
+        setTimeout(() => {
+          fetch(`/api/admin/albums/${respAlbumId}/check-pending`, {
+            method: 'POST',
+          }).catch(() => {})
+        }, 3000)
+      })
+
+      // 更新状态为完成
+      setFiles((prev) => {
+        const currentFile = prev.find(f => f.id === uploadFile.id)
+        if (currentFile?.status === 'paused') {
+          return prev
+        }
+        return prev.map((f) =>
+          f.id === uploadFile.id
+            ? { ...f, status: 'completed' as const, progress: 100 }
+            : f
+        )
+      })
+
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
+      router.refresh()
+    } catch (error) {
+      // 检查是否是暂停导致的中断
+      let shouldSkip = false
+      setFiles((prev) => {
+        const currentFile = prev.find(f => f.id === uploadFile.id)
+        if (currentFile?.status === 'paused') {
+          shouldSkip = true
+        }
+        return prev
+      })
+
+      if (shouldSkip) {
+        return
+      }
+
+      // 检查是否为可重试的错误
+      const err = error as Error & { retryable?: boolean }
+      const errorMessage = err instanceof Error ? err.message : '分片上传失败'
+      
+      // 网络错误、超时错误可以重试
+      const isRetryable = err.retryable !== false && 
+        (errorMessage.includes('网络') || 
+         errorMessage.includes('超时') || 
+         errorMessage.includes('HTTP') ||
+         errorMessage.includes('失败'))
+      
+      if (isRetryable && retryCount < MAX_RETRIES) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === uploadFile.id
+              ? { ...f, error: `正在重试 (${retryCount + 1}/${MAX_RETRIES})...` }
+              : f
+          )
+        )
+        
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return uploadMultipart(uploadFile, photoId, originalKey, respAlbumId, retryCount + 1)
+      }
+
+      // 失败处理
+      const errorMessage = err instanceof Error ? err.message : '分片上传失败'
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === uploadFile.id
+            ? { ...f, status: 'failed' as const, error: errorMessage }
+            : f
+        )
+      )
+
+      uploadQueueRef.current = uploadQueueRef.current.filter(id => id !== uploadFile.id)
+      router.refresh()
+    }
   }
 
   // 小文件直接上传
@@ -771,9 +971,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         )
       )
 
-      // 2. 统一使用代理上传（避免前端直接访问内网Worker的问题）
-      // 注意：Vercel有4.5MB限制，但通过代理上传可以绕过
-      await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
+      // 2. 根据文件大小选择上传方式
+      // 大文件（>10MB）使用分片上传，提高成功率
+      if (uploadFile.file.size > MULTIPART_THRESHOLD) {
+        await uploadMultipart(uploadFile, photoId!, originalKey, respAlbumId)
+      } else {
+        // 小文件直接上传（避免分片上传的开销）
+        await uploadDirectly(uploadFile, photoId!, uploadUrl, originalKey, respAlbumId)
+      }
 
       // 3. 上传成功，触发 Worker 处理（uploadDirectly 内部已触发，这里确保状态更新）
       // 注意：处理请求在 uploadDirectly 内部异步触发，不阻塞
