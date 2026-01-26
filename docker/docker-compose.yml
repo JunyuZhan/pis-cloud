@@ -125,6 +125,9 @@ services:
       # 存储公网 URL（用于生成 presigned URL，从环境变量读取）
       - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
       - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
+      # Cloudflare CDN 缓存清除（可选）
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
     depends_on:
       minio:
         condition: service_healthy
