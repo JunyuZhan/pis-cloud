@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 清除 Next.js/Vercel 路由缓存，确保前端立即看到更新
-    for (const [albumId, slug] of albumSlugs.entries()) {
+    for (const [, slug] of albumSlugs.entries()) {
       if (slug) {
         try {
           // 清除照片列表API缓存
