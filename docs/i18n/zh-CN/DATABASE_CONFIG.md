@@ -59,19 +59,17 @@ DATABASE_SSL=false
 **注意事项：**
 - ⚠️ 需要自行实现用户认证（可以使用 Supabase Auth 或其他方案）
 - ⚠️ 需要自行实现实时功能（可以使用 WebSocket 或其他方案）
-- ⚠️ 需要手动执行数据库迁移脚本
+- ⚠️ 需要手动执行数据库架构脚本
 
-**数据库迁移：**
+**数据库架构：**
 ```bash
-# 执行迁移脚本
-psql -h localhost -U postgres -d pis -f database/migrations/001_init.sql
-psql -h localhost -U postgres -d pis -f database/migrations/002_secure_rls.sql
-# ... 其他迁移文件
+# 执行完整数据库架构（一次性设置）
+psql -h localhost -U postgres -d pis -f database/full_schema.sql
 ```
 
 ### 3. MySQL
 
-使用 MySQL 需要适配表结构和迁移脚本。
+使用 MySQL 需要适配表结构和架构脚本。
 
 ```bash
 DATABASE_TYPE=mysql
@@ -87,7 +85,7 @@ DATABASE_SSL=false
 
 **注意事项：**
 - ⚠️ MySQL 适配器尚未完全实现（需要贡献代码）
-- ⚠️ 需要将 PostgreSQL 迁移脚本转换为 MySQL 语法
+- ⚠️ 需要将 PostgreSQL 架构脚本转换为 MySQL 语法
 - ⚠️ 需要自行实现用户认证和实时功能
 
 ## 数据库迁移
@@ -120,7 +118,7 @@ DATABASE_SSL=false
 
 2. **在 Supabase Dashboard 中执行 SQL：**
    - 进入 SQL Editor
-   - 执行迁移脚本
+   - 复制并执行 `database/full_schema.sql`（一次性设置）
    - 导入数据（如果需要）
 
 3. **更新配置：**
@@ -159,9 +157,9 @@ DATABASE_SSL=false
 2. 检查数据库用户权限
 3. 确认数据库允许该用户连接
 
-### 迁移脚本执行失败
+### 架构脚本执行失败
 
 1. 检查数据库版本兼容性
-2. 确认迁移脚本语法正确
+2. 确认架构脚本语法正确
 3. 查看错误日志定位问题
-4. 按顺序执行迁移脚本
+4. 确保数据库为空（full_schema.sql 仅适用于全新数据库）

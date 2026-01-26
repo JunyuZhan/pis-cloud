@@ -249,7 +249,7 @@ await db.update('photos', { id: photoId }, {
 2. **Database Limitations**: PostgreSQL and MySQL adapters currently only provide interfaces. Full implementation requires:
    - Implementing user authentication system
    - Implementing real-time data synchronization
-   - Converting database migration scripts
+   - Converting database schema script (convert `database/full_schema.sql` to MySQL syntax)
 
 3. **Storage Migration**: When switching storage types, existing data needs to be migrated, otherwise uploaded files will not be accessible
 

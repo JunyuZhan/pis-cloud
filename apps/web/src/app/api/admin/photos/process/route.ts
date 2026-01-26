@@ -48,11 +48,16 @@ export async function POST(request: NextRequest) {
 
     // 调用远程 Worker API 触发处理
     const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    const workerApiKey = process.env.WORKER_API_KEY
+    if (workerApiKey) {
+      headers['X-API-Key'] = workerApiKey
+    }
     
     try {
       const processRes = await fetch(`${workerApiUrl}/api/process`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ photoId, albumId, originalKey }),
       })
 

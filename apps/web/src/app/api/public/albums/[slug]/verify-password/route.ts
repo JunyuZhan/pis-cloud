@@ -56,12 +56,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     //    - unknown IP：跳过 IP 限制（主要依赖相册限制）
     // 2. 基于相册的限制（防止针对特定相册的攻击）：每分钟最多 5 次
     const ipLimit = isInternalNetwork ? 30 : (ip === 'unknown' ? 0 : 10)
-    const albumRateLimit = checkRateLimit(`verify-password:album:${slug}`, 5, 60 * 1000)
+    const albumRateLimit = await checkRateLimit(`verify-password:album:${slug}`, 5, 60 * 1000)
     
     // 只有在有有效 IP 且不是内网 IP 时，才进行严格的 IP 限制
     // 内网部署时主要依赖基于相册的限制
     if (ipLimit > 0) {
-      const ipRateLimit = checkRateLimit(`verify-password:ip:${ip}`, ipLimit, 60 * 1000)
+      const ipRateLimit = await checkRateLimit(`verify-password:ip:${ip}`, ipLimit, 60 * 1000)
       
       if (!ipRateLimit.allowed) {
         const retryAfter = Math.ceil((ipRateLimit.resetAt - Date.now()) / 1000)

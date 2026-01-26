@@ -249,7 +249,7 @@ await db.update('photos', { id: photoId }, {
 2. **数据库限制：** PostgreSQL 和 MySQL 适配器目前仅提供接口，完整实现需要：
    - 实现用户认证系统
    - 实现实时数据同步
-   - 转换数据库迁移脚本
+   - 转换数据库架构脚本（将 `database/full_schema.sql` 转换为 MySQL 语法）
 
 3. **存储迁移：** 切换存储类型时，需要迁移现有数据，否则已上传的文件将无法访问
 

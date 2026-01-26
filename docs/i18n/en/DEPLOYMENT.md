@@ -93,48 +93,19 @@ Go to project → **Settings** → **API**, copy the following information:
 | anon public | Frontend browser | `eyJhbGciOiJIUzI1NiIs...` |
 | service_role | Worker backend | `eyJhbGciOiJIUzI1NiIs...` (⚠️ Keep secret!) |
 
-### 3. Execute Database Migrations
+### 3. Execute Database Schema
 
 1. Go to project → **SQL Editor**
 2. Click **New query**
-3. Execute the following migration files in order (must be in order):
+3. Copy the **entire content** of `database/full_schema.sql`
+4. Paste into SQL Editor
+5. Click **Run** to execute
+6. ✅ Done!
 
-```sql
--- 1. Initialize database structure
--- Copy entire content of database/migrations/001_init.sql
--- Click Run to execute
--- Confirm albums and photos tables appear
-
--- 2. Fix RLS security policies
--- Copy entire content of database/migrations/002_secure_rls.sql
--- Click Run to execute
-
--- 3. Add album advanced features
--- Copy entire content of database/migrations/003_album_features.sql
--- Click Run to execute
-
--- 4. Add album templates (optional, if using template feature)
--- Copy entire content of database/migrations/004_album_templates.sql
--- Click Run to execute
-
--- 5. Add package downloads (optional, if using package download)
--- Copy entire content of database/migrations/005_package_downloads.sql
--- Click Run to execute
-
--- 6. Add album share config (optional, if using WeChat share optimization)
--- Copy entire content of database/migrations/006_album_share_config.sql
--- Click Run to execute
-
--- 7. Add photo groups (optional, if using photo grouping)
--- Copy entire content of database/migrations/007_photo_groups.sql
--- Click Run to execute
-
--- 8. Add album event metadata (optional, if using event time and location)
--- Copy entire content of database/migrations/008_album_event_metadata.sql
--- Click Run to execute
+**Or use command line**:
+```bash
+psql $DATABASE_URL < database/full_schema.sql
 ```
-
-**Note**: Migration files must be executed in order, as later migrations depend on previous table structures.
 
 ### 4. Create Admin Account
 

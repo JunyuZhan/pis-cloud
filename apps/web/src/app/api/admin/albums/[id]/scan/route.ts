@@ -45,9 +45,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 调用 Worker 扫描 API
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    const workerApiKey = process.env.WORKER_API_KEY
+    if (workerApiKey) {
+      headers['X-API-Key'] = workerApiKey
+    }
     const workerResponse = await fetch(`${WORKER_URL}/api/scan`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ albumId }),
     })
 

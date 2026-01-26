@@ -61,13 +61,18 @@ export async function PUT(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     try {
+      // 准备请求头（包含 API Key）
+      const workerApiKey = process.env.WORKER_API_KEY
+      const headers: HeadersInit = {
+        'Content-Type': contentType,
+        ...(contentLength ? { 'Content-Length': contentLength } : {}),
+        ...(workerApiKey ? { 'X-API-Key': workerApiKey } : {}),
+      }
+      
       // 使用流式传输：直接将请求体流式转发到 Worker
       const workerResponse = await fetch(uploadUrl, {
         method: 'PUT',
-        headers: {
-          'Content-Type': contentType,
-          ...(contentLength ? { 'Content-Length': contentLength } : {}),
-        },
+        headers,
         body: request.body, // 直接使用请求体流，不读取到内存
         signal: controller.signal,
       })

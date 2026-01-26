@@ -93,48 +93,19 @@
 | anon public | 前端浏览器 | `eyJhbGciOiJIUzI1NiIs...` |
 | service_role | Worker 后端 | `eyJhbGciOiJIUzI1NiIs...` (⚠️ 保密!) |
 
-### 3. 执行数据库迁移
+### 3. 执行数据库架构
 
 1. 进入项目 → **SQL Editor**
 2. 点击 **New query**
-3. 按顺序执行以下迁移文件（必须按顺序执行）：
+3. 复制 `database/full_schema.sql` 文件的**全部内容**
+4. 粘贴到 SQL Editor
+5. 点击 **Run** 执行
+6. ✅ 完成！
 
-```sql
--- 1. 初始化数据库结构
--- 复制 database/migrations/001_init.sql 的全部内容
--- 点击 Run 执行
--- 确认出现 albums 和 photos 表
-
--- 2. 修复 RLS 安全策略
--- 复制 database/migrations/002_secure_rls.sql 的全部内容
--- 点击 Run 执行
-
--- 3. 添加相册高级功能
--- 复制 database/migrations/003_album_features.sql 的全部内容
--- 点击 Run 执行
-
--- 4. 添加相册模板功能（可选，如需使用模板功能）
--- 复制 database/migrations/004_album_templates.sql 的全部内容
--- 点击 Run 执行
-
--- 5. 添加打包下载功能（可选，如需使用打包下载）
--- 复制 database/migrations/005_package_downloads.sql 的全部内容
--- 点击 Run 执行
-
--- 6. 添加相册分享配置（可选，如需使用微信分享优化）
--- 复制 database/migrations/006_album_share_config.sql 的全部内容
--- 点击 Run 执行
-
--- 7. 添加相册分组功能（可选，如需使用照片分组）
--- 复制 database/migrations/007_photo_groups.sql 的全部内容
--- 点击 Run 执行
-
--- 8. 添加相册活动元数据（可选，如需使用活动时间和地点）
--- 复制 database/migrations/008_album_event_metadata.sql 的全部内容
--- 点击 Run 执行
+**或者使用命令行**：
+```bash
+psql $DATABASE_URL < database/full_schema.sql
 ```
-
-**注意**：迁移文件必须按顺序执行，后续迁移依赖前面的表结构。
 
 ### 4. 创建管理员账号
 

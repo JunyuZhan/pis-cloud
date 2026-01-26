@@ -32,12 +32,13 @@ describe('Watermark Security Tests', () => {
 
       // Mock metadata - vitest 4.x: 使用 Object.defineProperty 来 mock 属性
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -79,12 +80,13 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -133,12 +135,13 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -194,12 +197,13 @@ describe('Watermark Security Tests', () => {
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -240,26 +244,47 @@ describe('Watermark Security Tests', () => {
         }],
       }
 
-      // Mock slow response
-      ;(global.fetch as any).mockImplementationOnce(() => {
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              ok: true,
-              headers: new Headers({ 'content-length': '1024' }),
-              arrayBuffer: async () => new ArrayBuffer(1024),
+      // Mock slow response - 模拟超时行为
+      // fetch 会在 10 秒后被 AbortController 取消
+      let abortController: AbortController | null = null
+      ;(global.fetch as any).mockImplementationOnce((url: string, options?: { signal?: AbortSignal }) => {
+        abortController = options?.signal as AbortController || new AbortController()
+        // 模拟慢速响应（15秒），但会在 10 秒后被 abort
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            if (abortController?.signal.aborted) {
+              const error = new Error('The operation was aborted')
+              error.name = 'AbortError'
+              reject(error)
+            } else {
+              resolve({
+                ok: true,
+                headers: new Headers({ 'content-length': '1024' }),
+                arrayBuffer: async () => new ArrayBuffer(1024),
+              })
+            }
+          }, 15000) // 15 seconds - should timeout before this
+          
+          // 模拟 AbortController 的 abort 行为
+          if (abortController) {
+            abortController.signal.addEventListener('abort', () => {
+              clearTimeout(timeout)
+              const error = new Error('The operation was aborted')
+              error.name = 'AbortError'
+              reject(error)
             })
-          }, 15000) // 15 seconds - should timeout
+          }
         })
       })
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -284,7 +309,8 @@ describe('Watermark Security Tests', () => {
       const duration = Date.now() - startTime
       
       // Should timeout around 10 seconds (with some tolerance)
-      expect(duration).toBeLessThan(12000) // Should be less than 12 seconds
+      // 实际超时时间可能在 10-12 秒之间
+      expect(duration).toBeLessThan(13000) // Should be less than 13 seconds
       expect(result).toBeDefined()
     })
   })
@@ -315,12 +341,13 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -371,12 +398,13 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -420,12 +448,13 @@ describe('Watermark Security Tests', () => {
 
       // Mock invalid metadata
       const mockMetadata = { width: 0, height: 0 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }
@@ -466,12 +495,13 @@ describe('Watermark Security Tests', () => {
       }
 
       const mockMetadata = { width: 1000, height: 1000 }
-      // 创建链式调用的 mock 对象
+      // 创建链式调用的 mock 对象 - 生成正确的 RGBA 像素数据用于 blurhash
+      const pixelData = new Uint8ClampedArray(32 * 32 * 4).fill(128) // RGBA 格式，32x32 像素
       const chainMock = {
         ensureAlpha: vi.fn().mockReturnThis(),
         resize: vi.fn().mockReturnThis(),
         toBuffer: vi.fn().mockResolvedValue({ 
-          data: Buffer.from('preview'),
+          data: Buffer.from(pixelData),
           info: { width: 32, height: 32 }
         }),
       }

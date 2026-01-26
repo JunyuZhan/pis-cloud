@@ -139,10 +139,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 触发 Worker 处理
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    const workerApiKey = process.env.WORKER_API_KEY
+    if (workerApiKey) {
+      headers['X-API-Key'] = workerApiKey
+    }
     try {
       await fetch(`${workerUrl}/api/package`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           packageId: packageData.id,
           albumId: id,

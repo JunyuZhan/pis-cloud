@@ -120,18 +120,13 @@ pnpm setup
 #### 1. 配置 Supabase
 
 1. 创建 [Supabase](https://supabase.com) 项目
-2. 在 SQL Editor 中按顺序执行以下迁移文件：
-   - `database/migrations/001_init.sql` - 初始化数据库结构
-   - `database/migrations/002_secure_rls.sql` - 修复 RLS 安全策略
-   - `database/migrations/003_album_features.sql` - 添加相册高级功能
-   - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
-   - `database/migrations/005_package_downloads.sql` - 添加打包下载功能（可选）
-   - `database/migrations/006_album_share_config.sql` - 添加相册分享配置（可选）
-   - `database/migrations/012_album_poster.sql` - 添加相册海报图片URL（可选）
-   - `database/migrations/007_photo_groups.sql` - 添加相册分组功能（可选）
-   - `database/migrations/008_album_event_metadata.sql` - 添加相册活动元数据（可选）
-3. 在 Authentication > Users 创建管理员账号
-4. 复制 API Keys (Settings → API)
+2. **执行数据库架构**：
+   - 进入 Supabase Dashboard → **SQL Editor**
+   - 复制 `database/full_schema.sql` 文件的全部内容
+   - 粘贴并点击 **Run** 执行
+   - ✅ 完成！
+3. 在 **Authentication** → **Users** 创建管理员账号
+4. 在 **Settings** → **API** 复制 API Keys
 
 #### 2. 配置环境变量
 
@@ -227,7 +222,7 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 ### 手动部署
 
-1. **配置 Supabase** - 创建项目并执行迁移
+1. **配置 Supabase** - 创建项目并执行数据库架构
 2. **部署服务器** - 在服务器上运行 Docker Compose
 3. **部署前端** - 部署到 Vercel 或你的托管服务
 

@@ -136,6 +136,12 @@ load_language() {
         MSG_VIEW_LOGS="查看日志:"
         MSG_RESTART="重启服务:"
         MSG_UPDATE_CODE="更新代码:"
+        MSG_DB_INIT="⚠️  重要：数据库架构初始化"
+        MSG_DB_INIT_DESC="部署完成后，需要执行数据库架构初始化："
+        MSG_DB_INIT_SUPABASE="Supabase: 在 Dashboard → SQL Editor 中执行 database/full_schema.sql"
+        MSG_DB_INIT_POSTGRESQL="PostgreSQL: psql \$DATABASE_URL < database/full_schema.sql"
+        MSG_DB_INIT_MYSQL="MySQL: 需要先转换为 MySQL 语法，然后执行"
+        MSG_DB_INIT_NOTE="注意: full_schema.sql 仅适用于全新数据库，只需执行一次"
         MSG_TITLE="📸 PIS - 一键部署系统"
         MSG_POSTGRESQL_PASSWORD="PostgreSQL 密码:"
         MSG_MYSQL_PASSWORD="MySQL 密码:"
@@ -226,6 +232,12 @@ load_language() {
         MSG_VIEW_LOGS="View logs:"
         MSG_RESTART="Restart services:"
         MSG_UPDATE_CODE="Update code:"
+        MSG_DB_INIT="⚠️  Important: Database Schema Initialization"
+        MSG_DB_INIT_DESC="After deployment, you need to initialize the database schema:"
+        MSG_DB_INIT_SUPABASE="Supabase: Execute database/full_schema.sql in Dashboard → SQL Editor"
+        MSG_DB_INIT_POSTGRESQL="PostgreSQL: psql \$DATABASE_URL < database/full_schema.sql"
+        MSG_DB_INIT_MYSQL="MySQL: Convert to MySQL syntax first, then execute"
+        MSG_DB_INIT_NOTE="Note: full_schema.sql is for new databases only, execute once"
         MSG_TITLE="📸 PIS - One-Click Deployment System"
         MSG_POSTGRESQL_PASSWORD="PostgreSQL password:"
         MSG_MYSQL_PASSWORD="MySQL password:"
@@ -477,18 +489,36 @@ deploy_local() {
 # PIS 配置 - Supabase
 # 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
 
+# ==================== 数据库配置 ====================
+DATABASE_TYPE=supabase
+
+# ==================== Supabase 数据库 ====================
 SUPABASE_URL=${SUPABASE_URL}
 SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
 
+# ==================== 存储配置 ====================
+STORAGE_TYPE=minio
+
+# ==================== MinIO 存储配置 ====================
 MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
 MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 MINIO_ENDPOINT_HOST=minio
 MINIO_ENDPOINT_PORT=9000
 MINIO_USE_SSL=false
 MINIO_BUCKET=pis-photos
+# 兼容新配置格式
+STORAGE_ENDPOINT=minio
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
+STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
+STORAGE_BUCKET=pis-photos
 
+# ==================== Redis ====================
 REDIS_HOST=redis
 REDIS_PORT=6379
+
+# ==================== Worker 服务 ====================
 HTTP_PORT=3001
 WORKER_BIND_HOST=${WORKER_BIND}
 EOF
@@ -513,15 +543,29 @@ DATABASE_USER=pis_user
 DATABASE_PASSWORD=${DB_PASSWORD}
 DATABASE_SSL=false
 
+# ==================== 存储配置 ====================
+STORAGE_TYPE=minio
+
+# ==================== MinIO 存储配置 ====================
 MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
 MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 MINIO_ENDPOINT_HOST=minio
 MINIO_ENDPOINT_PORT=9000
 MINIO_USE_SSL=false
 MINIO_BUCKET=pis-photos
+# 兼容新配置格式
+STORAGE_ENDPOINT=minio
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
+STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
+STORAGE_BUCKET=pis-photos
 
+# ==================== Redis ====================
 REDIS_HOST=redis
 REDIS_PORT=6379
+
+# ==================== Worker 服务 ====================
 HTTP_PORT=3001
 WORKER_BIND_HOST=${WORKER_BIND}
 EOF
@@ -546,15 +590,29 @@ DATABASE_USER=pis_user
 DATABASE_PASSWORD=${DB_PASSWORD}
 DATABASE_SSL=false
 
+# ==================== 存储配置 ====================
+STORAGE_TYPE=minio
+
+# ==================== MinIO 存储配置 ====================
 MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
 MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 MINIO_ENDPOINT_HOST=minio
 MINIO_ENDPOINT_PORT=9000
 MINIO_USE_SSL=false
 MINIO_BUCKET=pis-photos
+# 兼容新配置格式
+STORAGE_ENDPOINT=minio
+STORAGE_PORT=9000
+STORAGE_USE_SSL=false
+STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
+STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
+STORAGE_BUCKET=pis-photos
 
+# ==================== Redis ====================
 REDIS_HOST=redis
 REDIS_PORT=6379
+
+# ==================== Worker 服务 ====================
 HTTP_PORT=3001
 WORKER_BIND_HOST=${WORKER_BIND}
 EOF
@@ -713,6 +771,7 @@ PYEOF
             # Python 失败，使用 sed
             sed -i '/build:/,/dockerfile:/d' docker-compose.yml 2>/dev/null || true
             sed -i '/worker:/a\    image: pis-worker:latest' docker-compose.yml 2>/dev/null || true
+            }
             
             success "$MSG_UPDATED_COMPOSE"
         fi
@@ -778,6 +837,30 @@ PYEOF
     echo "📝 ${MSG_COMMON_COMMANDS}"
     echo "   ${MSG_VIEW_LOGS} cd ${DEPLOY_DIR}/docker && docker-compose logs -f"
     echo "   ${MSG_RESTART} cd ${DEPLOY_DIR}/docker && docker-compose restart"
+    echo ""
+    
+    # 数据库架构初始化提示
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${YELLOW}${BOLD}${MSG_DB_INIT}${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "${MSG_DB_INIT_DESC}"
+    echo ""
+    case $DB_CHOICE in
+        1)
+            echo "  📋 ${MSG_DB_INIT_SUPABASE}"
+            ;;
+        2)
+            echo "  📋 ${MSG_DB_INIT_POSTGRESQL}"
+            ;;
+        3)
+            echo "  📋 ${MSG_DB_INIT_MYSQL}"
+            ;;
+    esac
+    echo ""
+    echo "  ${MSG_DB_INIT_NOTE}"
+    echo ""
+    echo "  架构文件位置: ${DEPLOY_DIR}/database/full_schema.sql"
     echo ""
 }
 

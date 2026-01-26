@@ -120,18 +120,13 @@ The setup wizard will automatically:
 #### 1. Configure Supabase
 
 1. Create a [Supabase](https://supabase.com) project
-2. In SQL Editor, execute the following migration files in order:
-   - `database/migrations/001_init.sql` - Initialize database structure
-   - `database/migrations/002_secure_rls.sql` - Fix RLS security policies
-   - `database/migrations/003_album_features.sql` - Add album advanced features
-   - `database/migrations/004_album_templates.sql` - Add album templates (optional)
-   - `database/migrations/005_package_downloads.sql` - Add package downloads (optional)
-   - `database/migrations/006_album_share_config.sql` - Add album share config (optional)
-   - `database/migrations/007_photo_groups.sql` - Add photo groups (optional)
-   - `database/migrations/008_album_event_metadata.sql` - Add album event metadata (optional)
-   - `database/migrations/012_album_poster.sql` - Add album poster image URL (optional)
-3. Create admin account in Authentication > Users
-4. Copy API Keys (Settings → API)
+2. **Execute database schema**:
+   - Go to **SQL Editor** in Supabase Dashboard
+   - Copy and paste the entire content of `database/full_schema.sql`
+   - Click **Run** to execute
+   - ✅ Done!
+3. Create admin account in **Authentication** → **Users**
+4. Copy API Keys from **Settings** → **API**
 
 #### 2. Configure Environment Variables
 
@@ -227,7 +222,7 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 ### Manual Deployment
 
-1. **Configure Supabase** - Create project and run migrations
+1. **Configure Supabase** - Create project and execute database schema
 2. **Deploy Server** - Run Docker Compose on your server
 3. **Deploy Frontend** - Deploy to Vercel or your hosting
 

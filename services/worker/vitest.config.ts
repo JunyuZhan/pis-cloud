@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    testTimeout: 20000, // 增加默认超时时间到 20 秒（用于超时测试）
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

@@ -59,19 +59,17 @@ DATABASE_SSL=false
 **Notes:**
 - ⚠️ Need to implement user authentication yourself (can use Supabase Auth or other solutions)
 - ⚠️ Need to implement real-time features yourself (can use WebSocket or other solutions)
-- ⚠️ Need to manually execute database migration scripts
+- ⚠️ Need to manually execute database schema script
 
-**Database Migration:**
+**Database Schema:**
 ```bash
-# Execute migration scripts
-psql -h localhost -U postgres -d pis -f database/migrations/001_init.sql
-psql -h localhost -U postgres -d pis -f database/migrations/002_secure_rls.sql
-# ... other migration files
+# Execute the complete database schema (one-time setup)
+psql -h localhost -U postgres -d pis -f database/full_schema.sql
 ```
 
 ### 3. MySQL
 
-Using MySQL requires adapting table structures and migration scripts.
+Using MySQL requires adapting table structures and schema script.
 
 ```bash
 DATABASE_TYPE=mysql
@@ -87,7 +85,7 @@ DATABASE_SSL=false
 
 **Notes:**
 - ⚠️ MySQL adapter not yet fully implemented (needs contribution)
-- ⚠️ Need to convert PostgreSQL migration scripts to MySQL syntax
+- ⚠️ Need to convert PostgreSQL schema script to MySQL syntax
 - ⚠️ Need to implement user authentication and real-time features yourself
 
 ## Database Migration
@@ -120,7 +118,7 @@ DATABASE_SSL=false
 
 2. **Execute SQL in Supabase Dashboard:**
    - Go to SQL Editor
-   - Execute migration scripts
+   - Copy and execute `database/full_schema.sql` (one-time setup)
    - Import data (if needed)
 
 3. **Update Configuration:**
@@ -159,9 +157,9 @@ DATABASE_SSL=false
 2. Check database user permissions
 3. Confirm database allows this user to connect
 
-### Migration Script Execution Failed
+### Schema Script Execution Failed
 
 1. Check database version compatibility
-2. Verify migration script syntax is correct
+2. Verify schema script syntax is correct
 3. Check error logs to locate issues
-4. Execute migration scripts in order
+4. Ensure database is empty (full_schema.sql is for new databases only)

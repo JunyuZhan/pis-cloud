@@ -1,14 +1,15 @@
 /**
- * 内存速率限制工具
+ * 速率限制工具
+ * 
+ * 支持两种模式：
+ * 1. 内存存储（默认）：单服务器部署时使用
+ * 2. Redis 存储（可选）：多服务器部署时使用，需要配置 UPSTASH_REDIS_REST_URL 和 UPSTASH_REDIS_REST_TOKEN
  * 
  * 安全特性：
  * - 自动清理过期记录，防止内存泄漏
  * - 限制存储大小，防止内存耗尽攻击
  * - 支持基于 IP、邮箱等多维度限制
- * 
- * 生产环境建议：
- * - 使用 Redis 实现分布式速率限制（多服务器部署）
- * - 使用专业的速率限制中间件（如 Upstash Rate Limit）
+ * - 支持分布式速率限制（Redis 模式）
  */
 
 interface RateLimitStore {
@@ -24,6 +25,44 @@ const store: RateLimitStore = {}
 // 最大存储记录数（防止内存耗尽攻击）
 const MAX_STORE_SIZE = 10000
 
+// Redis 客户端类型（来自 @upstash/redis）
+type RedisClient = {
+  incr: (key: string) => Promise<number>
+  expire: (key: string, seconds: number) => Promise<number>
+}
+
+// Redis 客户端（可选，仅在配置了 Redis 时使用）
+let redisClient: RedisClient | null = null
+let redisInitialized = false
+
+// 初始化 Redis 客户端（延迟初始化，避免在模块加载时阻塞）
+async function initRedis(): Promise<RedisClient | null> {
+  if (redisInitialized) return redisClient
+  
+  redisInitialized = true
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+  
+  if (!redisUrl || !redisToken) {
+    return null
+  }
+  
+  try {
+    // 动态导入 @upstash/redis（避免在未安装时出错）
+    const { Redis } = await import('@upstash/redis')
+    redisClient = new Redis({
+      url: redisUrl,
+      token: redisToken,
+    }) as RedisClient
+    console.log('✅ Rate limit: Redis mode enabled')
+    return redisClient
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    console.warn('⚠️ Rate limit: Failed to initialize Redis, falling back to memory storage:', errorMessage)
+    return null
+  }
+}
+
 /**
  * 速率限制检查
  * @param identifier 标识符（如 IP 地址或用户 ID）
@@ -31,13 +70,45 @@ const MAX_STORE_SIZE = 10000
  * @param windowMs 时间窗口（毫秒）
  * @returns 是否允许请求
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   identifier: string,
   maxRequests: number,
   windowMs: number
-): { allowed: boolean; remaining: number; resetAt: number } {
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const now = Date.now()
   
+  // 尝试初始化 Redis（如果尚未初始化）
+  const client = await initRedis()
+  
+  // 如果 Redis 可用，使用 Redis 存储（分布式速率限制）
+  if (client) {
+    try {
+      const key = `rate_limit:${identifier}`
+      const windowSeconds = Math.ceil(windowMs / 1000)
+      
+      // 使用 Redis INCR 和 EXPIRE 实现滑动窗口
+      const count = await client.incr(key)
+      
+      // 如果是新键，设置过期时间
+      if (count === 1) {
+        await client.expire(key, windowSeconds)
+      }
+      
+      const allowed = count <= maxRequests
+      const resetAt = now + windowMs
+      
+      return {
+        allowed,
+        remaining: Math.max(0, maxRequests - count),
+        resetAt,
+      }
+    } catch (err) {
+      // Redis 操作失败，回退到内存存储
+      console.warn('⚠️ Rate limit: Redis operation failed, falling back to memory storage:', err)
+    }
+  }
+  
+  // 内存存储模式（单服务器部署）
   // 清理过期记录（每次检查时清理，避免内存泄漏）
   cleanupExpiredRecords()
   

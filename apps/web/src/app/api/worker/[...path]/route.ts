@@ -103,6 +103,12 @@ async function proxyRequest(
       'Content-Type': request.headers.get('Content-Type') || 'application/json',
     }
     
+    // 添加 Worker API Key 认证
+    const workerApiKey = process.env.WORKER_API_KEY
+    if (workerApiKey) {
+      headers['X-API-Key'] = workerApiKey
+    }
+    
     // 转发请求
     const fetchOptions: RequestInit = {
       method: request.method,

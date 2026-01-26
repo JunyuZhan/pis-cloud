@@ -142,8 +142,8 @@ export async function POST(request: NextRequest) {
     // 双重速率限制：
     // 1. 基于 IP 的限制（防止单 IP 暴力破解）
     // 2. 基于邮箱的限制（防止针对特定账户的攻击）
-    const ipRateLimit = checkRateLimit(`login:ip:${ip}`, 5, 60 * 1000)
-    const emailRateLimit = checkRateLimit(`login:email:${normalizedEmail}`, 3, 60 * 1000)
+    const ipRateLimit = await checkRateLimit(`login:ip:${ip}`, 5, 60 * 1000)
+    const emailRateLimit = await checkRateLimit(`login:email:${normalizedEmail}`, 3, 60 * 1000)
 
     if (!ipRateLimit.allowed) {
       const retryAfter = Math.ceil((ipRateLimit.resetAt - Date.now()) / 1000)

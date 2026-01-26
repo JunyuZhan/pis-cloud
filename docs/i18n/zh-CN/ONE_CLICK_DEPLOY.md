@@ -87,9 +87,9 @@ curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh
 http://服务器IP:19001
 ```
 
-### 2. 执行数据库迁移（Supabase）
+### 2. 初始化数据库架构（Supabase）
 
-在 Supabase Dashboard → SQL Editor 中执行 `database/full_schema.sql`
+⚠️ **重要提示**：在 Supabase Dashboard → SQL Editor 中执行 `database/full_schema.sql` **一次**即可。此文件仅适用于**全新的数据库**。
 
 ### 3. 配置前端环境变量
 

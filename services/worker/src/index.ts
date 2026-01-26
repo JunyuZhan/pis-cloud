@@ -63,6 +63,101 @@ interface PackageJobData {
   includeOriginal: boolean;
 }
 
+// ============================================
+// API 认证配置
+// ============================================
+const WORKER_API_KEY = process.env.WORKER_API_KEY;
+if (!WORKER_API_KEY) {
+  console.warn('⚠️  WORKER_API_KEY not set, API endpoints are unprotected!');
+  console.warn('   Please set WORKER_API_KEY in .env.local for production use');
+}
+
+// 请求大小限制
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB for JSON requests
+const MAX_UPLOAD_SIZE = 500 * 1024 * 1024; // 500MB for file uploads
+
+// CORS 配置
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+
+/**
+ * 验证 API Key
+ */
+function authenticateRequest(req: http.IncomingMessage): boolean {
+  if (!WORKER_API_KEY) {
+    // 如果没有配置 API Key，允许访问（开发环境）
+    return true;
+  }
+  
+  const apiKey = req.headers['x-api-key'] || 
+                 req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+  
+  return apiKey === WORKER_API_KEY;
+}
+
+/**
+ * 设置 CORS 头
+ */
+function setCorsHeaders(req: http.IncomingMessage, res: http.ServerResponse) {
+  const origin = req.headers.origin;
+  
+  if (CORS_ORIGINS.length > 0 && origin && CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (CORS_ORIGINS.length === 0) {
+    // 开发环境允许所有来源
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, Authorization');
+}
+
+/**
+ * 解析请求体（带大小限制）
+ */
+function parseRequestBody(
+  req: http.IncomingMessage,
+  maxSize: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let bodySize = 0;
+    
+    req.on('data', (chunk: Buffer) => {
+      bodySize += chunk.length;
+      if (bodySize > maxSize) {
+        req.destroy();
+        reject(new Error(`Request body too large (max: ${maxSize} bytes)`));
+        return;
+      }
+      body += chunk.toString('utf8');
+    });
+    
+    req.on('end', () => {
+      resolve(body);
+    });
+    
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * 解析 JSON 请求体（带错误处理）
+ */
+async function parseJsonBody(
+  req: http.IncomingMessage,
+  maxSize: number
+): Promise<any> {
+  const body = await parseRequestBody(req, maxSize);
+  
+  try {
+    return JSON.parse(body);
+  } catch (parseError) {
+    throw new Error('Invalid JSON format');
+  }
+}
+
 console.log('🚀 PIS Worker Starting...');
 
 const worker = new Worker<PhotoJobData>(
@@ -197,17 +292,26 @@ const worker = new Worker<PhotoJobData>(
 
       if (error) throw error;
 
-      // 8. 更新相册照片数量
-      const { count } = await supabase
-        .from('photos')
-        .select('*', { count: 'exact', head: true })
-        .eq('album_id', albumId)
-        .eq('status', 'completed');
+      // 8. 优化：使用数据库函数增量更新相册照片数量，避免每次 COUNT 查询
+      // 这样可以减少数据库负载，特别是在批量上传时
+      const { error: countError } = await supabase.rpc('increment_photo_count', {
+        album_id: albumId
+      });
       
-      await supabase
-        .from('albums')
-        .update({ photo_count: count || 0 })
-        .eq('id', albumId);
+      if (countError) {
+        // 如果函数调用失败，回退到 COUNT 查询（兼容性处理）
+        console.warn(`[${job.id}] Failed to use increment_photo_count, falling back to COUNT query:`, countError);
+        const { count } = await supabase
+          .from('photos')
+          .select('*', { count: 'exact', head: true })
+          .eq('album_id', albumId)
+          .eq('status', 'completed');
+        
+        await supabase
+          .from('albums')
+          .update({ photo_count: count || 0 })
+          .eq('id', albumId);
+      }
 
       console.log(`[${job.id}] Completed successfully`);
     } catch (err: any) {
@@ -388,10 +492,8 @@ console.log(`✅ Package worker listening on queue: package-downloads`);
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3001');
 
 const server = http.createServer(async (req, res) => {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // 设置 CORS
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -401,7 +503,7 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url || '/', `http://localhost:${HTTP_PORT}`);
 
-  // 健康检查
+  // 健康检查端点不需要认证
   if (url.pathname === '/health') {
     const health: any = {
       status: 'ok',
@@ -451,28 +553,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API 认证检查（除了 health 端点）
+  if (!authenticateRequest(req)) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Unauthorized', message: 'Invalid or missing API key' }));
+    return;
+  }
+
   // 获取预签名上传 URL (保留兼容)
   if (url.pathname === '/api/presign' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { key } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { key } = body;
         if (!key) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing key' }));
           return;
         }
 
-        const presignedUrl = await getPresignedPutUrl(key);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ url: presignedUrl }));
-      } catch (err: any) {
-        console.error('Presign error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+      const presignedUrl = await getPresignedPutUrl(key);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ url: presignedUrl }));
+    } catch (err: any) {
+      console.error('Presign error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
@@ -490,7 +598,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     const chunks: Buffer[] = [];
-    req.on('data', chunk => chunks.push(chunk));
+    let uploadSize = 0;
+    
+    req.on('data', (chunk: Buffer) => {
+      uploadSize += chunk.length;
+      if (uploadSize > MAX_UPLOAD_SIZE) {
+        req.destroy();
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `File too large (max: ${MAX_UPLOAD_SIZE} bytes)` }));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
@@ -510,38 +630,35 @@ const server = http.createServer(async (req, res) => {
 
   // 触发照片处理
   if (url.pathname === '/api/process' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { photoId, albumId, originalKey } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { photoId, albumId, originalKey } = body;
         if (!photoId || !albumId || !originalKey) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing required fields' }));
           return;
         }
 
-        // 添加到处理队列
-        await photoQueue.add('process-photo', { photoId, albumId, originalKey });
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Job queued' }));
-      } catch (err: any) {
-        console.error('Process queue error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+      // 添加到处理队列
+      await photoQueue.add('process-photo', { photoId, albumId, originalKey });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: 'Job queued' }));
+    } catch (err: any) {
+      console.error('Process queue error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
   // 清理文件（用于 cleanup API）
   if (url.pathname === '/api/cleanup-file' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { key } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { key } = body;
         if (!key) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing key parameter' }));
@@ -564,12 +681,13 @@ const server = http.createServer(async (req, res) => {
             throw deleteErr;
           }
         }
-      } catch (err: any) {
-        console.error('[Cleanup] File cleanup error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+    } catch (err: any) {
+      console.error('[Cleanup] File cleanup error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
@@ -579,11 +697,9 @@ const server = http.createServer(async (req, res) => {
 
   // 初始化分片上传
   if (url.pathname === '/api/multipart/init' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { key } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { key } = body;
         if (!key) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing key' }));
@@ -594,20 +710,21 @@ const server = http.createServer(async (req, res) => {
         const uploadId = await initMultipartUpload(key);
         console.log(`[Multipart] Initialized upload for ${key}, uploadId: ${uploadId}`);
         
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ uploadId, key }));
-      } catch (err: any) {
-        const errorMessage = err?.message || 'Unknown error';
-        const errorStack = err?.stack || '';
-        console.error('[Multipart] Init error:', errorMessage);
-        console.error('[Multipart] Error stack:', errorStack);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
-          error: errorMessage,
-          details: process.env.NODE_ENV === 'development' ? errorStack : undefined
-        }));
-      }
-    });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ uploadId, key }));
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Unknown error';
+      const errorStack = err?.stack || '';
+      console.error('[Multipart] Init error:', errorMessage);
+      console.error('[Multipart] Error stack:', errorStack);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      }));
+    }
     return;
   }
 
@@ -624,7 +741,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     const chunks: Buffer[] = [];
-    req.on('data', chunk => chunks.push(chunk));
+    let partSize = 0;
+    
+    req.on('data', (chunk: Buffer) => {
+      partSize += chunk.length;
+      // 单个分片限制为 100MB（S3 标准）
+      if (partSize > 100 * 1024 * 1024) {
+        req.destroy();
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Part too large (max: 100MB)' }));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
@@ -646,11 +776,9 @@ const server = http.createServer(async (req, res) => {
 
   // 完成分片上传
   if (url.pathname === '/api/multipart/complete' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { key, uploadId, parts } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { key, uploadId, parts } = body;
         if (!key || !uploadId || !parts || !Array.isArray(parts)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing key, uploadId, or parts' }));
@@ -660,24 +788,23 @@ const server = http.createServer(async (req, res) => {
         await completeMultipartUpload(key, uploadId, parts);
         console.log(`[Multipart] Completed upload for ${key}`);
         
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, key }));
-      } catch (err: any) {
-        console.error('Multipart complete error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, key }));
+    } catch (err: any) {
+      console.error('Multipart complete error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
   // 取消分片上传
   if (url.pathname === '/api/multipart/abort' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { key, uploadId } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { key, uploadId } = body;
         if (!key || !uploadId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing key or uploadId' }));
@@ -687,14 +814,15 @@ const server = http.createServer(async (req, res) => {
         await abortMultipartUpload(key, uploadId);
         console.log(`[Multipart] Aborted upload for ${key}`);
         
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err: any) {
-        console.error('Multipart abort error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err: any) {
+      console.error('Multipart abort error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
@@ -704,11 +832,9 @@ const server = http.createServer(async (req, res) => {
 
   // 扫描同步
   if (url.pathname === '/api/scan' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { albumId } = JSON.parse(body);
+    try {
+      const body = await parseJsonBody(req, MAX_BODY_SIZE);
+      const { albumId } = body;
         if (!albumId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing albumId' }));
@@ -832,12 +958,13 @@ const server = http.createServer(async (req, res) => {
             ? `成功导入 ${addedCount} 张新图片${skippedCount > 0 ? `，跳过 ${skippedCount} 张已存在图片` : ''}`
             : `未找到新图片${skippedCount > 0 ? `，跳过 ${skippedCount} 张已存在图片` : ''}`
         }));
-      } catch (err: any) {
-        console.error('[Scan] Error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+    } catch (err: any) {
+      console.error('[Scan] Error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    }
     return;
   }
 
@@ -938,17 +1065,65 @@ async function recoverStuckProcessingPhotos() {
   }
 }
 
+let recoveryTimeout: NodeJS.Timeout | null = null;
+let isShuttingDown = false;
+
+// 优雅退出函数
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+  
+  // 清理恢复定时器
+  if (recoveryTimeout) {
+    clearTimeout(recoveryTimeout);
+    recoveryTimeout = null;
+  }
+  
+  // 停止接受新请求
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+  });
+  
+  // 等待正在处理的任务完成
+  try {
+    await Promise.all([
+      worker.close(),
+      packageWorker.close(),
+      photoQueue.close(),
+      packageQueue.close(),
+    ]);
+    console.log('✅ All workers and queues closed');
+  } catch (err) {
+    console.error('❌ Error closing workers:', err);
+  }
+  
+  console.log('✅ Graceful shutdown completed');
+  process.exit(0);
+}
+
+// 监听退出信号
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// 处理未捕获异常
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // 不立即退出，记录错误即可
+});
+
 server.listen(HTTP_PORT, () => {
   console.log(`🌐 HTTP API listening on port ${HTTP_PORT}`);
   
   // 启动后延迟5秒执行恢复（等待服务完全启动）
-  setTimeout(() => {
+  recoveryTimeout = setTimeout(() => {
     recoverStuckProcessingPhotos();
+    recoveryTimeout = null;
   }, 5000);
-});
-
-// 优雅退出
-process.on('SIGTERM', async () => {
-  server.close();
-  await worker.close();
 });

@@ -102,9 +102,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // 触发重新处理
       try {
         const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+        const headers: HeadersInit = { 'Content-Type': 'application/json' }
+        const workerApiKey = process.env.WORKER_API_KEY
+        if (workerApiKey) {
+          headers['X-API-Key'] = workerApiKey
+        }
         const processRes = await fetch(`${workerApiUrl}/api/process`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             photoId: id,
             albumId: photoStatus.album_id,

@@ -87,9 +87,9 @@ curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh
 http://your-server-ip:19001
 ```
 
-### 2. Run Database Migrations (Supabase)
+### 2. Initialize Database Schema (Supabase)
 
-In Supabase Dashboard → SQL Editor, execute `database/full_schema.sql`
+⚠️ **Important**: Execute `database/full_schema.sql` **once** in Supabase Dashboard → SQL Editor. This file is for **new databases only**.
 
 ### 3. Configure Frontend Environment Variables
 

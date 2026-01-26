@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 速率限制：每个用户每分钟最多 20 次上传请求
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     const identifier = `upload:${user.id}:${ip}`
-    const rateLimit = checkRateLimit(identifier, 20, 60 * 1000) // 20 次/分钟
+    const rateLimit = await checkRateLimit(identifier, 20, 60 * 1000) // 20 次/分钟
 
     if (!rateLimit.allowed) {
       return NextResponse.json(

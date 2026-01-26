@@ -60,9 +60,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (photo.original_key) {
       try {
         const workerApiUrl = process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+        const headers: HeadersInit = { 'Content-Type': 'application/json' }
+        const workerApiKey = process.env.WORKER_API_KEY
+        if (workerApiKey) {
+          headers['X-API-Key'] = workerApiKey
+        }
         const cleanupRes = await fetch(`${workerApiUrl}/api/cleanup-file`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ key: photo.original_key }),
         })
         

@@ -49,7 +49,7 @@ show_menu() {
     echo "  2) 🚀 生产环境部署 (服务器端)"
     echo "  3) 🔧 仅配置环境变量"
     echo "  4) 🐳 启动/停止 Docker 服务"
-    echo "  5) 🗄️  数据库迁移"
+    echo "  5) 🗄️  数据库架构初始化"
     echo "  6) 🔍 检查系统状态"
     echo "  7) 📖 查看部署文档"
     echo "  0) 退出"
@@ -137,17 +137,30 @@ validate_env_vars() {
         fi
     done
     
-    # 检查 Supabase URL 格式
-    if grep -q "NEXT_PUBLIC_SUPABASE_URL=.*supabase\.co" "$env_file"; then
-        success "Supabase URL 格式正确"
+    # 检查数据库类型
+    if grep -q "^DATABASE_TYPE=" "$env_file"; then
+        local db_type=$(grep "^DATABASE_TYPE=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+        success "数据库类型: ${db_type:-supabase}"
     else
-        error "Supabase URL 格式不正确"
-        errors=$((errors + 1))
+        warn "未设置 DATABASE_TYPE，将使用默认值 supabase"
+    fi
+    
+    # 检查 Supabase URL 格式（仅当使用 Supabase 时）
+    if grep -q "^DATABASE_TYPE=supabase" "$env_file" || ! grep -q "^DATABASE_TYPE=" "$env_file"; then
+        if grep -q "NEXT_PUBLIC_SUPABASE_URL=.*supabase\.co" "$env_file"; then
+            success "Supabase URL 格式正确"
+        else
+            error "Supabase URL 格式不正确"
+            errors=$((errors + 1))
+        fi
     fi
     
     # 检查是否使用了示例密钥
-    if grep -q "minioadmin" "$env_file" && [ "$STORAGE_TYPE" != "minio" ] || [ "$NODE_ENV" = "production" ]; then
-        warn "检测到默认密钥，生产环境请更换为安全密钥"
+    if grep -q "minioadmin" "$env_file"; then
+        local storage_type=$(grep "^STORAGE_TYPE=" "$env_file" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" || echo "minio")
+        if [ "$storage_type" != "minio" ]; then
+            warn "检测到默认 MinIO 密钥，但 STORAGE_TYPE=${storage_type}，请检查配置"
+        fi
     fi
     
     if [ $errors -eq 0 ]; then
@@ -156,7 +169,6 @@ validate_env_vars() {
     else
         error "发现 $errors 个环境变量配置问题"
         return 1
-    fi
     fi
     
     echo ""
@@ -177,6 +189,9 @@ validate_env_vars() {
 # 本地开发: 此文件被 apps/web 和 services/worker 共享
 # ===========================================
 
+# ==================== 数据库配置 ====================
+DATABASE_TYPE=supabase
+
 # ==================== Supabase 数据库 ====================
 NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
@@ -184,15 +199,23 @@ SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 SUPABASE_URL=$SUPABASE_URL
 
 # ==================== MinIO 存储配置 ====================
-NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
+NEXT_PUBLIC_MEDIA_URL=http://localhost:19000/pis-photos
 STORAGE_TYPE=minio
 STORAGE_ENDPOINT=localhost
-STORAGE_PORT=9000
+STORAGE_PORT=19000
 STORAGE_USE_SSL=false
 STORAGE_ACCESS_KEY=minioadmin
 STORAGE_SECRET_KEY=minioadmin
 STORAGE_BUCKET=pis-photos
-STORAGE_PUBLIC_URL=http://localhost:9000/pis-photos
+STORAGE_PUBLIC_URL=http://localhost:19000/pis-photos
+# 兼容旧配置
+MINIO_ENDPOINT_HOST=localhost
+MINIO_ENDPOINT_PORT=19000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=pis-photos
+MINIO_PUBLIC_URL=http://localhost:19000/pis-photos
 
 # ==================== Worker 服务 ====================
 WORKER_URL=http://localhost:3001
@@ -200,7 +223,7 @@ NEXT_PUBLIC_WORKER_URL=http://localhost:3001
 
 # ==================== Redis ====================
 REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_PORT=16379
 
 # ==================== 应用配置 ====================
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -241,8 +264,8 @@ setup_local() {
     sleep 5
     
     # 检查服务状态
-    if curl -s http://localhost:9000/minio/health/live > /dev/null; then
-        success "MinIO 已启动"
+    if curl -s http://localhost:19000/minio/health/live > /dev/null; then
+        success "MinIO 已启动 (http://localhost:19000)"
     else
         error "MinIO 启动失败"
     fi
@@ -252,8 +275,9 @@ setup_local() {
     echo ""
     echo "下一步:"
     echo "  1. 启动开发服务器: ${CYAN}pnpm dev${NC}"
-    echo "  2. 访问: ${CYAN}http://localhost:3000${NC}"
+    echo "  2. 访问前端: ${CYAN}http://localhost:3000${NC}"
     echo "  3. 管理后台: ${CYAN}http://localhost:3000/admin/login${NC}"
+    echo "  4. MinIO 控制台: ${CYAN}http://localhost:19001${NC} (用户名/密码: minioadmin/minioadmin)"
     echo ""
     echo "提示: 首次使用需要在 Supabase 创建管理员账号"
 }
@@ -280,15 +304,21 @@ setup_production() {
     
     # 创建生产环境配置
     cat > .env << EOF
-# Supabase
+# ==================== 数据库配置 ====================
+DATABASE_TYPE=supabase
+
+# ==================== Supabase 数据库 ====================
 SUPABASE_URL=$SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 
+# ==================== MinIO 存储配置 ====================
 # MinIO (使用随机生成的强密码)
 MINIO_ACCESS_KEY=$MINIO_ACCESS
 MINIO_SECRET_KEY=$MINIO_SECRET
+MINIO_BUCKET=pis-photos
+# 注意: 生产环境需要配置 MINIO_PUBLIC_URL 和 STORAGE_PUBLIC_URL
 
-# Redis
+# ==================== Redis ====================
 REDIS_HOST=redis
 REDIS_PORT=6379
 EOF
@@ -376,38 +406,79 @@ manage_docker() {
     cd ..
 }
 
-# 数据库迁移
+# 数据库架构
 run_migrations() {
-    step "数据库迁移"
+    step "数据库架构初始化"
     
-    echo "PIS 使用 Supabase 托管数据库，迁移需要在 Supabase Dashboard 执行。"
+    echo "⚠️  重要提示："
+    echo "  - 数据库架构文件: database/full_schema.sql"
+    echo "  - 仅适用于全新的数据库（首次安装）"
+    echo "  - 只需执行一次即可完成所有数据库初始化"
+    echo "  - 不要在已有数据的数据库上重复执行"
     echo ""
-    echo "选择操作:"
-    echo "  1) 查看迁移文件列表"
-    echo "  2) 生成完整架构文件 (新安装推荐)"
-    echo "  3) 查看 Supabase 迁移说明"
-    echo "  0) 返回"
-    echo ""
-    read -p "请选择 [0-3]: " migrate_choice
     
-    case $migrate_choice in
-        1)
-            bash scripts/migrate.sh --status
-            ;;
-        2)
-            bash scripts/migrate.sh --generate
-            echo ""
-            success "已生成 database/full_schema.sql"
-            echo ""
-            echo "下一步:"
+    # 检查当前配置的数据库类型
+    local env_file=".env.local"
+    local db_type="supabase"
+    
+    if [ -f "$env_file" ]; then
+        if grep -q "^DATABASE_TYPE=" "$env_file"; then
+            db_type=$(grep "^DATABASE_TYPE=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+        fi
+    fi
+    
+    echo "检测到的数据库类型: ${db_type:-supabase}"
+    echo ""
+    
+    case "${db_type:-supabase}" in
+        supabase)
+            echo "📋 Supabase 执行步骤:"
             echo "  1. 打开 Supabase Dashboard -> SQL Editor"
-            echo "  2. 复制 database/full_schema.sql 的内容"
-            echo "  3. 粘贴并执行"
+            echo "  2. 复制 database/full_schema.sql 的全部内容"
+            echo "  3. 粘贴并点击 Run 执行"
+            echo "  4. ✅ 完成！"
             ;;
-        3)
-            bash scripts/migrate.sh --supabase
+        postgresql)
+            echo "📋 PostgreSQL 执行步骤:"
+            echo "  1. 确保 PostgreSQL 服务已启动"
+            echo "  2. 创建数据库（如果尚未创建）:"
+            echo "     createdb pis"
+            echo "  3. 执行架构脚本:"
+            echo "     psql -h localhost -U postgres -d pis -f database/full_schema.sql"
+            echo ""
+            echo "  或者使用 DATABASE_URL:"
+            echo "     psql \$DATABASE_URL < database/full_schema.sql"
+            echo ""
+            echo "  ⚠️  注意: PostgreSQL 需要自行实现用户认证和实时功能"
+            ;;
+        mysql)
+            echo "📋 MySQL 执行步骤:"
+            echo "  1. 确保 MySQL 服务已启动"
+            echo "  2. 创建数据库（如果尚未创建）:"
+            echo "     mysql -u root -p -e 'CREATE DATABASE IF NOT EXISTS pis;'"
+            echo "  3. 执行架构脚本（需要先转换为 MySQL 语法）:"
+            echo "     mysql -u root -p pis < database/full_schema.sql"
+            echo ""
+            echo "  ⚠️  注意:"
+            echo "  - full_schema.sql 是 PostgreSQL 语法，需要转换为 MySQL 语法"
+            echo "  - MySQL 适配器尚未完全实现（需要贡献代码）"
+            echo "  - 需要自行实现用户认证和实时功能"
+            ;;
+        *)
+            echo "📋 通用执行步骤:"
+            echo "  根据你的数据库类型选择执行方式："
+            echo ""
+            echo "  Supabase:"
+            echo "    在 Supabase Dashboard -> SQL Editor 中执行 full_schema.sql"
+            echo ""
+            echo "  PostgreSQL:"
+            echo "    psql \$DATABASE_URL < database/full_schema.sql"
+            echo ""
+            echo "  MySQL:"
+            echo "    需要先转换为 MySQL 语法，然后执行"
             ;;
     esac
+    echo ""
 }
 
 # 检查系统状态
@@ -426,10 +497,10 @@ check_status() {
     
     # 检查 MinIO
     echo "MinIO 状态:"
-    if curl -s http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-        success "MinIO 运行中 (http://localhost:9000)"
+    if curl -s http://localhost:19000/minio/health/live > /dev/null 2>&1; then
+        success "MinIO 运行中 (http://localhost:19000)"
     else
-        warn "MinIO 未运行或不可访问"
+        warn "MinIO 未运行或不可访问 (检查端口 19000)"
     fi
     
     # 检查 Redis
@@ -450,11 +521,14 @@ check_status() {
         warn ".env.local 不存在，请运行配置向导"
     fi
     
-    # 检查数据库迁移
+    # 检查数据库架构文件
     echo ""
-    echo "数据库迁移文件:"
-    local migration_count=$(ls -1 database/migrations/*.sql 2>/dev/null | wc -l | tr -d ' ')
-    success "共 ${migration_count} 个迁移文件"
+    echo "数据库架构文件:"
+    if [[ -f "database/full_schema.sql" ]]; then
+        success "database/full_schema.sql 存在（一次性执行即可）"
+    else
+        warn "database/full_schema.sql 不存在"
+    fi
 }
 
 # 主循环
@@ -489,11 +563,23 @@ main() {
                 ;;
             7)
                 if command -v open &> /dev/null; then
-                    open docs/DEPLOYMENT.md
+                    if [ -f "docs/i18n/zh-CN/DEPLOYMENT.md" ]; then
+                        open docs/i18n/zh-CN/DEPLOYMENT.md
+                    elif [ -f "docs/i18n/en/DEPLOYMENT.md" ]; then
+                        open docs/i18n/en/DEPLOYMENT.md
+                    fi
                 elif command -v xdg-open &> /dev/null; then
-                    xdg-open docs/DEPLOYMENT.md
+                    if [ -f "docs/i18n/zh-CN/DEPLOYMENT.md" ]; then
+                        xdg-open docs/i18n/zh-CN/DEPLOYMENT.md
+                    elif [ -f "docs/i18n/en/DEPLOYMENT.md" ]; then
+                        xdg-open docs/i18n/en/DEPLOYMENT.md
+                    fi
                 else
-                    cat docs/DEPLOYMENT.md | less
+                    if [ -f "docs/i18n/zh-CN/DEPLOYMENT.md" ]; then
+                        cat docs/i18n/zh-CN/DEPLOYMENT.md | less
+                    elif [ -f "docs/i18n/en/DEPLOYMENT.md" ]; then
+                        cat docs/i18n/en/DEPLOYMENT.md | less
+                    fi
                 fi
                 ;;
             0)

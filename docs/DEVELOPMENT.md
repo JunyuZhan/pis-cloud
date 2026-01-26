@@ -44,7 +44,6 @@ cp .env.example .env.local
 # 编辑 .env.local，填入 Supabase 凭据
 
 # 5. 初始化数据库
-bash scripts/migrate.sh --generate
 # 复制 database/full_schema.sql 到 Supabase SQL Editor 执行
 
 # 6. 启动开发服务器
@@ -141,11 +140,7 @@ pis/
 │           └── lib/              # MinIO/Redis 客户端
 │
 ├── database/
-│   └── migrations/               # SQL 迁移脚本
-│       ├── 001_init.sql          # 初始化表结构
-│       ├── 002_secure_rls.sql    # RLS 安全修复
-│       ├── 003_album_features.sql # 相册高级功能
-│       └── 004_album_templates.sql # 相册模板功能
+│   └── full_schema.sql           # 完整数据库架构（一次性执行）
 │
 ├── docker/
 │   ├── docker-compose.yml        # Docker 编排
@@ -202,8 +197,8 @@ pnpm format           # 格式化代码
 
 # 数据库
 pnpm db:types         # 生成 Supabase 类型
-bash scripts/migrate.sh --status   # 查看迁移文件列表
-bash scripts/migrate.sh --generate # 生成完整架构文件
+# 数据库架构文件: database/full_schema.sql
+# 在 Supabase SQL Editor 中执行即可
 
 # Docker
 cd docker
@@ -239,14 +234,9 @@ bash scripts/run-all-tests.sh     # 运行所有测试
    - 实时预览功能
    - 一键下载 PNG 格式海报
 
-#### 数据库迁移
+#### 数据库架构
 
-运行以下迁移文件以启用海报功能：
-
-```sql
--- database/migrations/012_album_poster.sql
-ALTER TABLE albums ADD COLUMN IF NOT EXISTS poster_image_url TEXT;
-```
+海报功能已包含在 `database/full_schema.sql` 中（`albums.poster_image_url` 字段）。如果使用全新数据库，执行一次 `full_schema.sql` 即可。
 
 #### 使用方法
 
@@ -266,7 +256,6 @@ ALTER TABLE albums ADD COLUMN IF NOT EXISTS poster_image_url TEXT;
 - `apps/web/src/lib/poster-generator.ts` - 海报生成器核心逻辑
 - `apps/web/src/components/admin/poster-config-dialog.tsx` - 海报样式配置对话框
 - `apps/web/src/components/admin/share-link-button.tsx` - 分享按钮（集成海报生成）
-- `database/migrations/012_album_poster.sql` - 数据库迁移文件
 
 #### 技术实现
 
@@ -281,14 +270,9 @@ ALTER TABLE albums ADD COLUMN IF NOT EXISTS poster_image_url TEXT;
 
 相册模板功能允许管理员创建可复用的相册配置模板，在创建新相册时快速应用预设的配置。
 
-#### 数据库迁移
+#### 数据库架构
 
-运行以下迁移文件以启用模板功能：
-
-```bash
-# 在 Supabase Dashboard 的 SQL Editor 中执行
-database/migrations/004_album_templates.sql
-```
+模板功能已包含在 `database/full_schema.sql` 中（`album_templates` 表）。如果使用全新数据库，执行一次 `full_schema.sql` 即可。
 
 #### API 端点
 
@@ -393,14 +377,9 @@ database/migrations/004_album_templates.sql
 
 支持为相册添加活动时间和地点信息，方便访客了解活动详情。
 
-#### 数据库迁移
+#### 数据库架构
 
-运行以下迁移文件以启用活动元数据功能：
-
-```bash
-# 在 Supabase Dashboard 的 SQL Editor 中执行
-database/migrations/008_album_event_metadata.sql
-```
+活动元数据功能已包含在 `database/full_schema.sql` 中（`albums.event_date` 和 `albums.location` 字段）。如果使用全新数据库，执行一次 `full_schema.sql` 即可。
 
 #### 新增字段
 
@@ -426,7 +405,7 @@ database/migrations/008_album_event_metadata.sql
 
 #### 代码位置
 
-- 数据库迁移：`database/migrations/008_album_event_metadata.sql`
+- 数据库架构：`database/full_schema.sql`（已包含活动元数据字段）
 - 类型定义：`apps/web/src/types/database.ts` (albums 表)
 - 创建表单：`apps/web/src/components/admin/create-album-dialog.tsx`
 - 设置表单：`apps/web/src/components/admin/album-settings-form.tsx`
@@ -713,7 +692,7 @@ pnpm dev
 
 2. **检查 RLS 策略**：
    - 确保 `album_templates` 表有正确的 RLS 策略
-   - 迁移文件 `004_album_templates.sql` 已包含策略设置
+   - `database/full_schema.sql` 已包含所有表结构和 RLS 策略设置
 
 3. **检查 API 权限**：
    - 确保已登录管理员账户

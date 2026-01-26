@@ -60,33 +60,48 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 获取每个分组的照片数量（只统计已完成且相册未删除的照片）
-    const groupsWithCounts = await Promise.all(
-      (groups || []).map(async (group) => {
-        const { count } = await supabase
-          .from('photo_group_assignments')
-          .select(`
-            photo_id,
-            photos!inner(
+    // 优化：批量查询所有分组的照片数量，避免 N+1 查询问题
+    const groupIds = (groups || []).map(g => g.id)
+    
+    const counts = new Map<string, number>()
+    
+    if (groupIds.length > 0) {
+      // 批量查询所有分组的照片关联（只统计已完成且相册未删除的照片）
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('photo_group_assignments')
+        .select(`
+          group_id,
+          photo_id,
+          photos!inner(
+            id,
+            status,
+            album_id,
+            albums!inner(
               id,
-              status,
-              album_id,
-              albums!inner(
-                id,
-                deleted_at
-              )
+              deleted_at
             )
-          `, { count: 'exact', head: true })
-          .eq('group_id', group.id)
-          .eq('photos.status', 'completed')
-          .is('albums.deleted_at', null)
+          )
+        `)
+        .in('group_id', groupIds)
+        .eq('photos.status', 'completed')
+        .is('albums.deleted_at', null)
 
-        return {
-          ...group,
-          photo_count: count || 0,
-        }
-      })
-    )
+      if (assignmentsError) {
+        console.error('Failed to fetch group assignments:', assignmentsError)
+      } else if (assignments) {
+        // 在前端聚合计数
+        assignments.forEach((assignment: { group_id: string; photo_id: string }) => {
+          const groupId = assignment.group_id
+          counts.set(groupId, (counts.get(groupId) || 0) + 1)
+        })
+      }
+    }
+
+    // 为每个分组添加照片数量
+    const groupsWithCounts = (groups || []).map(group => ({
+      ...group,
+      photo_count: counts.get(group.id) || 0,
+    }))
 
     // 只返回有照片的分组
     const groupsWithPhotos = groupsWithCounts.filter((g) => g.photo_count > 0)
