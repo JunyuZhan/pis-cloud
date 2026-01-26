@@ -678,6 +678,21 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           const elapsed = (Date.now() - uploadStartTime) / 1000
           const fileSizeMb = (uploadFile.file.size / (1024 * 1024)).toFixed(1)
           
+          // 检查上传进度，如果已经到95%以上，可能是实际上传成功了但 Cloudflare 关闭了连接
+          // 这种情况通常发生在文件上传完成后，Cloudflare Proxy Write Timeout（30秒）导致连接关闭
+          const isNearComplete = finalProgress >= 95
+          
+          // 如果进度接近100%且连接被关闭，可能是上传成功但响应丢失
+          // 标记为"可能成功"，让 catch 块检查文件是否存在
+          if (isNearComplete && xhr.status === 0 && xhr.readyState === 4) {
+            const error = new Error(`上传可能已完成但连接中断（${fileSizeMb}MB，进度 ${finalProgress}%），正在检查文件...`) as Error & { retryable?: boolean; progress?: number; checkBeforeFail?: boolean }
+            error.retryable = true // 标记为可重试，但实际上会在 catch 中检查
+            error.progress = finalProgress
+            error.checkBeforeFail = true // 标记需要先检查文件是否存在
+            reject(error)
+            return
+          }
+          
           // 强制关闭连接，释放资源
           try {
             xhr.abort()
@@ -737,24 +752,29 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       })
     } catch (error) {
       // 检查上传进度，如果已经到95%以上，可能是实际上传成功了但连接被关闭
-      const err = error as Error & { retryable?: boolean; progress?: number }
+      // 这种情况通常发生在文件上传完成后，Cloudflare Proxy Write Timeout（30秒）导致连接关闭
+      const err = error as Error & { retryable?: boolean; progress?: number; checkBeforeFail?: boolean }
       const progress = err.progress || 0
       const isNearComplete = progress >= 95
       
       // 如果进度接近100%且连接被关闭，先检查文件是否真的上传成功
-      // 这种情况通常发生在文件上传完成后，服务器关闭连接但浏览器没有收到响应
-      if (isNearComplete && err.retryable) {
+      // 特别是标记了 checkBeforeFail 的错误（上传到100%后连接关闭）
+      if ((isNearComplete && err.retryable) || err.checkBeforeFail) {
         try {
-          // 等待2秒后检查照片是否已经在数据库中（给 Worker 一些时间处理）
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          console.log(`[Upload] Connection closed at ${progress}%, checking if file was uploaded successfully...`)
           
+          // 等待3秒后检查照片是否已经在数据库中（给 MinIO 和 Worker 一些时间处理）
+          // Cloudflare 可能在文件上传完成后30秒内关闭连接，所以需要等待一下
+          await new Promise(resolve => setTimeout(resolve, 3000))
+          
+          // 先检查 completed 状态的照片
           const checkRes = await fetch(`/api/admin/albums/${albumId}/photos?status=completed`)
           if (checkRes.ok) {
             const data = await checkRes.json() as { photos?: Array<{ id: string }> }
             const photoExists = data?.photos?.some((p) => p.id === photoId)
             if (photoExists) {
               // 文件已存在，上传成功，直接返回（不抛出错误）
-              console.log(`[Upload] File upload completed but connection closed, photo ${photoId} exists in database`)
+              console.log(`[Upload] ✅ File upload completed but connection closed, photo ${photoId} exists in database (completed)`)
               return
             }
           }
@@ -766,12 +786,26 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
             const photoPending = pendingData?.photos?.some((p) => p.id === photoId)
             if (photoPending) {
               // 照片在 pending 状态，说明上传成功但还在处理中，认为上传成功
-              console.log(`[Upload] File upload completed but connection closed, photo ${photoId} is pending processing`)
+              console.log(`[Upload] ✅ File upload completed but connection closed, photo ${photoId} is pending processing`)
               return
             }
           }
-        } catch {
+          
+          // 也检查 processing 状态（可能正在处理中）
+          const processingRes = await fetch(`/api/admin/albums/${albumId}/photos?status=processing`)
+          if (processingRes.ok) {
+            const processingData = await processingRes.json() as { photos?: Array<{ id: string }> }
+            const photoProcessing = processingData?.photos?.some((p) => p.id === photoId)
+            if (photoProcessing) {
+              console.log(`[Upload] ✅ File upload completed but connection closed, photo ${photoId} is processing`)
+              return
+            }
+          }
+          
+          console.log(`[Upload] ⚠️ File not found in database after connection closed, will retry or fail`)
+        } catch (checkError) {
           // 检查失败，继续错误处理流程
+          console.error('[Upload] Error checking file existence:', checkError)
         }
       }
       
