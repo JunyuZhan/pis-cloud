@@ -60,7 +60,7 @@ async function proxyRequest(
     
     // 添加认证检查（除了 health 端点）
     // health 端点用于监控，不需要认证
-    let response = NextResponse.next({ request })
+    const response = NextResponse.next({ request })
     if (pathSegments[0] !== 'health') {
       const supabase = createClientFromRequest(request, response)
       const { data: { user } } = await supabase.auth.getUser()

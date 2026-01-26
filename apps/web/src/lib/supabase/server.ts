@@ -45,7 +45,7 @@ export function createClientFromRequest(
   response?: NextResponse
 ): AnySupabaseClient {
   // 在 App Router 中，不能使用 NextResponse.next()，直接创建新的响应对象
-  let responseRef = response || new NextResponse()
+  const responseRef = response || new NextResponse()
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
