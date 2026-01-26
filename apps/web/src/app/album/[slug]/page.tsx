@@ -5,10 +5,12 @@ import { AlbumClient } from '@/components/album/album-client'
 import { AlbumHero } from '@/components/album/album-hero'
 import { AlbumInfoBar } from '@/components/album/album-info-bar'
 import { AlbumStickyNav } from '@/components/album/album-sticky-nav'
+import { AlbumSplashScreen } from '@/components/album/album-splash-screen'
 import { PhotoGroupFilter } from '@/components/album/photo-group-filter'
 import { FloatingActions } from '@/components/album/floating-actions'
 import { SortToggle, type SortRule } from '@/components/album/sort-toggle'
 import { LayoutToggle, type LayoutMode } from '@/components/album/layout-toggle'
+import { getAlbumShareUrl } from '@/lib/utils'
 import type { Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -16,7 +18,7 @@ type Photo = Database['public']['Tables']['photos']['Row']
 
 interface AlbumPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ sort?: string; layout?: string; group?: string; from?: string }>
+  searchParams: Promise<{ sort?: string; layout?: string; group?: string; from?: string; skip_splash?: string }>
 }
 
 /**
@@ -28,7 +30,7 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
 
   const { data: album } = await supabase
     .from('albums')
-    .select('title, description, share_title, share_description, share_image_url, cover_photo_id, slug')
+    .select('title, description, share_title, share_description, share_image_url, poster_image_url, cover_photo_id, slug')
     .eq('slug', slug)
     .is('deleted_at', null)
     .single()
@@ -46,8 +48,14 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
   const shareTitle = album.share_title || album.title
   const shareDescription = album.share_description || album.description || `查看 ${album.title} 的精彩照片`
   
-  // 获取分享图片（优先使用自定义图片，否则使用封面图）
-  let shareImage = album.share_image_url
+  // 获取分享图片（优先级：海报图片 > 分享图片 > 封面图）
+  let shareImage = album.poster_image_url && album.poster_image_url.trim()
+    ? album.poster_image_url.trim()
+    : (album.share_image_url && album.share_image_url.trim()
+        ? album.share_image_url.trim()
+        : null)
+  
+  // 如果还没有图片，使用封面图
   if (!shareImage && album.cover_photo_id) {
     const { data: coverPhoto } = await supabase
       .from('photos')
@@ -62,12 +70,25 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
     }
   }
   
-  // 如果没有图片，使用默认图片
+  // 如果没有图片，使用默认图标作为OG图片
   if (!shareImage) {
-    shareImage = `${appUrl}/og-image.png` // 可以创建一个默认的 OG 图片
+    shareImage = `${appUrl}/icons/icon-512x512.png` // 使用应用图标作为默认OG图片
   }
 
-  const shareUrl = `${appUrl}/album/${album.slug}`
+  // 使用统一的URL生成函数（添加错误处理）
+  let shareUrl: string
+  try {
+    shareUrl = getAlbumShareUrl(album.slug)
+  } catch (error) {
+    // 如果slug无效，使用默认URL
+    console.error('Invalid album slug:', error)
+    shareUrl = `${appUrl}/album/${encodeURIComponent(album.slug || '')}`
+  }
+
+  // 确保分享图片URL是绝对URL
+  const absoluteShareImage = shareImage.startsWith('http') 
+    ? shareImage 
+    : `${appUrl}${shareImage.startsWith('/') ? '' : '/'}${shareImage}`
 
   return {
     title: shareTitle,
@@ -80,7 +101,7 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
       siteName: 'PIS - 专业级摄影分享',
       images: [
         {
-          url: shareImage,
+          url: absoluteShareImage,
           width: 1200,
           height: 630,
           alt: album.title,
@@ -91,18 +112,20 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
       card: 'summary_large_image',
       title: shareTitle,
       description: shareDescription,
-      images: [shareImage],
+      images: [absoluteShareImage],
     },
     // 微信分享 meta（通过其他 meta 标签实现）
     other: {
       'weixin:title': shareTitle,
       'weixin:description': shareDescription,
-      'weixin:image': shareImage,
-      // 额外的 Open Graph 标签
+      'weixin:image': absoluteShareImage,
+      // 额外的 Open Graph 标签（确保兼容性）
       'og:title': shareTitle,
       'og:description': shareDescription,
-      'og:image': shareImage,
+      'og:image': absoluteShareImage,
       'og:url': shareUrl,
+      'og:type': 'website',
+      'og:site_name': 'PIS - 专业级摄影分享',
     },
   }
 }
@@ -113,7 +136,7 @@ export async function generateMetadata({ params }: AlbumPageProps): Promise<Meta
  */
 export default async function AlbumPage({ params, searchParams }: AlbumPageProps) {
   const { slug } = await params
-  const { sort, layout, group, from } = await searchParams
+  const { sort, layout, group, from, skip_splash } = await searchParams
   const supabase = await createClient()
 
   // 获取相册信息（包含密码和过期时间检查）
@@ -211,13 +234,35 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     coverPhoto = photos[0]
   }
 
+  // 获取背景图片URL（优先使用海报图片，否则使用封面照片）
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || 'http://localhost:9000/pis-photos'
+  let backgroundImageUrl: string | null = null
+  if (album.poster_image_url && album.poster_image_url.trim()) {
+    backgroundImageUrl = album.poster_image_url.trim()
+  } else if (coverPhoto?.preview_key) {
+    backgroundImageUrl = `${mediaUrl}/${coverPhoto.preview_key}`
+  } else if (coverPhoto?.thumb_key) {
+    backgroundImageUrl = `${mediaUrl}/${coverPhoto.thumb_key}`
+  }
+
+  // 判断是否显示启动页（总是显示，除非已跳过）
+  const showSplash = skip_splash !== '1'
+
   return (
     <main className="min-h-screen bg-background">
+      {/* 启动页（总是显示，除非已跳过） */}
+      {showSplash && (
+        <AlbumSplashScreen
+          album={album}
+          posterImageUrl={album.poster_image_url && album.poster_image_url.trim() ? album.poster_image_url.trim() : null}
+        />
+      )}
+
       {/* 沉浸式封面 Banner */}
       <AlbumHero album={album} coverPhoto={coverPhoto} from={from} />
 
       {/* 品牌信息栏 */}
-      <AlbumInfoBar album={album} />
+      <AlbumInfoBar album={album} backgroundImageUrl={backgroundImageUrl} />
 
       {/* 吸顶导航栏（滚动后显示） */}
       <AlbumStickyNav 

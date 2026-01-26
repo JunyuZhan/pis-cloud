@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -94,23 +94,25 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
       }
     }
     loadPhotoGroups()
-  }, [album.id, photos.length])
+  }, [album.id]) // 只依赖 album.id，移除 photos.length 避免不必要的重新加载
 
-  // 过滤照片
-  const filteredPhotos = photos.filter((p) => {
-    // 按选中状态过滤
-    if (filterSelected && !p.is_selected) {
-      return false
-    }
-    
-    // 按分组过滤
-    if (selectedGroupId) {
-      const groupPhotoIds = photoGroupMap.get(selectedGroupId) || []
-      return groupPhotoIds.includes(p.id)
-    }
-    
-    return true
-  })
+  // 过滤照片 - 使用 useMemo 优化性能，避免每次渲染都重新计算
+  const filteredPhotos = useMemo(() => {
+    return photos.filter((p) => {
+      // 按选中状态过滤
+      if (filterSelected && !p.is_selected) {
+        return false
+      }
+      
+      // 按分组过滤
+      if (selectedGroupId) {
+        const groupPhotoIds = photoGroupMap.get(selectedGroupId) || []
+        return groupPhotoIds.includes(p.id)
+      }
+      
+      return true
+    })
+  }, [photos, filterSelected, selectedGroupId, photoGroupMap])
 
   // 轮询检查处理中的照片
   useEffect(() => {

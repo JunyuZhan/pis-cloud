@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getAlbumShareUrl } from '@/lib/utils'
 import type { AlbumInsert, Database } from '@/types/database'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -87,11 +88,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // 生成分享URL（添加错误处理）
+    let shareUrl: string
+    try {
+      shareUrl = getAlbumShareUrl(newAlbum.slug)
+    } catch (error) {
+      console.error('Failed to generate share URL:', error)
+      // 如果slug无效，使用降级方案
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      shareUrl = `${appUrl}/album/${encodeURIComponent(newAlbum.slug || '')}`
+    }
+
     return NextResponse.json({
       id: newAlbum.id,
       slug: newAlbum.slug,
       title: newAlbum.title,
-      shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/album/${newAlbum.slug}`,
+      shareUrl,
       message: '相册已复制',
     })
   } catch {

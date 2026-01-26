@@ -96,10 +96,15 @@ export function AlbumGrid({ albums }: AlbumGridProps) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
         {albums.map((album, index) => {
           const albumWithCover = album as AlbumWithCover
-          const coverKey = albumWithCover.cover_preview_key || albumWithCover.cover_thumb_key
-          const coverUrl = coverKey && coverKey.trim() 
-            ? `${mediaUrl.replace(/\/$/, '')}/${coverKey.replace(/^\//, '')}` 
-            : null
+          // 优先使用海报图片，否则使用封面照片
+          const coverUrl = albumWithCover.poster_image_url && albumWithCover.poster_image_url.trim()
+            ? albumWithCover.poster_image_url.trim()
+            : (() => {
+                const coverKey = albumWithCover.cover_preview_key || albumWithCover.cover_thumb_key
+                return coverKey && coverKey.trim() 
+                  ? `${mediaUrl.replace(/\/$/, '')}/${coverKey.replace(/^\//, '')}` 
+                  : null
+              })()
 
           return (
             <AlbumCard

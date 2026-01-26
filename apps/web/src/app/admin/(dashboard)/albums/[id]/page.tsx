@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getAlbumShareUrl } from '@/lib/utils'
 import { AlbumDetailClient } from '@/components/admin/album-detail-client'
 import { ShareLinkButton } from '@/components/admin/share-link-button'
 import { PackageDownloadButton } from '@/components/admin/package-download-button'
@@ -63,7 +64,36 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
     photo_count: photoCount,
   } as Album
 
-  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/album/${album.slug}`
+  // 生成分享URL（添加错误处理）
+  let shareUrl: string
+  try {
+    shareUrl = getAlbumShareUrl(album.slug)
+  } catch (error) {
+    console.error('Failed to generate share URL:', error)
+    // 如果slug无效，使用降级方案
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    shareUrl = `${appUrl}/album/${encodeURIComponent(album.slug || '')}`
+  }
+
+  // 获取背景图片URL（优先使用海报图片，否则使用封面照片）
+  let backgroundImageUrl: string | null = null
+  if (album.poster_image_url && album.poster_image_url.trim()) {
+    backgroundImageUrl = album.poster_image_url.trim()
+  } else if (album.cover_photo_id) {
+    const { data: coverPhoto } = await supabase
+      .from('photos')
+      .select('preview_key, thumb_key')
+      .eq('id', album.cover_photo_id)
+      .single()
+    
+    if (coverPhoto?.preview_key) {
+      const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || 'http://localhost:9000/pis-photos'
+      backgroundImageUrl = `${mediaUrl}/${coverPhoto.preview_key}`
+    } else if (coverPhoto?.thumb_key) {
+      const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || 'http://localhost:9000/pis-photos'
+      backgroundImageUrl = `${mediaUrl}/${coverPhoto.thumb_key}`
+    }
+  }
 
   return (
     <div>
@@ -96,7 +126,12 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
             selectedCount={album.selected_count || 0}
           />
           {/* 分享链接 */}
-          <ShareLinkButton url={shareUrl} albumTitle={album.title} />
+          <ShareLinkButton 
+            url={shareUrl} 
+            albumTitle={album.title}
+            albumDescription={album.description}
+            backgroundImageUrl={backgroundImageUrl}
+          />
           <Link
             href={`/admin/albums/${id}/settings`}
             className="btn-secondary min-h-[44px] px-3 sm:px-4"

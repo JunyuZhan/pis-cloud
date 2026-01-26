@@ -56,3 +56,30 @@ export function formatRelativeTime(date: string | Date): string {
 
   return formatDate(date)
 }
+
+/**
+ * 获取应用基础URL（用于生成分享链接）
+ * 优先使用环境变量，否则使用 window.location.origin（客户端）或默认值（服务端）
+ */
+export function getAppBaseUrl(): string {
+  // 服务端：使用环境变量
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  }
+  // 客户端：优先使用环境变量，否则使用当前域名
+  return process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+}
+
+/**
+ * 生成相册分享URL
+ * @param slug - 相册slug，会自动进行URL编码
+ */
+export function getAlbumShareUrl(slug: string): string {
+  // 验证slug有效性
+  if (!slug || typeof slug !== 'string' || slug.trim() === '') {
+    throw new Error('Invalid album slug')
+  }
+  // 对slug进行URL编码，防止特殊字符导致URL无效
+  const encodedSlug = encodeURIComponent(slug.trim())
+  return `${getAppBaseUrl()}/album/${encodedSlug}`
+}

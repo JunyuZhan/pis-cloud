@@ -61,11 +61,14 @@ export function AlbumHero({ album, coverPhoto, from }: AlbumHeroProps) {
   // 获取封面图 URL（添加缓存破坏参数以支持旋转后刷新）
   const rotation = coverPhoto?.rotation ?? 'auto'
   const timestamp = coverPhoto?.updated_at ? new Date(coverPhoto.updated_at).getTime() : Date.now()
-  const coverUrl = coverPhoto?.preview_key 
-    ? `${mediaUrl}/${coverPhoto.preview_key}?r=${rotation}&t=${timestamp}`
-    : coverPhoto?.thumb_key 
-      ? `${mediaUrl}/${coverPhoto.thumb_key}?r=${rotation}&t=${timestamp}`
-      : null
+  // 优先使用海报图片，否则使用封面照片
+  const coverUrl = album.poster_image_url && album.poster_image_url.trim()
+    ? album.poster_image_url.trim()
+    : (coverPhoto?.preview_key 
+        ? `${mediaUrl}/${coverPhoto.preview_key}?r=${rotation}&t=${timestamp}`
+        : coverPhoto?.thumb_key 
+          ? `${mediaUrl}/${coverPhoto.thumb_key}?r=${rotation}&t=${timestamp}`
+          : null)
 
   // 格式化日期 - 使用固定格式避免 hydration 不匹配
   const formatDate = (dateStr: string) => {

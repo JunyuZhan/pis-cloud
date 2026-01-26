@@ -17,35 +17,57 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // 获取默认水印配置（用于初始化）
+  const getDefaultWatermarkConfig = () => {
+    const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
+    return {
+      watermarks: [{
+        id: 'watermark-1',
+        type: 'text' as const,
+        text: `© ${photographerName}`,
+        logoUrl: undefined,
+        opacity: 0.5,
+        position: 'bottom-right',
+        margin: 5,
+        enabled: true,
+      }],
+    }
+  }
+
   // 解析水印配置（兼容旧格式和新格式）
-  const parseWatermarkConfig = (config: Database['public']['Tables']['albums']['Row']['watermark_config']) => {
+  const parseWatermarkConfig = (config: Database['public']['Tables']['albums']['Row']['watermark_config'], watermarkEnabled: boolean) => {
     if (!config) {
-      const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
-      return {
-        watermarks: [{
-          id: 'watermark-1',
-          type: 'text' as const,
-          text: `© ${photographerName}`,
-          opacity: 0.5,
-          position: 'center',
-          enabled: true,
-        }],
+      // 如果已启用水印但没有配置，返回默认配置
+      if (watermarkEnabled) {
+        return getDefaultWatermarkConfig()
       }
+      return { watermarks: [] }
     }
 
     // 新格式：包含 watermarks 数组
     if (config && typeof config === 'object' && 'watermarks' in config && Array.isArray(config.watermarks)) {
+      // 如果已启用水印但水印数组为空，返回默认配置
+      if (watermarkEnabled && config.watermarks.length === 0) {
+        return getDefaultWatermarkConfig()
+      }
+      const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
       return {
         watermarks: config.watermarks.map((w: unknown, index: number) => {
           const watermark = w as Record<string, unknown>
+          // 如果文字水印的 text 为空，使用默认文字
+          const watermarkType = (watermark.type as 'text' | 'logo') || 'text'
+          const watermarkText = watermark.text as string
+          const defaultText = `© ${photographerName}`
+          
           return {
             id: (watermark.id as string) || `watermark-${index + 1}`,
-            type: (watermark.type as 'text' | 'logo') || 'text',
-            text: watermark.text as string,
+            type: watermarkType,
+            text: watermarkType === 'text' && (!watermarkText || watermarkText.trim() === '') ? defaultText : watermarkText,
             logoUrl: watermark.logoUrl as string | undefined,
             opacity: (watermark.opacity as number) ?? 0.5,
-            position: (watermark.position as string) || 'center',
+            position: (watermark.position as string) || 'bottom-right',
             size: watermark.size as number | undefined,
+            margin: watermark.margin !== undefined ? (watermark.margin as number) : 5,
             enabled: (watermark.enabled as boolean) !== false,
           }
         }),
@@ -61,13 +83,14 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         text: oldConfig.text as string,
         logoUrl: oldConfig.logoUrl as string | undefined,
         opacity: (oldConfig.opacity as number) ?? 0.5,
-        position: (oldConfig.position as string) || 'center',
+        position: (oldConfig.position as string) || 'bottom-right',
+        margin: oldConfig.margin !== undefined ? (oldConfig.margin as number) : 5,
         enabled: true,
       }],
     }
   }
 
-  const initialWatermarkConfig = parseWatermarkConfig(album.watermark_config)
+  const initialWatermarkConfig = parseWatermarkConfig(album.watermark_config, album.watermark_enabled ?? false)
 
   const [formData, setFormData] = useState({
     title: album.title,
@@ -93,10 +116,65 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     share_title: album.share_title || '',
     share_description: album.share_description || '',
     share_image_url: album.share_image_url || '',
+    // 海报配置
+    poster_image_url: album.poster_image_url || '',
   })
 
+  // 获取默认水印配置（单个水印对象）
+  const getDefaultWatermark = (): WatermarkItem => {
+    const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
+    return {
+      id: `watermark-${Date.now()}`,
+      type: 'text' as const,
+      text: `© ${photographerName}`,
+      logoUrl: undefined,
+      opacity: 0.5,
+      position: 'bottom-right',
+      margin: 5,
+      enabled: true,
+    }
+  }
+
   const handleChange = (field: string, value: string | boolean | number | Record<string, unknown>) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => {
+      // 如果启用水印开关，且当前没有水印配置或水印文字为空，自动添加/更新默认水印
+      if (field === 'watermark_enabled' && value === true) {
+        const currentWatermarks = prev.watermark_config?.watermarks || []
+        const photographerName = process.env.NEXT_PUBLIC_PHOTOGRAPHER_NAME || 'PIS Photography'
+        const defaultText = `© ${photographerName}`
+        
+        if (currentWatermarks.length === 0) {
+          // 没有水印，添加默认水印
+          return {
+            ...prev,
+            [field]: value,
+            watermark_config: {
+              watermarks: [getDefaultWatermark()],
+            } as typeof prev.watermark_config,
+          }
+        } else {
+          // 有水印但文字为空，填充默认文字
+          const updatedWatermarks: WatermarkItem[] = currentWatermarks.map((wm) => {
+            if (wm.type === 'text' && (!wm.text || wm.text.trim() === '')) {
+              return { ...wm, text: defaultText }
+            }
+            return wm
+          })
+          
+          // 如果更新了水印，返回更新后的配置
+          if (JSON.stringify(updatedWatermarks) !== JSON.stringify(currentWatermarks)) {
+            return {
+              ...prev,
+              [field]: value,
+              watermark_config: {
+                watermarks: updatedWatermarks,
+              } as typeof prev.watermark_config,
+            }
+          }
+        }
+      }
+      return { ...prev, [field]: value }
+    })
   }
 
   // handleWatermarkConfigChange removed as it's not used
@@ -123,6 +201,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         event_date: formData.event_date && formData.event_date.trim() ? formData.event_date : null,
         expires_at: formData.expires_at && formData.expires_at.trim() ? formData.expires_at : null,
         location: formData.location.trim() || null,
+        // 分享配置：空字符串转换为 null
+        share_title: formData.share_title.trim() || null,
+        share_description: formData.share_description.trim() || null,
+        share_image_url: formData.share_image_url.trim() || null,
+        // 海报配置：空字符串转换为 null
+        poster_image_url: formData.poster_image_url.trim() || null,
         watermark_config: watermarkConfig,
       }
 
@@ -396,18 +480,36 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
       {/* 水印配置 */}
       <section className="card space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">水印设置</h2>
-          <button
-            type="button"
-            onClick={() => handleChange('watermark_enabled', !formData.watermark_enabled)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-              formData.watermark_enabled ? 'bg-accent' : 'bg-surface-elevated'
-            }`}
-          >
-            <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
-              formData.watermark_enabled ? 'translate-x-5' : 'translate-x-0'
-            }`} />
-          </button>
+          <div className="flex-1">
+            <h2 className="text-lg font-medium">水印设置</h2>
+            <p className="text-sm text-text-muted mt-1">
+              为相册照片添加水印保护
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                handleWatermarksChange([getDefaultWatermark()])
+                handleChange('watermark_enabled', true)
+              }}
+              className="btn-secondary text-xs px-3 py-1.5"
+              title="重置为默认水印配置（右下角文字水印）"
+            >
+              重置默认水印
+            </button>
+            <button
+              type="button"
+              onClick={() => handleChange('watermark_enabled', !formData.watermark_enabled)}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                formData.watermark_enabled ? 'bg-accent' : 'bg-surface-elevated'
+              }`}
+            >
+              <div className={`absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full transition-transform ${
+                formData.watermark_enabled ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
+          </div>
         </div>
 
         {formData.watermark_enabled && (
@@ -474,6 +576,32 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
               建议尺寸：1200x630px。留空则使用相册封面图
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* 海报配置 */}
+      <section className="card space-y-4">
+        <h2 className="text-lg font-medium">海报设置</h2>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-2">
+            相册海报图片 URL
+          </label>
+          <input
+            type="url"
+            value={formData.poster_image_url}
+            onChange={(e) => handleChange('poster_image_url', e.target.value)}
+            className="input"
+            placeholder="https://example.com/poster.jpg"
+          />
+          <p className="text-xs text-text-muted mt-1">
+            <span className="font-medium text-text-primary">启动页功能：</span>设置后，用户通过分享链接打开相册时会首先看到全屏启动页（海报图片）。
+            <br />
+            同时用于相册列表和详情页展示，优先于封面照片。留空则使用封面照片，且不会显示启动页。
+            <br />
+            <span className="text-text-muted/80 mt-1 block">
+              提示：也可以使用「分享」功能中的「生成海报」来创建包含二维码的动态海报。
+            </span>
+          </p>
         </div>
       </section>
 

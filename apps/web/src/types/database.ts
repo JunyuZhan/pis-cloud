@@ -1,6 +1,8 @@
 /**
  * Supabase 数据库类型定义
- * TODO: BE (gpt5.2) - 创建 Supabase 项目后运行 `supabase gen types` 生成实际类型
+ * 
+ * 注意：类型定义已手动维护，与数据库schema保持同步。
+ * 如需自动生成类型，可运行：`supabase gen types typescript --project-id <project-id> > apps/web/src/types/database.ts`
  */
 
 export type Json =
@@ -40,6 +42,8 @@ export interface Database {
           share_title: string | null
           share_description: string | null
           share_image_url: string | null
+          // 海报配置
+          poster_image_url: string | null
           // 活动元数据
           event_date: string | null
           location: string | null
@@ -74,6 +78,7 @@ export interface Database {
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null
+          poster_image_url?: string | null
           event_date?: string | null
           location?: string | null
           is_live?: boolean
@@ -104,6 +109,7 @@ export interface Database {
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null
+          poster_image_url?: string | null
           event_date?: string | null
           location?: string | null
           is_live?: boolean

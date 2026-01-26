@@ -25,6 +25,7 @@ export interface SingleWatermark {
   opacity: number; // 0-1
   position: string; // 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   size?: number; // 字体大小或Logo尺寸（可选，自动计算）
+  margin?: number; // 边距（百分比，0-20，默认5）
   enabled?: boolean; // 单个水印是否启用
 }
 
@@ -45,6 +46,60 @@ export class PhotoProcessor {
 
   constructor(buffer: Buffer) {
     this.image = sharp(buffer);
+  }
+
+  /**
+   * 验证 Logo URL 是否安全（防止 SSRF 攻击）
+   */
+  private isValidLogoUrl(url: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      const allowedProtocols = ['https:', 'http:'];
+      
+      // 从环境变量获取允许的域名白名单
+      const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || process.env.MEDIA_URL;
+      const allowedHosts = [
+        process.env.MEDIA_DOMAIN,
+        mediaUrl ? new URL(mediaUrl).hostname : null,
+      ].filter(Boolean) as string[];
+      
+      // 检查协议
+      if (!allowedProtocols.includes(urlObj.protocol)) {
+        return false;
+      }
+      
+      // 检查是否为内网地址（SSRF 防护）
+      const hostname = urlObj.hostname.toLowerCase();
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+      const isPrivateIP = 
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        (hostname.startsWith('172.') && 
+         parseInt(hostname.split('.')[1] || '0') >= 16 && 
+         parseInt(hostname.split('.')[1] || '0') <= 31) ||
+        hostname.endsWith('.local');
+      
+      if (isLocalhost || isPrivateIP) {
+        console.warn(`[Security] Blocked internal URL: ${url}`);
+        return false;
+      }
+      
+      // 如果配置了白名单，只允许白名单中的域名
+      if (allowedHosts.length > 0) {
+        const isAllowed = allowedHosts.some(allowed => {
+          const allowedHostname = allowed.toLowerCase();
+          return hostname === allowedHostname || hostname.endsWith('.' + allowedHostname);
+        });
+        if (!isAllowed) {
+          console.warn(`[Security] URL not in whitelist: ${url}`);
+          return false;
+        }
+      }
+      
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async process(watermarkConfig?: WatermarkConfig, manualRotation?: number | null): Promise<ProcessedResult> {
@@ -85,19 +140,43 @@ export class PhotoProcessor {
       .toBuffer();
 
     // 4. 生成预览图 (2560px) - 自动根据 EXIF orientation 旋转
+    // 优化：直接从 metadata 获取尺寸，避免重复编码/解码
+    const { width: originalWidth, height: originalHeight } = metadata;
+    
+    // 计算预览图尺寸（保持宽高比）
+    const maxPreviewSize = 2560;
+    let previewWidth = originalWidth || maxPreviewSize;
+    let previewHeight = originalHeight || maxPreviewSize;
+    
+    if (previewWidth > maxPreviewSize || previewHeight > maxPreviewSize) {
+      const ratio = Math.min(maxPreviewSize / previewWidth, maxPreviewSize / previewHeight);
+      previewWidth = Math.floor(previewWidth * ratio);
+      previewHeight = Math.floor(previewHeight * ratio);
+    }
+    
     let previewPipeline = rotatedImage
       .clone()
-      .resize(2560, null, { withoutEnlargement: true });
+      .resize(maxPreviewSize, null, { withoutEnlargement: true });
 
     // 添加水印
     if (watermarkConfig?.enabled) {
-      const { width, height } = await previewPipeline.toBuffer().then(b => sharp(b).metadata());
+      const watermarkStartTime = Date.now();
+      const width = previewWidth;
+      const height = previewHeight;
       
-      if (width && height) {
+      // 边界检查：确保图片尺寸有效
+      if (!width || !height || width <= 0 || height <= 0) {
+        console.warn(`[Watermark] Invalid image dimensions: ${width}x${height}, skipping watermark`);
+      } else {
+        console.log(`[Watermark] Processing watermarks for image ${width}x${height}`);
+        
         const composites: Array<{ input: Buffer; gravity: string }> = [];
 
         // 支持多个水印（新格式）
         if (watermarkConfig.watermarks && Array.isArray(watermarkConfig.watermarks)) {
+          const enabledCount = watermarkConfig.watermarks.filter(w => w.enabled !== false).length;
+          console.log(`[Watermark] Found ${watermarkConfig.watermarks.length} watermarks, ${enabledCount} enabled`);
+          
           // 处理多个水印
           for (const watermark of watermarkConfig.watermarks) {
             if (watermark.enabled === false) continue; // 跳过禁用的水印
@@ -145,6 +224,13 @@ export class PhotoProcessor {
         if (composites.length > 0) {
           previewPipeline = previewPipeline.composite(composites);
         }
+        
+        const watermarkDuration = Date.now() - watermarkStartTime;
+        console.log(`[Watermark] Processing completed in ${watermarkDuration}ms`);
+        
+        if (watermarkDuration > 5000) {
+          console.warn(`[Watermark] Slow watermark processing: ${watermarkDuration}ms`);
+        }
       }
     }
 
@@ -170,8 +256,10 @@ export class PhotoProcessor {
     imageHeight: number
   ): Promise<Buffer | null> {
     if (watermark.type === 'text' && watermark.text) {
-      const fontSize = watermark.size || Math.floor(Math.min(imageWidth, imageHeight) * 0.05);
-      const { x, y, anchor, baseline } = this.getTextPosition(watermark.position, imageWidth, imageHeight);
+      // 优化字体大小计算：使用面积而非最小边，避免超宽/超高图片字体过小
+      const baseSize = Math.sqrt(imageWidth * imageHeight);
+      const fontSize = watermark.size || Math.max(12, Math.min(72, Math.floor(baseSize * 0.01)));
+      const { x, y, anchor, baseline } = this.getTextPosition(watermark.position, imageWidth, imageHeight, watermark.margin);
       
       const svgText = `
         <svg width="${imageWidth}" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -183,20 +271,59 @@ export class PhotoProcessor {
       `;
       return Buffer.from(svgText);
     } else if (watermark.type === 'logo' && watermark.logoUrl) {
+      // 安全验证：检查 URL 是否安全
+      if (!this.isValidLogoUrl(watermark.logoUrl)) {
+        console.error(`[Watermark] Invalid or unsafe logo URL: ${watermark.logoUrl}`);
+        return null;
+      }
+      
       try {
-        const response = await fetch(watermark.logoUrl);
-        if (response.ok) {
+        // 设置超时和大小限制（防止 SSRF 和内存溢出）
+        const controller = new AbortController();
+        const timeoutMs = 10000; // 10秒超时
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        const maxSize = 10 * 1024 * 1024; // 10MB 限制
+
+        try {
+          const response = await fetch(watermark.logoUrl, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'PIS-Watermark/1.0',
+            },
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch logo: ${response.status} ${response.statusText}`);
+          }
+          
+          // 检查 Content-Length
+          const contentLength = response.headers.get('content-length');
+          if (contentLength && parseInt(contentLength) > maxSize) {
+            throw new Error(`Logo file too large: ${contentLength} bytes (max: ${maxSize} bytes)`);
+          }
+          
           const logoBuffer = await response.arrayBuffer();
+          
+          // 再次检查实际大小
+          if (logoBuffer.byteLength > maxSize) {
+            throw new Error(`Logo file too large: ${logoBuffer.byteLength} bytes (max: ${maxSize} bytes)`);
+          }
+          
           const logoSize = watermark.size || Math.floor(Math.min(imageWidth, imageHeight) * 0.15);
 
-          const resizedLogo = await sharp(Buffer.from(logoBuffer))
+          // 优化：一次性获取 buffer 和 metadata，避免重复创建 Sharp 实例
+          const resizedLogoResult = await sharp(Buffer.from(logoBuffer))
             .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .toBuffer();
+            .toBuffer({ resolveWithObject: true });
 
-          const { width: logoW, height: logoH } = await sharp(resizedLogo).metadata();
+          const logoW = resizedLogoResult.info.width;
+          const logoH = resizedLogoResult.info.height;
+          
           if (logoW && logoH) {
-            const { x, y } = this.getImagePosition(watermark.position, imageWidth, imageHeight, logoW, logoH);
-            const logoBase64 = resizedLogo.toString('base64');
+            const { x, y } = this.getImagePosition(watermark.position, imageWidth, imageHeight, logoW, logoH, watermark.margin);
+            const logoBase64 = resizedLogoResult.data.toString('base64');
 
             const svgLogo = `
               <svg width="${imageWidth}" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -212,9 +339,17 @@ export class PhotoProcessor {
             `;
             return Buffer.from(svgLogo);
           }
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            console.error(`[Watermark] Logo download timeout after ${timeoutMs}ms: ${watermark.logoUrl}`);
+          } else {
+            throw fetchError;
+          }
         }
-      } catch (e) {
-        console.error('Failed to load watermark logo:', e);
+      } catch (e: any) {
+        console.error(`[Watermark] Failed to load logo from ${watermark.logoUrl}:`, e.message || e);
+        // 不中断整个处理流程，只跳过该水印
       }
     }
     return null;
@@ -249,9 +384,11 @@ export class PhotoProcessor {
   private getTextPosition(
     position: string,
     width: number,
-    height: number
+    height: number,
+    customMargin?: number
   ): { x: string; y: string; anchor: string; baseline: string } {
-    const margin = Math.min(width, height) * 0.05; // 5% 边距
+    const marginPercent = customMargin !== undefined ? customMargin / 100 : 0.05; // 自定义边距或默认5%
+    const margin = Math.min(width, height) * marginPercent;
 
     const positions: Record<string, { x: string; y: string; anchor: string; baseline: string }> = {
       'top-left': { x: `${margin}`, y: `${margin}`, anchor: 'start', baseline: 'hanging' },
@@ -269,30 +406,42 @@ export class PhotoProcessor {
   }
 
   /**
-   * 获取图片水印的位置坐标
+   * 获取图片水印的位置坐标（带边界检查）
    */
   private getImagePosition(
     position: string,
     imageWidth: number,
     imageHeight: number,
     logoWidth: number,
-    logoHeight: number
+    logoHeight: number,
+    customMargin?: number
   ): { x: number; y: number } {
-    const margin = Math.min(imageWidth, imageHeight) * 0.05; // 5% 边距
+    const marginPercent = customMargin !== undefined ? customMargin / 100 : 0.05; // 自定义边距或默认5%
+    const margin = Math.min(imageWidth, imageHeight) * marginPercent;
+    
+    // 确保 logo 不会超出图片边界
+    const maxX = Math.max(0, imageWidth - logoWidth);
+    const maxY = Math.max(0, imageHeight - logoHeight);
 
     const positions: Record<string, { x: number; y: number }> = {
-      'top-left': { x: margin, y: margin },
-      'top-center': { x: (imageWidth - logoWidth) / 2, y: margin },
-      'top-right': { x: imageWidth - logoWidth - margin, y: margin },
-      'center-left': { x: margin, y: (imageHeight - logoHeight) / 2 },
-      'center': { x: (imageWidth - logoWidth) / 2, y: (imageHeight - logoHeight) / 2 },
-      'center-right': { x: imageWidth - logoWidth - margin, y: (imageHeight - logoHeight) / 2 },
-      'bottom-left': { x: margin, y: imageHeight - logoHeight - margin },
-      'bottom-center': { x: (imageWidth - logoWidth) / 2, y: imageHeight - logoHeight - margin },
-      'bottom-right': { x: imageWidth - logoWidth - margin, y: imageHeight - logoHeight - margin },
+      'top-left': { x: Math.min(margin, maxX), y: Math.min(margin, maxY) },
+      'top-center': { x: Math.max(0, Math.min((imageWidth - logoWidth) / 2, maxX)), y: Math.min(margin, maxY) },
+      'top-right': { x: Math.max(0, Math.min(imageWidth - logoWidth - margin, maxX)), y: Math.min(margin, maxY) },
+      'center-left': { x: Math.min(margin, maxX), y: Math.max(0, Math.min((imageHeight - logoHeight) / 2, maxY)) },
+      'center': { x: Math.max(0, Math.min((imageWidth - logoWidth) / 2, maxX)), y: Math.max(0, Math.min((imageHeight - logoHeight) / 2, maxY)) },
+      'center-right': { x: Math.max(0, Math.min(imageWidth - logoWidth - margin, maxX)), y: Math.max(0, Math.min((imageHeight - logoHeight) / 2, maxY)) },
+      'bottom-left': { x: Math.min(margin, maxX), y: Math.max(0, Math.min(imageHeight - logoHeight - margin, maxY)) },
+      'bottom-center': { x: Math.max(0, Math.min((imageWidth - logoWidth) / 2, maxX)), y: Math.max(0, Math.min(imageHeight - logoHeight - margin, maxY)) },
+      'bottom-right': { x: Math.max(0, Math.min(imageWidth - logoWidth - margin, maxX)), y: Math.max(0, Math.min(imageHeight - logoHeight - margin, maxY)) },
     };
 
-    return positions[position] || positions['center'];
+    const pos = positions[position] || positions['center'];
+    
+    // 最终边界检查，确保坐标在有效范围内
+    return {
+      x: Math.max(0, Math.min(pos.x, maxX)),
+      y: Math.max(0, Math.min(pos.y, maxY)),
+    };
   }
 
   /**

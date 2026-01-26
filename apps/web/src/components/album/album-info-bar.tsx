@@ -6,9 +6,10 @@ import type { Album } from '@/types/database'
 
 interface AlbumInfoBarProps {
   album: Album
+  backgroundImageUrl?: string | null
 }
 
-export function AlbumInfoBar({ album }: AlbumInfoBarProps) {
+export function AlbumInfoBar({ album, backgroundImageUrl }: AlbumInfoBarProps) {
   return (
     <div className="bg-surface-elevated border-b border-border">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-5">
@@ -36,7 +37,12 @@ export function AlbumInfoBar({ album }: AlbumInfoBarProps) {
 
           {/* 右侧：操作按钮 */}
           <div className="flex items-center shrink-0">
-            <AlbumShareButton albumSlug={album.slug} albumTitle={album.title} />
+            <AlbumShareButton 
+              albumSlug={album.slug} 
+              albumTitle={album.title}
+              albumDescription={album.description}
+              backgroundImageUrl={backgroundImageUrl}
+            />
           </div>
         </div>
       </div>

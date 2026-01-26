@@ -93,6 +93,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       share_title?: string | null
       share_description?: string | null
       share_image_url?: string | null
+      poster_image_url?: string | null
       event_date?: string | null
       location?: string | null
     }
@@ -127,6 +128,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'share_title',
       'share_description',
       'share_image_url',
+      'poster_image_url',
       'event_date',
       'location',
     ]
@@ -172,7 +174,157 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
               { status: 400 }
             )
           }
+          
+          // 验证水印配置内容
+          if (watermarkConfigValue && typeof watermarkConfigValue === 'object') {
+            const config = watermarkConfigValue as Record<string, unknown>
+            
+            // 验证新格式（watermarks 数组）
+            if (config.watermarks && Array.isArray(config.watermarks)) {
+              if (config.watermarks.length > 6) {
+                return NextResponse.json(
+                  { error: { code: 'VALIDATION_ERROR', message: '最多支持6个水印' } },
+                  { status: 400 }
+                )
+              }
+              
+              for (const wm of config.watermarks) {
+                if (typeof wm !== 'object' || wm === null) {
+                  return NextResponse.json(
+                    { error: { code: 'VALIDATION_ERROR', message: '水印配置项格式错误' } },
+                    { status: 400 }
+                  )
+                }
+                
+                const watermark = wm as Record<string, unknown>
+                
+                // 验证类型
+                if (watermark.type !== 'text' && watermark.type !== 'logo') {
+                  return NextResponse.json(
+                    { error: { code: 'VALIDATION_ERROR', message: '水印类型必须是 text 或 logo' } },
+                    { status: 400 }
+                  )
+                }
+                
+                // 验证文字水印
+                if (watermark.type === 'text' && (!watermark.text || typeof watermark.text !== 'string' || !watermark.text.trim())) {
+                  return NextResponse.json(
+                    { error: { code: 'VALIDATION_ERROR', message: '文字水印内容不能为空' } },
+                    { status: 400 }
+                  )
+                }
+                
+                // 验证 Logo 水印
+                if (watermark.type === 'logo' && (!watermark.logoUrl || typeof watermark.logoUrl !== 'string' || !watermark.logoUrl.trim())) {
+                  return NextResponse.json(
+                    { error: { code: 'VALIDATION_ERROR', message: 'Logo URL 不能为空' } },
+                    { status: 400 }
+                  )
+                }
+                
+                // 验证透明度
+                if (watermark.opacity !== undefined) {
+                  const opacity = typeof watermark.opacity === 'number' ? watermark.opacity : parseFloat(String(watermark.opacity))
+                  if (isNaN(opacity) || opacity < 0 || opacity > 1) {
+                    return NextResponse.json(
+                      { error: { code: 'VALIDATION_ERROR', message: '透明度必须在 0-1 之间' } },
+                      { status: 400 }
+                    )
+                  }
+                }
+              }
+            }
+          }
+          
           ;(updateData as Record<string, unknown>)[field] = watermarkConfigValue
+        } else if (field === 'share_image_url') {
+          // 验证分享图片URL格式和安全性
+          const shareImageUrl = (body as Record<string, unknown>)[field] as string | null | undefined
+          if (shareImageUrl && shareImageUrl.trim()) {
+            try {
+              const url = new URL(shareImageUrl.trim())
+              // 只允许 http 和 https 协议
+              if (!['http:', 'https:'].includes(url.protocol)) {
+                return NextResponse.json(
+                  { error: { code: 'VALIDATION_ERROR', message: '分享图片URL必须使用 http 或 https 协议' } },
+                  { status: 400 }
+                )
+              }
+              // 检查是否为内网地址（SSRF 防护）
+              const hostname = url.hostname.toLowerCase()
+              const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0'
+              const isPrivateIP = 
+                hostname.startsWith('192.168.') ||
+                hostname.startsWith('10.') ||
+                (hostname.startsWith('172.') && 
+                 parseInt(hostname.split('.')[1] || '0') >= 16 && 
+                 parseInt(hostname.split('.')[1] || '0') <= 31) ||
+                hostname.endsWith('.local')
+              
+              if (isLocalhost || isPrivateIP) {
+                return NextResponse.json(
+                  { error: { code: 'VALIDATION_ERROR', message: '分享图片URL不能使用内网地址' } },
+                  { status: 400 }
+                )
+              }
+              
+              ;(updateData as Record<string, unknown>)[field] = shareImageUrl.trim()
+            } catch {
+              return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: '分享图片URL格式无效' } },
+                { status: 400 }
+              )
+            }
+          } else {
+            // 空字符串或null，设置为null
+            ;(updateData as Record<string, unknown>)[field] = null
+          }
+        } else if (field === 'poster_image_url') {
+          // 验证海报图片URL格式和安全性（与share_image_url相同的验证逻辑）
+          const posterImageUrl = (body as Record<string, unknown>)[field] as string | null | undefined
+          if (posterImageUrl && posterImageUrl.trim()) {
+            try {
+              const url = new URL(posterImageUrl.trim())
+              // 只允许 http 和 https 协议
+              if (!['http:', 'https:'].includes(url.protocol)) {
+                return NextResponse.json(
+                  { error: { code: 'VALIDATION_ERROR', message: '海报图片URL必须使用 http 或 https 协议' } },
+                  { status: 400 }
+                )
+              }
+              // 检查是否为内网地址（SSRF 防护）
+              const hostname = url.hostname.toLowerCase()
+              const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0'
+              const isPrivateIP =
+                hostname.startsWith('192.168.') ||
+                hostname.startsWith('10.') ||
+                (hostname.startsWith('172.') &&
+                  parseInt(hostname.split('.')[1] || '0') >= 16 &&
+                  parseInt(hostname.split('.')[1] || '0') <= 31) ||
+                hostname.endsWith('.local')
+
+              if (isLocalhost || isPrivateIP) {
+                return NextResponse.json(
+                  { error: { code: 'VALIDATION_ERROR', message: '海报图片URL不能使用内网地址' } },
+                  { status: 400 }
+                )
+              }
+
+              ;(updateData as Record<string, unknown>)[field] = posterImageUrl.trim()
+            } catch {
+              return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: '海报图片URL格式无效' } },
+                { status: 400 }
+              )
+            }
+          } else {
+            // 空字符串或null，设置为null
+            ;(updateData as Record<string, unknown>)[field] = null
+          }
+        } else if (field === 'share_title' || field === 'share_description') {
+          // 分享标题和描述：空字符串转换为 null
+          const value = (body as Record<string, unknown>)[field] as string | null | undefined
+          ;(updateData as Record<string, unknown>)[field] = (value && value.trim()) ? value.trim() : null
         } else {
           ;(updateData as Record<string, unknown>)[field] = (body as Record<string, unknown>)[field]
         }

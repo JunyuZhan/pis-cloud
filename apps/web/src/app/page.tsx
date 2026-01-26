@@ -120,23 +120,9 @@ export default async function HomePage() {
       }
     }
     
-    // 批量获取每个相册的实际照片数量
-    const albumIds = otherAlbums.map(a => a.id)
-    const photoCountMap = new Map<string, number>()
-    
-    // 分批查询每个相册的照片数量
-    await Promise.all(
-      albumIds.map(async (albumId) => {
-        const { count } = await supabase
-          .from('photos')
-          .select('*', { count: 'exact', head: true })
-          .eq('album_id', albumId)
-          .eq('status', 'completed')
-        photoCountMap.set(albumId, count || 0)
-      })
-    )
-    
     // 组合结果
+    // 注意：直接使用 albums.photo_count 字段，无需额外查询
+    // photo_count 字段由 Worker 在处理照片后自动更新，保持最新状态
     return otherAlbums.map(album => {
       let coverThumbKey: string | null = null
       let coverPreviewKey: string | null = null
@@ -159,7 +145,9 @@ export default async function HomePage() {
       
       return {
         ...album,
-        photo_count: photoCountMap.get(album.id) ?? album.photo_count,
+        // 直接使用数据库中的 photo_count 字段（由 Worker 自动维护）
+        // 无需额外查询，避免 N+1 问题
+        photo_count: album.photo_count ?? 0,
         cover_thumb_key: coverThumbKey,
         cover_preview_key: coverPreviewKey,
       }

@@ -222,6 +222,61 @@ bash scripts/run-all-tests.sh     # 运行所有测试
 
 ## 新功能说明
 
+### 相册海报功能
+
+相册海报功能允许管理员为相册设置自定义海报图片，并在相册列表、详情页和分享预览中优先显示。同时支持动态海报生成，可以自动生成包含二维码、标题、描述的分享海报。
+
+#### 功能特性
+
+1. **静态海报图片**
+   - 设置海报图片 URL（`poster_image_url`）
+   - 优先于封面照片显示
+   - 支持外部图片 URL
+
+2. **动态海报生成**
+   - 自动合成背景图、标题、描述、二维码
+   - 支持自定义样式（布局、颜色、字体、透明度等）
+   - 实时预览功能
+   - 一键下载 PNG 格式海报
+
+#### 数据库迁移
+
+运行以下迁移文件以启用海报功能：
+
+```sql
+-- database/migrations/012_album_poster.sql
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS poster_image_url TEXT;
+```
+
+#### 使用方法
+
+**设置静态海报**：
+1. 在创建相册时输入海报图片 URL
+2. 或在相册设置 → 海报设置中编辑
+
+**生成动态海报**：
+1. 打开相册详情页
+2. 点击"分享"按钮 → "二维码"标签
+3. 点击"生成海报"
+4. 在配置对话框中自定义样式
+5. 预览后生成并下载
+
+#### 相关文件
+
+- `apps/web/src/lib/poster-generator.ts` - 海报生成器核心逻辑
+- `apps/web/src/components/admin/poster-config-dialog.tsx` - 海报样式配置对话框
+- `apps/web/src/components/admin/share-link-button.tsx` - 分享按钮（集成海报生成）
+- `database/migrations/012_album_poster.sql` - 数据库迁移文件
+
+#### 技术实现
+
+- **Canvas API**：用于图片合成
+- **QRCode.react**：生成二维码 SVG
+- **类型安全**：完整的 TypeScript 类型定义
+- **错误处理**：完善的错误处理和用户提示
+
+详细文档：[相册海报功能说明](./POSTER_FEATURE.md)
+
 ### 相册模板功能
 
 相册模板功能允许管理员创建可复用的相册配置模板，在创建新相册时快速应用预设的配置。

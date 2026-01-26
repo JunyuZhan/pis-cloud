@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getAlbumShareUrl } from '@/lib/utils'
 import type { AlbumInsert, Json } from '@/types/database'
 
 /**
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
       description?: string | null
       event_date?: string | null
       location?: string | null
+      poster_image_url?: string | null
       is_public?: boolean
       layout?: 'masonry' | 'grid' | 'carousel'
       sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
       description,
       event_date,
       location,
+      poster_image_url,
       is_public,
       layout,
       sort_rule,
@@ -173,12 +176,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 验证海报图片URL格式和安全性
+    let validatedPosterImageUrl: string | null = null
+    if (poster_image_url && poster_image_url.trim()) {
+      try {
+        const url = new URL(poster_image_url.trim())
+        // 只允许 http 和 https 协议
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return NextResponse.json(
+            { error: { code: 'VALIDATION_ERROR', message: '海报图片URL必须使用 http 或 https 协议' } },
+            { status: 400 }
+          )
+        }
+        // 检查是否为内网地址（SSRF 防护）
+        const hostname = url.hostname.toLowerCase()
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0'
+        const isPrivateIP =
+          hostname.startsWith('192.168.') ||
+          hostname.startsWith('10.') ||
+          (hostname.startsWith('172.') &&
+            parseInt(hostname.split('.')[1] || '0') >= 16 &&
+            parseInt(hostname.split('.')[1] || '0') <= 31) ||
+          hostname.endsWith('.local')
+
+        if (isLocalhost || isPrivateIP) {
+          return NextResponse.json(
+            { error: { code: 'VALIDATION_ERROR', message: '海报图片URL不能使用内网地址' } },
+            { status: 400 }
+          )
+        }
+
+        validatedPosterImageUrl = poster_image_url.trim()
+      } catch {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: '海报图片URL格式无效' } },
+          { status: 400 }
+        )
+      }
+    }
+
     // 构建插入数据
     const insertData: AlbumInsert = {
       title: title.trim(),
       description: description?.trim() || null,
       event_date: event_date || null,
       location: location?.trim() || null,
+      poster_image_url: validatedPosterImageUrl,
       is_public: is_public ?? false,
       layout: layout || 'masonry',
       sort_rule: sort_rule || 'capture_desc',
@@ -210,13 +253,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 生成分享URL（添加错误处理）
+    let shareUrl: string
+    try {
+      shareUrl = getAlbumShareUrl(data.slug)
+    } catch (error) {
+      console.error('Failed to generate share URL:', error)
+      // 如果slug无效，使用降级方案
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      shareUrl = `${appUrl}/album/${encodeURIComponent(data.slug || '')}`
+    }
+
     // 返回创建结果
     return NextResponse.json({
       id: data.id,
       slug: data.slug,
       title: data.title,
       is_public: data.is_public,
-      shareUrl: `${process.env.NEXT_PUBLIC_APP_URL}/album/${data.slug}`,
+      shareUrl,
     })
   } catch {
     return NextResponse.json(

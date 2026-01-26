@@ -63,6 +63,8 @@
 - **Photo-first design** - Beautiful masonry layout
 - **Mobile optimized** - Perfect viewing on all devices
 - **Lightbox mode** - Full-screen photo viewing with keyboard navigation
+- **Dynamic poster generation** - Auto-generate shareable posters with QR codes, customizable styles
+- **Album poster images** - Set custom poster images for better branding and presentation
 
 ### 🚀 **Production Ready**
 - **One-click deployment** - Docker Compose setup
@@ -127,6 +129,7 @@ The setup wizard will automatically:
    - `database/migrations/006_album_share_config.sql` - Add album share config (optional)
    - `database/migrations/007_photo_groups.sql` - Add photo groups (optional)
    - `database/migrations/008_album_event_metadata.sql` - Add album event metadata (optional)
+   - `database/migrations/012_album_poster.sql` - Add album poster image URL (optional)
 3. Create admin account in Authentication > Users
 4. Copy API Keys (Settings → API)
 
@@ -313,6 +316,10 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 - [Development Guide](docs/DEVELOPMENT.md) - Development setup, code standards, and feature documentation
 - [Security Guide](docs/SECURITY.md) - Security best practices, deployment checklist, and pre-open source security checklist
 - [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) - Performance optimization guide
+
+### Features
+- [Poster Feature](docs/POSTER_FEATURE.md) - Album poster images and dynamic poster generation guide
+- [Share Image URL](docs/SHARE_IMAGE_URL_EXPLANATION.md) - Share preview image configuration
 
 ---
 

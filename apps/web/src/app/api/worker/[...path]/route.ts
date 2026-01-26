@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // Worker 服务 URL (服务端环境变量，不暴露给客户端)
 // 支持多个变量名，确保兼容性
@@ -53,6 +54,20 @@ async function proxyRequest(
 ) {
   try {
     const pathSegments = params.path
+    
+    // 添加认证检查（除了 health 端点）
+    // health 端点用于监控，不需要认证
+    if (pathSegments[0] !== 'health') {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return NextResponse.json(
+          { error: { code: 'UNAUTHORIZED', message: '请先登录' } },
+          { status: 401 }
+        )
+      }
+    }
     
     // 构建目标 URL
     // 前端调用 /api/worker/presign，pathSegments = ['presign']

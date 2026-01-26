@@ -312,14 +312,14 @@ function AlbumCard({
   // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
   const safeMediaUrl = mediaUrl
   
-  // 构建封面图URL
-  // 优先使用 cover_thumb_key（完整路径，如 processed/thumbs/albumId/photoId.jpg）
-  // 如果没有，回退到使用 cover_photo_id 构建路径
-  const coverUrl = album.cover_thumb_key
-    ? `${safeMediaUrl.replace(/\/$/, '')}/${album.cover_thumb_key.replace(/^\//, '')}`
-    : album.cover_photo_id
-    ? `${safeMediaUrl.replace(/\/$/, '')}/processed/thumbs/${album.id}/${album.cover_photo_id}.jpg`
-    : null
+  // 构建封面图URL（优先级：海报图片 > 封面照片）
+  const coverUrl = album.poster_image_url && album.poster_image_url.trim()
+    ? album.poster_image_url.trim()
+    : (album.cover_thumb_key
+        ? `${safeMediaUrl.replace(/\/$/, '')}/${album.cover_thumb_key.replace(/^\//, '')}`
+        : album.cover_photo_id
+          ? `${safeMediaUrl.replace(/\/$/, '')}/processed/thumbs/${album.id}/${album.cover_photo_id}.jpg`
+          : null)
 
   const handleClick = (e: React.MouseEvent) => {
     if (selectionMode && onToggleSelection) {

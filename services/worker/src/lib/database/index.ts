@@ -4,6 +4,8 @@
  */
 import type { DatabaseAdapter, DatabaseConfig } from './types.js';
 import { SupabaseAdapter } from './supabase-adapter.js';
+import { PostgreSQLAdapter } from './postgresql-adapter.js';
+import { MySQLAdapter } from './mysql-adapter.js';
 
 let databaseAdapter: DatabaseAdapter | null = null;
 
@@ -59,11 +61,9 @@ export function createDatabaseAdapter(config?: DatabaseConfig): DatabaseAdapter 
     case 'supabase':
       return new SupabaseAdapter(finalConfig);
     case 'postgresql':
-      // TODO: 实现 PostgreSQL 适配器
-      throw new Error('PostgreSQL adapter not yet implemented. Please use Supabase or contribute an implementation.');
+      return new PostgreSQLAdapter(finalConfig);
     case 'mysql':
-      // TODO: 实现 MySQL 适配器
-      throw new Error('MySQL adapter not yet implemented. Please use Supabase or contribute an implementation.');
+      return new MySQLAdapter(finalConfig);
     default:
       throw new Error(`Unsupported database type: ${finalConfig.type}`);
   }
@@ -84,6 +84,8 @@ export function getDatabaseAdapter(): DatabaseAdapter {
  */
 export * from './types.js';
 export { SupabaseAdapter } from './supabase-adapter.js';
+export { PostgreSQLAdapter } from './postgresql-adapter.js';
+export { MySQLAdapter } from './mysql-adapter.js';
 
 // 向后兼容：导出 Supabase 客户端（如果使用 Supabase）
 export function getSupabaseClient() {

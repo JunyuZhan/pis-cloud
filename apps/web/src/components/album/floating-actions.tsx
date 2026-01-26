@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { SortRule } from './sort-toggle'
 import { showInfo, showError } from '@/lib/toast'
 import type { Album } from '@/types/database'
-import { cn } from '@/lib/utils'
+import { cn, getAlbumShareUrl } from '@/lib/utils'
 
 interface FloatingActionsProps {
   album: Album
@@ -124,22 +124,27 @@ export function FloatingActions({ album, currentSort }: FloatingActionsProps) {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     if (typeof window === 'undefined') return
-                    const shareUrl = `${window.location.origin}/album/${album.slug}`
-                    if (navigator.share) {
-                      navigator.share({
-                        title: album.title,
-                        text: album.description || `查看 ${album.title} 的精彩照片`,
-                        url: shareUrl,
-                      }).catch(() => {
-                        // 用户取消分享，不做处理
-                      })
-                    } else {
-                      // 复制链接到剪贴板
-                      navigator.clipboard.writeText(shareUrl).then(() => {
-                        showInfo('链接已复制到剪贴板')
-                      }).catch(() => {
-                        showError('复制失败，请手动复制链接')
-                      })
+                    try {
+                      const shareUrl = getAlbumShareUrl(album.slug)
+                      if (navigator.share) {
+                        navigator.share({
+                          title: album.title,
+                          text: album.description || `查看 ${album.title} 的精彩照片`,
+                          url: shareUrl,
+                        }).catch(() => {
+                          // 用户取消分享，不做处理
+                        })
+                      } else {
+                        // 复制链接到剪贴板
+                        navigator.clipboard.writeText(shareUrl).then(() => {
+                          showInfo('链接已复制到剪贴板')
+                        }).catch(() => {
+                          showError('复制失败，请手动复制链接')
+                        })
+                      }
+                    } catch (error) {
+                      console.error('Share error:', error)
+                      showError('分享链接生成失败，请重试')
                     }
                     setIsExpanded(false)
                   }}

@@ -230,6 +230,7 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
                 </div>
               </div>
 
+
               {templates.length > 0 && (
                 <div>
                   <label

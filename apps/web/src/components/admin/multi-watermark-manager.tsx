@@ -2,6 +2,7 @@
 
 import { Plus, Trash2, Eye, EyeOff } from 'lucide-react'
 import { showInfo } from '@/lib/toast'
+import { WatermarkPreview } from './watermark-preview'
 
 export interface WatermarkItem {
   id: string
@@ -11,6 +12,7 @@ export interface WatermarkItem {
   opacity: number
   position: string
   size?: number
+  margin?: number // 边距（百分比，0-20，默认5）
   enabled?: boolean
 }
 
@@ -45,6 +47,7 @@ export function MultiWatermarkManager({ watermarks, onChange }: MultiWatermarkMa
       text: `© ${photographerName}`,
       opacity: 0.5,
       position: 'center',
+      margin: 5,
       enabled: true,
     }
 
@@ -84,6 +87,19 @@ export function MultiWatermarkManager({ watermarks, onChange }: MultiWatermarkMa
           添加水印
         </button>
       </div>
+
+      {/* 水印预览 */}
+      {watermarks.length > 0 && (
+        <div className="card p-4">
+          <label className="block text-xs font-medium text-text-secondary mb-3">
+            预览效果
+          </label>
+          <WatermarkPreview watermarks={watermarks} width={600} height={400} />
+          <p className="text-xs text-text-muted mt-2">
+            蓝色圆点标记水印位置，调整设置可实时查看效果
+          </p>
+        </div>
+      )}
 
       {watermarks.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
@@ -208,22 +224,42 @@ export function MultiWatermarkManager({ watermarks, onChange }: MultiWatermarkMa
                   </div>
                 )}
 
-                {/* 透明度 */}
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-text-secondary mb-1">
-                    透明度 ({Math.round((watermark.opacity || 0.5) * 100)}%)
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.1"
-                    value={watermark.opacity || 0.5}
-                    onChange={(e) =>
-                      updateWatermark(watermark.id, { opacity: parseFloat(e.target.value) })
-                    }
-                    className="w-full"
-                  />
+                {/* 边距和透明度 */}
+                <div className="md:col-span-2 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      边距 ({watermark.margin ?? 5}%)
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={watermark.margin ?? 5}
+                      onChange={(e) =>
+                        updateWatermark(watermark.id, { margin: parseInt(e.target.value) })
+                      }
+                      className="w-full"
+                    />
+                    <p className="text-xs text-text-muted mt-1">调整水印与边缘的距离（0-20%）</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      透明度 ({Math.round((watermark.opacity || 0.5) * 100)}%)
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={watermark.opacity || 0.5}
+                      onChange={(e) =>
+                        updateWatermark(watermark.id, { opacity: parseFloat(e.target.value) })
+                      }
+                      className="w-full"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

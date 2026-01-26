@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Loader2, Eye, EyeOff } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { Turnstile } from '@/components/auth/turnstile'
 
 /**
  * 管理员登录页
@@ -15,18 +15,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstileContainerRef = useRef<HTMLDivElement>(null)
+  const [isClient, setIsClient] = useState(false)
 
-  // 错误消息中文化
-  const getErrorMessage = (errorMsg: string): string => {
-    const errorMap: Record<string, string> = {
-      'Invalid login credentials': '邮箱或密码错误',
-      'Email not confirmed': '邮箱尚未验证，请检查收件箱',
-      'User not found': '用户不存在',
-      'Too many requests': '请求过于频繁，请稍后再试',
-      'Network request failed': '网络连接失败，请检查网络',
-    }
-    return errorMap[errorMsg] || errorMsg || '登录失败，请重试'
-  }
+  // 检查是否配置了 Turnstile（只在客户端检查，避免 Hydration 错误）
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  const hasTurnstile = isClient && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+  // 注意：错误消息现在由服务端统一处理，不再需要客户端映射
+  // 保留此函数用于向后兼容，但实际不再使用
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,21 +46,63 @@ export default function LoginPage() {
       return
     }
 
+    // 如果配置了 Turnstile，等待验证完成
+    // Invisible 模式会在页面加载时自动执行验证
+    if (hasTurnstile && !turnstileToken) {
+      // 等待 Turnstile 验证完成（最多等待 2 秒）
+      let waited = 0
+      const maxWait = 2000
+      while (!turnstileToken && waited < maxWait) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        waited += 100
+      }
+      
+      // 如果超时仍未获取到 token，允许继续（降级策略）
+      // 服务端会验证 token，如果没有 token 且配置了 Turnstile，会拒绝登录
+      if (!turnstileToken && waited >= maxWait) {
+        setError('验证超时，请刷新页面重试')
+        setLoading(false)
+        return
+      }
+    }
+
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+
+      // 调用服务端登录 API（包含速率限制和登录逻辑）
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          turnstileToken: turnstileToken || undefined, // 可选：如果配置了 Turnstile
+        }),
       })
 
-      if (error) {
-        setError(getErrorMessage(error.message))
+      const data = await response.json()
+
+      if (!response.ok) {
+        // 处理速率限制错误
+        if (response.status === 429) {
+          setError(data.error?.message || '请求过于频繁，请稍后再试')
+        } else if (response.status === 401) {
+          // 统一错误消息，不暴露具体错误原因
+          setError('邮箱或密码错误')
+        } else if (response.status === 400) {
+          setError(data.error?.message || '请求格式错误')
+        } else {
+          setError(data.error?.message || '登录失败，请重试')
+        }
         return
       }
 
+      // 登录成功，刷新页面以更新会话
       router.push('/admin')
       router.refresh()
-    } catch {
+    } catch (err) {
+      console.error('Login error:', err)
       setError('登录失败，请重试')
     } finally {
       setLoading(false)
@@ -134,6 +177,23 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+
+          {/* Cloudflare Turnstile (Invisible 模式) */}
+          {hasTurnstile && (
+            <div ref={turnstileContainerRef} className="hidden">
+              <Turnstile
+                onVerify={(token) => {
+                  setTurnstileToken(token)
+                }}
+                onError={() => {
+                  setError('验证失败，请刷新页面重试')
+                }}
+                onExpire={() => {
+                  setTurnstileToken(null)
+                }}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

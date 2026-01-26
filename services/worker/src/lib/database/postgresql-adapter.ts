@@ -1,0 +1,314 @@
+/**
+ * PostgreSQL 数据库适配器
+ * 直接使用 pg 库连接 PostgreSQL 数据库
+ */
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import type { DatabaseAdapter, DatabaseConfig, QueryResult as AdapterQueryResult } from './types.js';
+
+export class PostgreSQLAdapter implements DatabaseAdapter {
+  private pool: Pool;
+
+  constructor(config: DatabaseConfig) {
+    if (!config.host || !config.database || !config.user || !config.password) {
+      throw new Error('PostgreSQL adapter requires host, database, user, and password');
+    }
+
+    this.pool = new Pool({
+      host: config.host,
+      port: config.port || 5432,
+      database: config.database,
+      user: config.user,
+      password: config.password,
+      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      max: 20, // 连接池最大连接数
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+
+    // 监听连接错误
+    this.pool.on('error', (err) => {
+      console.error('Unexpected error on idle PostgreSQL client', err);
+    });
+  }
+
+  /**
+   * 转义标识符（表名、列名）
+   */
+  private escapeIdentifier(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  /**
+   * 构建 WHERE 子句
+   */
+  private buildWhereClause(filters: Record<string, any>): { clause: string; values: any[] } {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(filters)) {
+      const escapedKey = this.escapeIdentifier(key);
+      if (value === null) {
+        conditions.push(`${escapedKey} IS NULL`);
+      } else if (Array.isArray(value)) {
+        const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
+        conditions.push(`${escapedKey} IN (${placeholders})`);
+        values.push(...value);
+      } else {
+        conditions.push(`${escapedKey} = $${paramIndex++}`);
+        values.push(value);
+      }
+    }
+
+    return {
+      clause: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+      values,
+    };
+  }
+
+  /**
+   * 构建 ORDER BY 子句
+   */
+  private buildOrderByClause(orderBy?: { column: string; direction: 'asc' | 'desc' }[]): string {
+    if (!orderBy || orderBy.length === 0) {
+      return '';
+    }
+
+    const clauses = orderBy.map((order) => {
+      const escapedColumn = this.escapeIdentifier(order.column);
+      const direction = order.direction.toUpperCase();
+      return `${escapedColumn} ${direction}`;
+    });
+
+    return `ORDER BY ${clauses.join(', ')}`;
+  }
+
+  async findOne<T = any>(
+    table: string,
+    filters: Record<string, any>
+  ): Promise<{ data: T | null; error: Error | null }> {
+    try {
+      const escapedTable = this.escapeIdentifier(table);
+      const { clause, values } = this.buildWhereClause(filters);
+      const query = `SELECT * FROM ${escapedTable} ${clause} LIMIT 1`;
+
+      const result = await this.pool.query(query, values);
+
+      return {
+        data: result.rows[0] || null,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  async findMany<T = any>(
+    table: string,
+    filters?: Record<string, any>,
+    options?: {
+      select?: string[];
+      limit?: number;
+      offset?: number;
+      orderBy?: { column: string; direction: 'asc' | 'desc' }[];
+    }
+  ): Promise<AdapterQueryResult<T>> {
+    try {
+      const escapedTable = this.escapeIdentifier(table);
+      const selectFields = options?.select
+        ? options.select.map((field) => this.escapeIdentifier(field)).join(', ')
+        : '*';
+      const { clause, values } = filters ? this.buildWhereClause(filters) : { clause: '', values: [] };
+      const orderByClause = this.buildOrderByClause(options?.orderBy);
+
+      let query = `SELECT ${selectFields} FROM ${escapedTable} ${clause} ${orderByClause}`;
+      const queryValues = [...values];
+
+      if (options?.limit) {
+        query += ` LIMIT $${queryValues.length + 1}`;
+        queryValues.push(options.limit);
+      }
+
+      if (options?.offset) {
+        query += ` OFFSET $${queryValues.length + 1}`;
+        queryValues.push(options.offset);
+      }
+
+      const result = await this.pool.query(query, queryValues);
+
+      // 获取总数（如果需要）
+      let count: number | undefined;
+      if (filters) {
+        const { clause: countClause, values: countValues } = this.buildWhereClause(filters);
+        const countResult = await this.pool.query(
+          `SELECT COUNT(*) as count FROM ${escapedTable} ${countClause}`,
+          countValues
+        );
+        count = parseInt(countResult.rows[0].count, 10);
+      }
+
+      return {
+        data: result.rows as T[],
+        error: null,
+        count,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  async insert<T = any>(
+    table: string,
+    data: T | T[]
+  ): Promise<{ data: T[] | null; error: Error | null }> {
+    try {
+      const records = Array.isArray(data) ? data : [data];
+      if (records.length === 0) {
+        return { data: [], error: null };
+      }
+
+      const escapedTable = this.escapeIdentifier(table);
+      const firstRecord = records[0] as Record<string, any>;
+      const columns = Object.keys(firstRecord);
+      const escapedColumns = columns.map((col) => this.escapeIdentifier(col));
+      const placeholders: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      for (const record of records) {
+        const rowPlaceholders: string[] = [];
+        for (const column of columns) {
+          rowPlaceholders.push(`$${paramIndex++}`);
+          values.push((record as Record<string, any>)[column]);
+        }
+        placeholders.push(`(${rowPlaceholders.join(', ')})`);
+      }
+
+      const columnsStr = escapedColumns.join(', ');
+      const valuesStr = placeholders.join(', ');
+      const query = `INSERT INTO ${escapedTable} (${columnsStr}) VALUES ${valuesStr} RETURNING *`;
+
+      const result = await this.pool.query(query, values);
+
+      return {
+        data: result.rows as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  async update<T = any>(
+    table: string,
+    filters: Record<string, any>,
+    data: Partial<T>
+  ): Promise<{ data: T[] | null; error: Error | null }> {
+    try {
+      const updateFields = Object.keys(data);
+      if (updateFields.length === 0) {
+        return { data: null, error: new Error('No fields to update') };
+      }
+
+      const setClauses: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      for (const field of updateFields) {
+        setClauses.push(`${field} = $${paramIndex++}`);
+        values.push((data as Record<string, any>)[field]);
+      }
+
+      const escapedTable = this.escapeIdentifier(table);
+      // 构建 WHERE 子句，参数索引从 paramIndex 开始
+      const whereConditions: string[] = [];
+      const whereValues: any[] = [];
+
+      for (const [key, value] of Object.entries(filters)) {
+        const escapedKey = this.escapeIdentifier(key);
+        if (value === null) {
+          whereConditions.push(`${escapedKey} IS NULL`);
+        } else if (Array.isArray(value)) {
+          const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
+          whereConditions.push(`${escapedKey} IN (${placeholders})`);
+          whereValues.push(...value);
+        } else {
+          whereConditions.push(`${escapedKey} = $${paramIndex++}`);
+          whereValues.push(value);
+        }
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const setClause = setClauses.join(', ');
+
+      const query = `UPDATE ${escapedTable} SET ${setClause} ${whereClause} RETURNING *`;
+      const allValues = [...values, ...whereValues];
+
+      const result = await this.pool.query(query, allValues);
+
+      return {
+        data: result.rows as T[],
+        error: null,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  async delete(
+    table: string,
+    filters: Record<string, any>
+  ): Promise<{ error: Error | null }> {
+    try {
+      const escapedTable = this.escapeIdentifier(table);
+      const { clause, values } = this.buildWhereClause(filters);
+      const query = `DELETE FROM ${escapedTable} ${clause}`;
+
+      await this.pool.query(query, values);
+
+      return {
+        error: null,
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  async count(
+    table: string,
+    filters?: Record<string, any>
+  ): Promise<number> {
+    try {
+      const escapedTable = this.escapeIdentifier(table);
+      const { clause, values } = filters ? this.buildWhereClause(filters) : { clause: '', values: [] };
+      const query = `SELECT COUNT(*) as count FROM ${escapedTable} ${clause}`;
+
+      const result = await this.pool.query(query, values);
+
+      return parseInt(result.rows[0].count, 10);
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  /**
+   * 关闭连接池
+   */
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}

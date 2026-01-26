@@ -285,11 +285,19 @@ const packageWorker = new Worker<PackageJobData>(
         .eq('id', albumId)
         .single();
 
+      // 构建水印配置（与照片处理逻辑保持一致，支持新旧格式）
+      const watermarkConfigRaw = (album?.watermark_config as any) || {};
       const watermarkConfig = album?.watermark_enabled
         ? {
             enabled: true,
-            type: album.watermark_type || 'text',
-            ...((album.watermark_config as any) || {}),
+            // 如果包含 watermarks 数组，使用新格式
+            watermarks: watermarkConfigRaw.watermarks || undefined,
+            // 兼容旧格式
+            type: album.watermark_type ?? watermarkConfigRaw.type ?? 'text',
+            text: watermarkConfigRaw.text,
+            logoUrl: watermarkConfigRaw.logoUrl,
+            opacity: watermarkConfigRaw.opacity ?? 0.5,
+            position: watermarkConfigRaw.position ?? 'center',
           }
         : undefined;
 

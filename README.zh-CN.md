@@ -63,6 +63,8 @@
 - **照片优先设计** - 精美的瀑布流布局
 - **移动端优化** - 所有设备完美显示
 - **灯箱模式** - 全屏照片查看，支持键盘导航
+- **动态海报生成** - 自动生成包含二维码的分享海报，支持自定义样式
+- **相册海报图片** - 设置自定义海报图片，提升品牌形象和展示效果
 
 ### 🚀 **生产就绪**
 - **一键部署** - Docker Compose 开箱即用
@@ -125,6 +127,7 @@ pnpm setup
    - `database/migrations/004_album_templates.sql` - 添加相册模板功能（可选）
    - `database/migrations/005_package_downloads.sql` - 添加打包下载功能（可选）
    - `database/migrations/006_album_share_config.sql` - 添加相册分享配置（可选）
+   - `database/migrations/012_album_poster.sql` - 添加相册海报图片URL（可选）
    - `database/migrations/007_photo_groups.sql` - 添加相册分组功能（可选）
    - `database/migrations/008_album_event_metadata.sql` - 添加相册活动元数据（可选）
 3. 在 Authentication > Users 创建管理员账号
@@ -313,6 +316,10 @@ MIT License © 2026 junyuzhan
 - [开发指南](docs/DEVELOPMENT.md) - 开发环境搭建、代码规范和功能文档
 - [安全指南](docs/SECURITY.md) - 安全最佳实践、部署检查清单和开源前安全检查清单
 - [性能优化](docs/PERFORMANCE_OPTIMIZATION.md) - 性能优化指南
+
+### 功能说明
+- [相册海报功能](docs/POSTER_FEATURE.md) - 相册海报图片和动态海报生成指南
+- [分享图片 URL](docs/SHARE_IMAGE_URL_EXPLANATION.md) - 分享预览图片配置说明
 
 ---
 
