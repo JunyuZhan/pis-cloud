@@ -42,21 +42,23 @@ export class MinIOAdapter implements StorageAdapter {
 
     // 用于生成 presigned URL 的客户端
     // 如果配置了 publicUrl，使用公网地址生成签名，避免签名不匹配问题
-    // 注意：即使 publicUrl 是 HTTPS，presignClient 也使用 HTTP 连接（因为服务器可能没有 SSL 证书）
-    // 生成的 URL 会在 toPublicUrl 中转换为 HTTPS（如果 publicUrl 是 HTTPS）
+    // 注意：presignClient 需要使用与 publicUrl 相同的协议和端口来生成签名
     if (this.publicUrl) {
       try {
         const publicUrlObj = new URL(this.publicUrl);
-        // 始终使用 HTTP 连接（服务器可能没有 SSL 证书）
-        // 但使用公网域名生成签名，确保签名匹配
+        // 使用公网 URL 的协议和端口生成签名，确保签名匹配
+        const publicPort = publicUrlObj.port ? parseInt(publicUrlObj.port) : (publicUrlObj.protocol === 'https:' ? 443 : 80);
+        const publicUseSSL = publicUrlObj.protocol === 'https:';
+        
         this.presignClient = new Minio.Client({
           endPoint: publicUrlObj.hostname,
-          port: publicUrlObj.port ? parseInt(publicUrlObj.port) : 80,
-          useSSL: false, // 强制使用 HTTP，因为服务器可能没有 SSL 证书
+          port: publicPort,
+          useSSL: publicUseSSL, // 使用与 publicUrl 相同的协议
           accessKey: this.accessKey,
           secretKey: this.secretKey,
           region: this.region,
         });
+        console.log(`[MinIO] Created presign client with public URL: ${publicUrlObj.protocol}//${publicUrlObj.hostname}:${publicPort} (SSL: ${publicUseSSL})`);
       } catch (e) {
         console.warn('[MinIO] Failed to create presign client with public URL, falling back to internal client:', e);
         this.presignClient = this.client;
