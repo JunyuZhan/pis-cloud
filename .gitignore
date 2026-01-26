@@ -49,6 +49,10 @@ pnpm-debug.log*
 coverage
 .nyc_output
 
+# Test scripts (local testing only, not for production)
+scripts/test-*.sh
+docs/UPLOAD_TEST_GUIDE.md
+
 # Misc
 *.tsbuildinfo
 .vercel
