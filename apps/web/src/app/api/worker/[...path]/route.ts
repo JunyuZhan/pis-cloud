@@ -1,7 +1,7 @@
 /**
  * Worker API 代理
  * 
- * 将所有请求转发到 Worker 服务，避免 CORS 问题
+ * 将所有请求转发到 Worker 服务，避免 CORS 问题并统一处理 API Key 认证
  * 
  * 路由映射:
  * - /api/worker/multipart/init -> WORKER_URL/api/multipart/init
@@ -13,7 +13,12 @@
  * - /api/worker/package -> WORKER_URL/api/package
  * - /api/worker/scan -> WORKER_URL/api/scan
  * - /api/worker/process -> WORKER_URL/api/process
+ * - /api/worker/check-pending -> WORKER_URL/api/check-pending
+ * - /api/worker/list-files -> WORKER_URL/api/list-files
+ * - /api/worker/cleanup-file -> WORKER_URL/api/cleanup-file
  * - /api/worker/health -> WORKER_URL/health
+ * 
+ * 注意：所有端点（除了 /health）都需要用户认证，API Key 会自动添加
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -60,8 +65,8 @@ async function proxyRequest(
     
     // 添加认证检查（除了 health 端点）
     // health 端点用于监控，不需要认证
-    const response = NextResponse.next({ request })
     if (pathSegments[0] !== 'health') {
+      const response = new NextResponse()
       const supabase = createClientFromRequest(request, response)
       const { data: { user } } = await supabase.auth.getUser()
       
@@ -146,6 +151,7 @@ async function proxyRequest(
     if (responseContentType.includes('application/json')) {
       const data = await workerResponse.json()
       // 如果响应包含错误，统一错误格式
+      const responseHeaders = new Headers()
       if (!workerResponse.ok && data.error) {
         return NextResponse.json(
           { 
@@ -157,7 +163,7 @@ async function proxyRequest(
           },
           { 
             status: workerResponse.status,
-            headers: response.headers,
+            headers: responseHeaders,
           }
         )
       }
@@ -165,24 +171,23 @@ async function proxyRequest(
         data, 
         { 
           status: workerResponse.status,
-          headers: response.headers,
+          headers: responseHeaders,
         }
       )
     } else {
       const data = await workerResponse.arrayBuffer()
+      const responseHeaders = new Headers()
+      responseHeaders.set('Content-Type', responseContentType)
       return new NextResponse(data, {
         status: workerResponse.status,
-        headers: {
-          'Content-Type': responseContentType,
-          ...Object.fromEntries(response.headers.entries()),
-        },
+        headers: responseHeaders,
       })
     }
   } catch (error) {
     console.error('[Worker Proxy] Error:', error)
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const response = NextResponse.next({ request })
+    const response = new NextResponse()
     
     // 检查是否是连接错误
     if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed') || errorMessage.includes('ECONNRESET')) {
