@@ -135,7 +135,7 @@ export function AlbumSplashScreen({ album, posterImageUrl }: AlbumSplashScreenPr
                 {isDefaultSplash && (
                   <>
                     <br />
-                    <span className="text-accent">{siteDescription}</span>
+                    <span className="text-accent text-xl sm:text-2xl md:text-3xl lg:text-4xl">{siteDescription}</span>
                   </>
                 )}
               </motion.h1>
