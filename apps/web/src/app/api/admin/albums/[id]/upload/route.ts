@@ -185,9 +185,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 获取 presigned URL 用于直接上传到 MinIO
     try {
-      const workerUrl = process.env.WORKER_URL || process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
-      const presignUrl = `${workerUrl}/api/presign`
-      const workerApiKey = process.env.WORKER_API_KEY
+      // 优先使用 Next.js 代理路由，避免直接连接 Worker 的问题
+      // 代理路由会自动处理 Worker URL 配置和认证
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+      const presignUrl = `${appUrl}/api/worker/presign`
       
       let presignResponse: Response
       try {
@@ -195,8 +197,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           'Content-Type': 'application/json',
         }
         
-        if (workerApiKey) {
-          headers['X-API-Key'] = workerApiKey
+        // 传递认证 cookie，代理路由会处理认证
+        const cookieHeader = request.headers.get('cookie')
+        if (cookieHeader) {
+          headers['cookie'] = cookieHeader
         }
         
         const controller = new AbortController()
