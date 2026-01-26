@@ -36,11 +36,13 @@ export default async function AlbumDetailPage({ params }: AlbumDetailPageProps) 
 
   // 获取照片列表，同时统计数量（包含 rotation 字段）
   // 管理后台显示所有状态的照片（包括处理中的），以便管理员查看处理进度
+  // 注意：只查询未删除的照片，已删除的照片通过 API 的 showDeleted 参数获取
   const { data: photos } = await supabase
     .from('photos')
     .select('*, rotation')
     .eq('album_id', id)
     .in('status', ['pending', 'processing', 'completed'])
+    .is('deleted_at', null) // 排除已删除的照片
     .order('sort_order', { ascending: true })
 
   // 统计已完成的照片数量（用于显示，排除已删除的照片）

@@ -27,6 +27,7 @@ interface PhotoRow {
   rotation: number | null
   created_at: string
   updated_at: string
+  deleted_at: string | null
 }
 
 /**
@@ -160,6 +161,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         rotation: photo.rotation,
         created_at: photo.created_at,
         updated_at: photo.updated_at,
+        deleted_at: photo.deleted_at,
         thumbUrl: photo.thumb_key ? `${mediaUrl}/${photo.thumb_key}` : null,
         previewUrl: photo.preview_key ? `${mediaUrl}/${photo.preview_key}` : null,
       })),
