@@ -187,26 +187,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       // 优先使用 Next.js 代理路由，避免直接连接 Worker 的问题
       // 代理路由会自动处理 Worker URL 配置和认证
-      let appUrl = process.env.NEXT_PUBLIC_APP_URL
-      
-      // 如果没有配置 NEXT_PUBLIC_APP_URL，尝试从请求头构建
-      if (!appUrl) {
-        if (process.env.VERCEL_URL) {
-          appUrl = `https://${process.env.VERCEL_URL}`
-        } else {
-          // 从请求头获取协议和主机
-          const protocol = request.headers.get('x-forwarded-proto') || 'http'
-          const host = request.headers.get('host') || 'localhost:3000'
-          appUrl = `${protocol}://${host}`
-        }
-      }
-      
-      // 确保 URL 有协议
-      if (!appUrl.startsWith('http://') && !appUrl.startsWith('https://')) {
-        appUrl = `https://${appUrl}`
-      }
-      
-      const presignUrl = `${appUrl}/api/worker/presign`
+      // 直接使用请求的 URL 构建代理 URL，确保协议和主机正确
+      const requestUrl = new URL(request.url)
+      const protocol = requestUrl.protocol
+      const host = requestUrl.host
+      const presignUrl = `${protocol}//${host}/api/worker/presign`
       
       let presignResponse: Response
       try {
