@@ -224,6 +224,7 @@ const nextConfig: NextConfig = {
       },
       {
         // 微信验证文件：确保可访问且不被缓存
+        // 注意：必须放在其他规则之前，确保优先级最高
         source: '/4dedffaa9e333b0d5a389c628935fa49.txt',
         headers: [
           {
@@ -241,6 +242,11 @@ const nextConfig: NextConfig = {
           {
             key: 'Expires',
             value: '0',
+          },
+          // 移除 Content-Disposition，确保微信可以正确读取文件内容
+          {
+            key: 'Content-Disposition',
+            value: '',
           },
         ],
       },
