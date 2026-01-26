@@ -91,10 +91,11 @@ export function OptimizedImage({
               console.warn(`[OptimizedImage] Access forbidden (403): ${src} - Check CORS/referrer settings`)
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           // 忽略 CORS 错误（这是预期的，如果服务器不允许 CORS）
-          if (error.name !== 'AbortError' && !error.message?.includes('CORS')) {
-            setDiagnosticInfo(`Network error: ${error.message}`)
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          if (error instanceof Error && error.name !== 'AbortError' && !errorMessage.includes('CORS')) {
+            setDiagnosticInfo(`Network error: ${errorMessage}`)
           }
         }
       }
@@ -234,10 +235,11 @@ export function OptimizedImage({
   // 如果 src 存在且没有错误，渲染图片
   // HTTP/2 错误时使用原生 img 标签绕过 Next.js Image 组件
   if (!imageError && src) {
-    // HTTP/2 错误回退：使用原生 img 标签
+    // HTTP/2 错误回退：使用原生 img 标签（绕过 Next.js Image 的 HTTP/2 处理）
     if (useNativeImg) {
       return (
         <div className={cn('relative', fill ? 'w-full h-full' : '')}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
