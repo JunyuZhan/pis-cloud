@@ -55,6 +55,7 @@ export function MasonryGrid({
   const lastViewedIndexRef = useRef<number | null>(null)
   
   // 图片预加载：预加载即将可见的图片（优化性能）
+  // 使用 fetchpriority 提示浏览器优先级，避免预加载警告
   const preloadImages = useCallback((startIndex: number, count: number = 3) => {
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
     if (!mediaUrl) return
@@ -66,14 +67,17 @@ export function MasonryGrid({
       const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
       const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
       
-      // 使用 link preload 预加载图片
+      // 检查是否已存在预加载链接
+      if (document.querySelector(`link[href="${imageSrc}"]`)) continue
+      
+      // 使用 link preload 预加载图片，添加 fetchpriority 提示
       const link = document.createElement('link')
       link.rel = 'preload'
       link.as = 'image'
       link.href = imageSrc
-      if (!document.querySelector(`link[href="${imageSrc}"]`)) {
-        document.head.appendChild(link)
-      }
+      // fetchpriority 提示浏览器这是高优先级资源（即将可见）
+      link.setAttribute('fetchpriority', i === 0 ? 'high' : 'auto')
+      document.head.appendChild(link)
     }
   }, [photos])
 
@@ -97,15 +101,17 @@ export function MasonryGrid({
   }, [hasMore, isLoading, onLoadMore])
   
   // 预加载即将可见的图片（当照片列表更新时）
+  // 使用 Intersection Observer 智能预加载，避免不必要的预加载警告
   useEffect(() => {
     if (photos.length === 0) return
     
-    // 预加载前 6 张图片（优先显示区域）
-    preloadImages(0, 6)
+    // 只预加载前 3 张图片（首屏可见区域），减少预加载警告
+    // 其他图片通过 Intersection Observer 在进入视口时自然加载
+    preloadImages(0, 3)
     
     // 如果用户已经滚动到某个位置，预加载该位置附近的图片
     if (lastViewedIndexRef.current !== null && lastViewedIndexRef.current < photos.length) {
-      preloadImages(lastViewedIndexRef.current, 3)
+      preloadImages(lastViewedIndexRef.current, 2)
     }
   }, [photos, preloadImages])
 
@@ -136,7 +142,7 @@ export function MasonryGrid({
       if (index > 0) indices.push(index - 1)
       if (index < photos.length - 1) indices.push(index + 1)
       
-      indices.forEach((idx) => {
+      indices.forEach((idx, i) => {
         const photo = photos[idx]
         const imageKey = photo.preview_key || photo.thumb_key
         if (!imageKey) return
@@ -144,13 +150,16 @@ export function MasonryGrid({
         const timestamp = photo.updated_at ? new Date(photo.updated_at).getTime() : Date.now()
         const imageSrc = `${mediaUrl.replace(/\/$/, '')}/${imageKey.replace(/^\//, '')}${photo.updated_at ? `?t=${timestamp}` : ''}`
         
+        // 检查是否已存在预加载链接
+        if (document.querySelector(`link[href="${imageSrc}"]`)) return
+        
         const link = document.createElement('link')
         link.rel = 'preload'
         link.as = 'image'
         link.href = imageSrc
-        if (!document.querySelector(`link[href="${imageSrc}"]`)) {
-          document.head.appendChild(link)
-        }
+        // fetchpriority 提示浏览器这是高优先级资源（Lightbox 相邻图片）
+        link.setAttribute('fetchpriority', 'high')
+        document.head.appendChild(link)
       })
     }
   }, [photos])
