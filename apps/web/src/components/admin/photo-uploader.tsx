@@ -125,15 +125,29 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
+    const invalidFiles: string[] = []
+    
     const validFiles = fileArray.filter((file) => {
-      // 支持图片和视频类型
-      const isValidType = [
-        'image/jpeg', 'image/png', 'image/heic', 'image/webp',
-        'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'
-      ].includes(file.type)
+      // 严格检查：必须是图片类型
+      const isValidType = allowedImageTypes.includes(file.type)
       const isValidSize = file.size <= 100 * 1024 * 1024 // 100MB
+      
+      // 如果类型不匹配，记录文件名
+      if (!isValidType) {
+        invalidFiles.push(file.name)
+      }
+      
       return isValidType && isValidSize
     })
+
+    // 如果有无效文件（如视频），显示错误提示
+    if (invalidFiles.length > 0) {
+      const invalidCount = invalidFiles.length
+      const fileList = invalidFiles.slice(0, 3).join('、')
+      const moreText = invalidCount > 3 ? `等 ${invalidCount} 个文件` : ''
+      alert(`不支持的文件类型：${fileList}${moreText}\n\n仅支持图片格式：JPG、PNG、HEIC、WebP`)
+    }
 
     const uploadFiles: UploadFile[] = validFiles.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -649,17 +663,23 @@ export function PhotoUploader({ albumId }: PhotoUploaderProps) {
           type="file"
           id="file-input"
           multiple
-          accept="image/jpeg,image/png,image/heic,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm"
-          onChange={(e) => e.target.files && addFiles(e.target.files)}
+          accept="image/jpeg,image/png,image/heic,image/webp,.jpg,.jpeg,.png,.heic,.webp"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              addFiles(e.target.files)
+              // 重置 input，允许重复选择相同文件
+              e.target.value = ''
+            }
+          }}
           className="hidden"
         />
         <label htmlFor="file-input" className="cursor-pointer">
           <Upload className="w-10 h-10 md:w-12 md:h-12 text-text-muted mx-auto mb-3 md:mb-4" />
           <p className="text-base md:text-lg font-medium mb-1 md:mb-2">
-            点击选择文件<span className="hidden md:inline">，或拖拽文件到此处</span>
+            点击选择文件<span className="hidden md:inline">，或拖拽照片到此处</span>
           </p>
           <p className="text-text-secondary text-xs md:text-sm">
-            支持 JPG、PNG、HEIC、WebP、MP4、MOV、AVI 格式，单文件最大 100MB
+            支持 JPG、PNG、HEIC、WebP 格式，单文件最大 100MB
           </p>
         </label>
       </div>
