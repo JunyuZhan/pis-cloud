@@ -514,12 +514,10 @@ function PhotoCard({
           </div>
 
           {/* 底部操作栏 - 悬浮在图片上 */}
-          {/* 移动端始终显示，桌面端 hover 显示 */}
+          {/* 移动端隐藏，桌面端 hover 显示 */}
           <div className={cn(
-            'absolute bottom-0 left-0 right-0 flex items-center justify-between transition-opacity duration-300 z-10',
-            isMobile 
-              ? 'p-1.5 opacity-100' 
-              : 'p-3 opacity-0 group-hover:opacity-100'
+            'absolute bottom-0 left-0 right-0 items-center justify-between transition-opacity duration-300 z-10',
+            'hidden md:flex p-3 opacity-0 group-hover:opacity-100'
           )}>
             {/* 左侧：选片按钮 */}
             {showSelect && (
@@ -530,16 +528,14 @@ function PhotoCard({
                 }}
                 className={cn(
                   'flex items-center rounded-full font-medium transition-all duration-200 backdrop-blur-md',
-                  isMobile 
-                    ? 'gap-1 px-2 py-1 text-xs' 
-                    : 'gap-1.5 px-3 py-1.5 text-sm',
+                  'gap-1.5 px-3 py-1.5 text-sm',
                   isSelected
                     ? 'bg-red-500/90 text-white hover:bg-red-600/90'
                     : 'bg-black/40 text-white hover:bg-black/60'
                 )}
               >
                 <Heart className={cn(
-                  isMobile ? 'w-3 h-3' : 'w-4 h-4',
+                  'w-4 h-4',
                   isSelected && 'fill-current'
                 )} />
                 <span>{isSelected ? '已选' : '选片'}</span>
@@ -547,18 +543,15 @@ function PhotoCard({
             )}
 
             {/* 右侧：操作按钮 */}
-            <div className={cn('flex items-center', isMobile ? 'gap-1' : 'gap-2')}>
+            <div className="flex items-center gap-2">
               {/* 下载按钮 */}
               {allowDownload && (
                 <button
                   onClick={handleDownload}
-                  className={cn(
-                    'rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors',
-                    isMobile ? 'p-1.5' : 'p-2'
-                  )}
+                  className="rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors p-2"
                   title="下载原图（当前为预览图，下载获取高清原图）"
                 >
-                  <Download className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+                  <Download className="w-4 h-4" />
                 </button>
               )}
               
@@ -566,13 +559,10 @@ function PhotoCard({
               <div className="relative">
                 <button
                   onClick={handleShare}
-                  className={cn(
-                    'rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors',
-                    isMobile ? 'p-1.5' : 'p-2'
-                  )}
+                  className="rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors p-2"
                   title="分享"
                 >
-                  <Share2 className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+                  <Share2 className="w-4 h-4" />
                 </button>
                 {showCopied && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded shadow-lg whitespace-nowrap backdrop-blur-md">
