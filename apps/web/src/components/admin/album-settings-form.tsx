@@ -193,12 +193,35 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
 
     try {
       // 准备提交数据，将 watermarks 数组转换为正确的格式
-      const watermarkConfig = formData.watermark_config?.watermarks && formData.watermark_config.watermarks.length > 0
-        ? { watermarks: formData.watermark_config.watermarks }
-        : {}
+      // 如果启用了水印，但水印配置为空或无效，自动关闭水印
+      let watermarkConfig = {}
+      let watermarkEnabled = formData.watermark_enabled
+      
+      if (formData.watermark_enabled) {
+        const watermarks = formData.watermark_config?.watermarks || []
+        
+        // 检查是否有有效的水印配置
+        const validWatermarks = watermarks.filter((wm) => {
+          if (wm.type === 'text') {
+            return wm.text && typeof wm.text === 'string' && wm.text.trim() !== ''
+          } else if (wm.type === 'logo') {
+            return wm.logoUrl && typeof wm.logoUrl === 'string' && wm.logoUrl.trim() !== ''
+          }
+          return false
+        })
+        
+        if (validWatermarks.length > 0) {
+          watermarkConfig = { watermarks: validWatermarks }
+        } else {
+          // 如果没有有效的水印配置，自动关闭水印
+          watermarkEnabled = false
+          watermarkConfig = {}
+        }
+      }
       
       const submitData = {
         ...formData,
+        watermark_enabled: watermarkEnabled,
         event_date: formData.event_date && formData.event_date.trim() ? formData.event_date : null,
         expires_at: formData.expires_at && formData.expires_at.trim() ? formData.expires_at : null,
         location: formData.location.trim() || null,
