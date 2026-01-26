@@ -783,9 +783,17 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       // 刷新页面数据（显示处理中的照片）
       router.refresh()
     } catch (err) {
-      // 检查是否是暂停导致的中断
-      const currentFile = files.find(f => f.id === uploadFile.id)
-      if (currentFile?.status === 'paused') {
+      // 检查是否是暂停导致的中断（使用函数式更新获取最新状态）
+      let shouldSkip = false
+      setFiles((prev) => {
+        const currentFile = prev.find(f => f.id === uploadFile.id)
+        if (currentFile?.status === 'paused') {
+          shouldSkip = true
+        }
+        return prev // 不修改状态，只是检查
+      })
+      
+      if (shouldSkip) {
         return // 暂停状态，不标记为失败
       }
       
