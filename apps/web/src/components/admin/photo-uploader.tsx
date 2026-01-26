@@ -870,14 +870,14 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
   // 重试失败的上传
   const retryUpload = async (uploadFile: UploadFile) => {
-    // 如果文件已经有 photoId 且状态是 completed，说明可能已经上传完成
-    // 先检查一下照片是否已经在数据库中
-    if (uploadFile.photoId && uploadFile.status === 'completed') {
+    // 如果文件已经有 photoId，先检查一下照片是否已经在数据库中
+    // 避免重复上传已完成的文件
+    if (uploadFile.photoId) {
       try {
-        const checkRes = await fetch(`/api/admin/albums/${albumId}/photos?photoId=${uploadFile.photoId}`)
+        const checkRes = await fetch(`/api/admin/albums/${albumId}/photos`)
         if (checkRes.ok) {
-          const data = await checkRes.json()
-          if (data?.photos?.some((p: any) => p.id === uploadFile.photoId)) {
+          const data = await checkRes.json() as { photos?: Array<{ id: string }> }
+          if (data?.photos?.some((p) => p.id === uploadFile.photoId)) {
             // 照片已存在，更新状态为完成
             setFiles((prev) =>
               prev.map((f) =>
