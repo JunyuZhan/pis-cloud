@@ -34,6 +34,51 @@ function formatSpeed(bytesPerSecond: number): string {
   return `${bytesPerSecond.toFixed(0)} B/s`
 }
 
+// 计算文件哈希值（SHA-256）
+async function calculateFileHash(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer()
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+// 检查文件是否重复
+async function checkDuplicate(
+  albumId: string,
+  filename: string,
+  fileSize: number,
+  fileHash?: string
+): Promise<{ isDuplicate: boolean; duplicatePhoto?: { id: string; filename: string } }> {
+  try {
+    const response = await fetch(`/api/admin/albums/${albumId}/check-duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename,
+        fileSize,
+        fileHash,
+      }),
+    })
+
+    if (!response.ok) {
+      // 如果检查失败，允许继续上传（不阻止）
+      console.warn('[Upload] Failed to check duplicate:', response.statusText)
+      return { isDuplicate: false }
+    }
+
+    const data = await response.json()
+    return {
+      isDuplicate: data.isDuplicate || false,
+      duplicatePhoto: data.duplicatePhoto || undefined,
+    }
+  } catch (error) {
+    // 如果检查出错，允许继续上传（不阻止）
+    console.warn('[Upload] Error checking duplicate:', error)
+    return { isDuplicate: false }
+  }
+}
+
 interface PhotoUploaderProps {
   albumId: string
   onComplete?: () => void
@@ -138,7 +183,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const addFiles = useCallback((newFiles: FileList | File[]) => {
+  const addFiles = useCallback(async (newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)
     const allowedImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
     const invalidFiles: string[] = []
@@ -164,7 +209,72 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       alert(`不支持的文件类型：${fileList}${moreText}\n\n仅支持图片格式：JPG、PNG、HEIC、WebP`)
     }
 
-    const uploadFiles: UploadFile[] = validFiles.map((file) => ({
+    // 检查重复文件
+    const duplicateFiles: string[] = []
+    const nonDuplicateFiles: File[] = []
+
+    // 批量检查重复（先快速检查文件名+大小）
+    const duplicateChecks = await Promise.all(
+      validFiles.map(async (file) => {
+        try {
+          // 先快速检查文件名+大小（不需要计算哈希）
+          const quickCheck = await checkDuplicate(
+            albumId,
+            file.name,
+            file.size
+          )
+
+          // 如果快速检查发现可能重复，再计算哈希进行二次确认（避免误判）
+          if (quickCheck.isDuplicate && file.size <= 10 * 1024 * 1024) {
+            // 只对小于10MB的文件计算哈希（大文件计算哈希太慢）
+            try {
+              const fileHash = await calculateFileHash(file)
+              const hashCheck = await checkDuplicate(
+                albumId,
+                file.name,
+                file.size,
+                fileHash
+              )
+              return { file, isDuplicate: hashCheck.isDuplicate }
+            } catch (hashError) {
+              // 哈希计算失败，使用快速检查的结果
+              console.warn('[Upload] Failed to calculate hash for', file.name, hashError)
+              return { file, isDuplicate: quickCheck.isDuplicate }
+            }
+          }
+
+          return { file, isDuplicate: quickCheck.isDuplicate }
+        } catch (error) {
+          // 如果检查出错，允许继续上传（不阻止）
+          console.warn('[Upload] Error checking duplicate for', file.name, error)
+          return { file, isDuplicate: false }
+        }
+      })
+    )
+
+    // 分离重复和非重复文件
+    duplicateChecks.forEach(({ file, isDuplicate }) => {
+      if (isDuplicate) {
+        duplicateFiles.push(file.name)
+      } else {
+        nonDuplicateFiles.push(file)
+      }
+    })
+
+    // 如果有重复文件，显示提示
+    if (duplicateFiles.length > 0) {
+      const duplicateCount = duplicateFiles.length
+      const fileList = duplicateFiles.slice(0, 3).join('、')
+      const moreText = duplicateCount > 3 ? `等 ${duplicateCount} 个文件` : ''
+      alert(`检测到重复文件：${fileList}${moreText}\n\n这些文件已存在于相册中，已跳过上传`)
+    }
+
+    // 只将非重复的文件加入上传队列
+    if (nonDuplicateFiles.length === 0) {
+      return
+    }
+
+    const uploadFiles: UploadFile[] = nonDuplicateFiles.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
       status: 'pending',
@@ -177,7 +287,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
     // 开始处理队列
     setTimeout(processQueue, 0)
-  }, [processQueue])
+  }, [processQueue, albumId])
 
   // getWorkerUrl removed as it's not used
 

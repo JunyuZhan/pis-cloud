@@ -60,6 +60,7 @@ import {
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
 import { getAlbumCache } from './lib/album-cache.js';
+import { purgePhotoCache } from './lib/cloudflare-purge.js';
 
 // 检查必要的环境变量 (支持两种变量名)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1833,6 +1834,9 @@ async function cleanupDeletedPhotos() {
     let recordsDeletedCount = 0;
     let errorCount = 0;
     
+    // 获取媒体服务器 URL（用于构建图片 URL）
+    const mediaUrl = process.env.STORAGE_PUBLIC_URL || process.env.MINIO_PUBLIC_URL || process.env.NEXT_PUBLIC_MEDIA_URL;
+    
     // 2. 删除每张照片的 MinIO 文件，然后删除数据库记录
     for (const photo of deletedPhotos) {
       try {
@@ -1851,6 +1855,23 @@ async function cleanupDeletedPhotos() {
             if (deleteErr?.code !== 'NoSuchKey' && !deleteErr?.message?.includes('does not exist')) {
               console.warn(`⚠️ Failed to delete file ${key}:`, deleteErr.message);
             }
+          }
+        }
+        
+        // 清除 Cloudflare CDN 缓存（如果配置了）
+        // 注意：即使清除失败也不阻止删除操作
+        if (mediaUrl) {
+          try {
+            await purgePhotoCache(mediaUrl, {
+              original_key: photo.original_key,
+              thumb_key: photo.thumb_key,
+              preview_key: photo.preview_key,
+            }).catch((purgeError) => {
+              // 记录错误但不抛出（不影响删除操作）
+              console.warn(`[Cleanup Deleted Photos] Failed to purge CDN cache for photo ${photo.id}:`, purgeError);
+            });
+          } catch (purgeError) {
+            console.warn(`[Cleanup Deleted Photos] Error purging CDN cache for photo ${photo.id}:`, purgeError);
           }
         }
         

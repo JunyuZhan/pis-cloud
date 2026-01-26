@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { purgePhotoCache } from '@/lib/cloudflare-purge'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -270,9 +271,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // 1. 软删除：设置 deleted_at 时间戳（回收站机制）
     // MinIO 文件保留 30 天，由 Worker 定时任务自动清理
+    // 同时更新 updated_at，使图片 URL 的查询参数变化（作为 CDN 缓存清除的备用方案）
+    const now = new Date().toISOString()
     const { error: deleteError } = await supabase
       .from('photos')
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ 
+        deleted_at: now,
+        updated_at: now, // 更新 updated_at，使图片 URL 变化
+      })
       .in('id', validPhotoIds)
 
     if (deleteError) {
@@ -280,6 +286,27 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { error: { code: 'DB_ERROR', message: deleteError.message } },
         { status: 500 }
       )
+    }
+
+    // 2. 清除 Cloudflare CDN 缓存（如果配置了）
+    // 注意：即使清除失败也不阻止删除操作
+    const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
+    if (mediaUrl && validPhotos) {
+      // 批量清除缓存（异步执行，不阻塞删除操作）
+      Promise.all(
+        validPhotos.map((photo) =>
+          purgePhotoCache(mediaUrl, {
+            original_key: photo.original_key,
+            thumb_key: photo.thumb_key,
+            preview_key: photo.preview_key,
+          }).catch((error) => {
+            // 记录错误但不抛出（不影响删除操作）
+            console.warn(`[Delete Photos] Failed to purge CDN cache for photo ${photo.id}:`, error)
+          })
+        )
+      ).catch((error) => {
+        console.warn('[Delete Photos] Error purging CDN cache:', error)
+      })
     }
 
     if (albumData.cover_photo_id && validPhotoIds.includes(albumData.cover_photo_id)) {
