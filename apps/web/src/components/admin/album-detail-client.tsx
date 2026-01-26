@@ -284,8 +284,13 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
   const deletePhotos = async (photoIds: string[]) => {
     setIsDeleting(true)
     try {
-      const response = await fetch(`/api/admin/albums/${album.id}/photos`, {
-        method: 'DELETE',
+      // 如果在回收站视图，执行永久删除；否则执行软删除（移至回收站）
+      const apiUrl = showDeleted
+        ? '/api/admin/photos/permanent-delete'
+        : `/api/admin/albums/${album.id}/photos`
+      
+      const response = await fetch(apiUrl, {
+        method: showDeleted ? 'POST' : 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           photoIds,
@@ -785,14 +790,24 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                     <span className="sm:hidden">重新生成</span>
                   </button>
                   {showDeleted ? (
-                    <button
-                      onClick={handleRestoreSelected}
-                      disabled={isRestoring}
-                      className="btn-ghost text-sm text-green-400 hover:text-green-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
-                    >
-                      {isRestoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <RestoreIcon className="w-4 h-4" />}
-                      <span className="hidden sm:inline">恢复</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={handleRestoreSelected}
+                        disabled={isRestoring}
+                        className="btn-ghost text-sm text-green-400 hover:text-green-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
+                      >
+                        {isRestoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <RestoreIcon className="w-4 h-4" />}
+                        <span className="hidden sm:inline">恢复</span>
+                      </button>
+                      <button
+                        onClick={handleDeleteSelected}
+                        disabled={isDeleting}
+                        className="btn-ghost text-sm text-red-400 hover:text-red-300 disabled:opacity-50 min-h-[44px] px-3 py-2.5 active:scale-95"
+                      >
+                        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        <span className="hidden sm:inline">永久删除</span>
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={handleDeleteSelected}
@@ -1188,14 +1203,24 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                     </button>
                   )}
                   {showDeleted ? (
-                    <button
-                      onClick={(e) => handleRestorePhoto(photo.id, e)}
-                      className="bg-green-500/80 hover:bg-green-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
-                      disabled={isRestoring}
-                    >
-                      <RestoreIcon className="w-4 h-4 md:w-3 md:h-3" />
-                      恢复
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => handleRestorePhoto(photo.id, e)}
+                        className="bg-green-500/80 hover:bg-green-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
+                        disabled={isRestoring}
+                      >
+                        <RestoreIcon className="w-4 h-4 md:w-3 md:h-3" />
+                        恢复
+                      </button>
+                      <button
+                        onClick={(e) => handleDeletePhoto(photo.id, e)}
+                        className="bg-red-500/80 hover:bg-red-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[80px] md:min-w-[60px] min-h-[44px] md:min-h-0"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="w-4 h-4 md:w-3 md:h-3" />
+                        永久删除
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={(e) => handleDeletePhoto(photo.id, e)}
