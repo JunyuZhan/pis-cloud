@@ -245,8 +245,11 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     backgroundImageUrl = `${mediaUrl}/${coverPhoto.thumb_key}`
   }
 
-  // 判断是否显示启动页（总是显示，除非已跳过）
-  const showSplash = skip_splash !== '1'
+  // 判断是否显示启动页
+  // - 如果 from=home（从首页进入），不显示启动页
+  // - 如果是分享链接（没有 from 参数），显示启动页
+  // - 如果 skip_splash=1，不显示启动页
+  const showSplash = from !== 'home' && skip_splash !== '1'
 
   return (
     <main className="min-h-screen bg-background">

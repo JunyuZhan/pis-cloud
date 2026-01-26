@@ -19,14 +19,19 @@ export default async function HomePage() {
   const supabase = await createClient()
 
   // 获取公开相册列表
-  const { data } = await supabase
+  const { data, error: albumsError } = await supabase
     .from('albums')
     .select('*')
     .eq('is_public', true)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  const albums = data as Album[] | null
+  // 如果查询失败，记录错误并返回空数组（优雅降级）
+  if (albumsError) {
+    console.error('Failed to fetch albums:', albumsError)
+  }
+
+  const albums = (data as Album[] | null) || []
 
   // 获取最新相册作为Hero特色展示
   let featuredAlbum: Album | null = null
@@ -37,48 +42,64 @@ export default async function HomePage() {
     
     // 获取封面照片
     if (featuredAlbum.cover_photo_id) {
-      const { data: cover } = await supabase
+      const { data: cover, error: coverError } = await supabase
         .from('photos')
         .select('*')
         .eq('id', featuredAlbum.cover_photo_id)
-        .single()
-      coverPhoto = cover as Photo | null
+        .eq('status', 'completed')
+        .maybeSingle() // 使用 maybeSingle() 而不是 single()，避免异常
+        
+      if (coverError) {
+        console.error('Failed to fetch cover photo:', coverError)
+      } else {
+        coverPhoto = cover as Photo | null
+      }
     }
     
     // 如果没有封面，获取第一张照片
     if (!coverPhoto && featuredAlbum.id) {
-      const { data: firstPhoto } = await supabase
+      const { data: firstPhoto, error: firstPhotoError } = await supabase
         .from('photos')
         .select('*')
         .eq('album_id', featuredAlbum.id)
         .eq('status', 'completed')
         .order('captured_at', { ascending: false })
         .limit(1)
-        .single()
-      coverPhoto = firstPhoto as Photo | null
+        .maybeSingle() // 使用 maybeSingle() 而不是 single()，避免异常
+      
+      if (firstPhotoError) {
+        console.error('Failed to fetch first photo:', firstPhotoError)
+      } else {
+        coverPhoto = firstPhoto as Photo | null
+      }
     }
   }
 
-  // 所有相册都在作品集区域展示
-  const otherAlbums = albums
+  // 所有相册都在作品集区域展示（包括特色相册）
+  // 特色相册在 Hero 区域展示，同时在网格中也显示
+  const albumsForGrid = albums
 
   // 优化：批量获取所有相册的封面照片，减少N+1查询
   const albumsWithCoverKeys = await (async () => {
-    if (!otherAlbums || otherAlbums.length === 0) return []
+    if (!albumsForGrid || albumsForGrid.length === 0) return []
     
     // 收集所有需要查询的封面照片ID
-    const coverPhotoIds = otherAlbums
+    const coverPhotoIds = albumsForGrid
       .map(album => album.cover_photo_id)
       .filter((id): id is string => !!id)
     
     // 批量获取封面照片
-    const { data: coverPhotos } = coverPhotoIds.length > 0
+    const { data: coverPhotos, error: coverPhotosError } = coverPhotoIds.length > 0
       ? await supabase
           .from('photos')
           .select('id, thumb_key, preview_key, status')
           .in('id', coverPhotoIds)
           .eq('status', 'completed')
-      : { data: [] }
+      : { data: [], error: null }
+    
+    if (coverPhotosError) {
+      console.error('Failed to fetch cover photos:', coverPhotosError)
+    }
     
     // 创建封面照片映射
     const coverMap = new Map(
@@ -89,13 +110,13 @@ export default async function HomePage() {
     )
     
     // 收集需要获取第一张照片的相册ID
-    const albumsNeedingFirstPhoto = otherAlbums.filter(
+    const albumsNeedingFirstPhoto = albumsForGrid.filter(
       album => !album.cover_photo_id || !coverMap.has(album.cover_photo_id)
     )
     
     // 批量获取第一张照片（只查询需要的相册）
     const albumIdsNeedingPhoto = albumsNeedingFirstPhoto.map(a => a.id)
-    const { data: firstPhotos } = albumIdsNeedingPhoto.length > 0
+    const { data: firstPhotos, error: firstPhotosError } = albumIdsNeedingPhoto.length > 0
       ? await supabase
           .from('photos')
           .select('album_id, thumb_key, preview_key')
@@ -103,7 +124,11 @@ export default async function HomePage() {
           .eq('status', 'completed')
           .not('thumb_key', 'is', null)
           .order('captured_at', { ascending: false })
-      : { data: [] }
+      : { data: [], error: null }
+    
+    if (firstPhotosError) {
+      console.error('Failed to fetch first photos:', firstPhotosError)
+    }
     
     // 为每个相册创建第一张照片映射（每个相册只取第一张）
     const firstPhotoMap = new Map<string, { thumb_key: string | null; preview_key: string | null }>()
@@ -123,7 +148,7 @@ export default async function HomePage() {
     // 组合结果
     // 注意：直接使用 albums.photo_count 字段，无需额外查询
     // photo_count 字段由 Worker 在处理照片后自动更新，保持最新状态
-    return otherAlbums.map(album => {
+    return albumsForGrid.map(album => {
       let coverThumbKey: string | null = null
       let coverPreviewKey: string | null = null
       
@@ -163,7 +188,7 @@ export default async function HomePage() {
       <HomeHero featuredAlbum={featuredAlbum || undefined} coverPhoto={coverPhoto || undefined} />
 
       {/* 作品展示区 - Instagram风格 */}
-      {otherAlbums && otherAlbums.length > 0 ? (
+      {albumsForGrid && albumsForGrid.length > 0 ? (
         <section id="works" className="py-4 sm:py-6 md:py-8 px-3 sm:px-4 md:px-6">
           <div className="max-w-7xl mx-auto">
             {/* 极简标题 */}
@@ -178,7 +203,7 @@ export default async function HomePage() {
           </div>
         </section>
       ) : featuredAlbum ? (
-        // 如果只有一个相册，显示提示
+        // 如果只有特色相册，显示提示（特色相册已在 Hero 区域展示）
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <p className="text-text-secondary text-lg">
@@ -187,7 +212,7 @@ export default async function HomePage() {
           </div>
         </section>
       ) : (
-        // 空状态
+        // 空状态：没有任何相册
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <Camera className="w-16 h-16 text-text-muted mx-auto mb-4" />
