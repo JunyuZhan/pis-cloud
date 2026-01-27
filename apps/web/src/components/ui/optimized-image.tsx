@@ -47,6 +47,7 @@ export function OptimizedImage({
   const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [useNativeImg, setUseNativeImg] = useState(false) // 用于 HTTP/2 错误时回退到原生 img 标签
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null) // 用于尝试 HTTP/1.1 回退
   
   // 当 src 改变时，重置错误状态，以便尝试加载新的图片
   // 这确保了降级机制能正常工作：当切换到下一个后备图片时，会重新尝试加载
@@ -55,6 +56,7 @@ export function OptimizedImage({
     setDiagnosticInfo(null)
     setRetryCount(0)
     setUseNativeImg(false)
+    setFallbackSrc(null)
   }, [src])
   
   // 当 onError 回调改变时，也重置错误状态（用于父组件更新错误处理逻辑）
@@ -63,6 +65,7 @@ export function OptimizedImage({
     setDiagnosticInfo(null)
     setRetryCount(0)
     setUseNativeImg(false)
+    setFallbackSrc(null)
   }, [onError])
   
   // 可选的预检查：在开发环境或优先级图片时，尝试诊断 URL 可访问性
@@ -134,10 +137,35 @@ export function OptimizedImage({
       // 如果是 HTTP/2 错误且未重试过，尝试使用原生 img 标签（绕过 Next.js Image 的 HTTP/2）
       if (http2Error && retryCount === 0 && typeof src === 'string') {
         console.warn('[OptimizedImage] HTTP/2 protocol error detected, retrying with native img tag')
+        console.warn('[OptimizedImage] This may be caused by Cloudflare/frpc compatibility issues')
+        console.warn('[OptimizedImage] Troubleshooting:')
+        console.warn('  1. Check if Cloudflare SSL/TLS mode is compatible (try "Flexible" or disable HTTP/2)')
+        console.warn('  2. Verify frpc configuration (check HTTP/2 support)')
+        console.warn('  3. Check Nginx configuration (try disabling HTTP/2: listen 443 ssl instead of listen 443 ssl http2)')
+        console.warn('  4. Verify image URL is accessible: ' + src)
         setRetryCount(1)
         setUseNativeImg(true)
         setImageError(false) // 重置错误状态以重试
         return // 不调用 onError，让重试机制处理
+      }
+      
+      // 如果原生 img 标签也失败了（retryCount === 1），尝试添加缓存破坏参数或检查其他问题
+      if (retryCount === 1 && useNativeImg && typeof src === 'string') {
+        console.error('[OptimizedImage] Native img tag also failed - this suggests a deeper issue:')
+        console.error('  - Image may not exist at URL')
+        console.error('  - CORS/Referer restrictions may be blocking the request')
+        console.error('  - Network connectivity issues')
+        console.error('  - Server-side HTTP/2 configuration issue')
+        
+        // 如果 URL 中没有时间戳参数，尝试添加一个（绕过可能的缓存问题）
+        if (!src.includes('?') && !src.includes('&')) {
+          const timestampedSrc = `${src}?t=${Date.now()}&_retry=1`
+          console.warn('[OptimizedImage] Attempting retry with timestamp parameter:', timestampedSrc)
+          setFallbackSrc(timestampedSrc)
+          setRetryCount(2)
+          setImageError(false)
+          return
+        }
       }
       
       // 检测协议不匹配
@@ -234,14 +262,15 @@ export function OptimizedImage({
 
   // 如果 src 存在且没有错误，渲染图片
   // HTTP/2 错误时使用原生 img 标签绕过 Next.js Image 组件
-  if (!imageError && src) {
+  if (!imageError && (src || fallbackSrc)) {
     // HTTP/2 错误回退：使用原生 img 标签（绕过 Next.js Image 的 HTTP/2 处理）
     if (useNativeImg) {
+      const imgSrc = fallbackSrc || src
       return (
         <div className={cn('relative', fill ? 'w-full h-full' : '')}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src}
+            src={imgSrc}
             alt={alt}
             width={width}
             height={height}
@@ -249,6 +278,7 @@ export function OptimizedImage({
             loading={priority ? 'eager' : 'lazy'}
             onError={handleError}
             style={fill ? { objectFit: 'cover' } : undefined}
+            crossOrigin="anonymous" // 尝试添加 CORS 支持
           />
         </div>
       )

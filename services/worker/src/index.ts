@@ -521,6 +521,29 @@ const worker = new Worker<PhotoJobData>(
           .eq('id', albumId);
       }
 
+      // 8. 清除 Cloudflare CDN 缓存（如果配置了）
+      // 这可以防止 Cloudflare 缓存了 404 响应后，即使图片已生成也无法访问
+      const mediaUrl = process.env.STORAGE_PUBLIC_URL || process.env.MINIO_PUBLIC_URL || process.env.NEXT_PUBLIC_MEDIA_URL;
+      const zoneId = process.env.CLOUDFLARE_ZONE_ID;
+      const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+      
+      if (mediaUrl && zoneId && apiToken) {
+        try {
+          await purgePhotoCache(mediaUrl, {
+            thumb_key: thumbKey,
+            preview_key: previewKey,
+            original_key: job.data.originalKey, // 使用原始上传的 key
+          }, zoneId, apiToken).catch((purgeError) => {
+            // 记录错误但不抛出（不影响处理流程）
+            console.warn(`[${job.id}] Failed to purge CDN cache:`, purgeError);
+          });
+        } catch (purgeError) {
+          console.warn(`[${job.id}] Error purging CDN cache:`, purgeError);
+        }
+      } else if (mediaUrl) {
+        console.warn(`[${job.id}] Cloudflare API not configured (missing CLOUDFLARE_ZONE_ID or CLOUDFLARE_API_TOKEN), skipping cache purge`);
+      }
+
       console.log(`[${job.id}] Completed successfully`);
     } catch (err: any) {
       console.error(`[${job.id}] Failed:`, err);
