@@ -274,7 +274,7 @@ export class PhotoProcessor {
       const svgText = `
         <svg width="${imageWidth}" height="${imageHeight}" xmlns="http://www.w3.org/2000/svg">
           <style>
-            .watermark { fill: rgba(255, 255, 255, ${watermark.opacity}); font-size: ${fontSize}px; font-family: "Noto Sans CJK SC", "Noto Sans CJK", "Noto Sans", "Microsoft YaHei", "SimHei", "SimSun", "Arial Unicode MS", sans-serif; font-weight: bold; }
+            .watermark { fill: rgba(255, 255, 255, ${watermark.opacity}); font-size: ${fontSize}px; font-family: "Noto Sans CJK SC", "Noto Sans CJK", "Noto Sans", Arial, Helvetica, "Microsoft YaHei", "SimHei", "SimSun", "Arial Unicode MS", sans-serif; font-weight: bold; }
           </style>
           <text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="${baseline}" class="watermark">${this.escapeXml(watermark.text)}</text>
         </svg>
