@@ -8,6 +8,7 @@ import Captions from 'yet-another-react-lightbox/plugins/captions'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/captions.css'
 import { Download, Heart, RotateCw, RotateCcw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { handleApiError } from '@/lib/toast'
 import type { Photo } from '@/types/database'
@@ -31,6 +32,7 @@ export function PhotoLightbox({
   onSelectChange,
   onIndexChange,
 }: PhotoLightboxProps) {
+  const t = useTranslations('album.lightbox')
   const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
   
   // 使用配置的 URL，不强制转换协议（开发环境可能使用 HTTP）
@@ -327,7 +329,7 @@ export function PhotoLightbox({
             ? 'bg-red-500 text-white'
             : 'bg-white/10 text-white hover:bg-white/20'
         )}
-        aria-label={isSelected ? '取消选择' : '选择'}
+        aria-label={isSelected ? t('deselect') : t('select')}
       >
         <Heart
           className={cn(
@@ -341,22 +343,22 @@ export function PhotoLightbox({
         type="button"
         onClick={() => handleRotate(-90)}
         className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label="逆时针旋转"
-        title="逆时针旋转90度"
+        aria-label={t('rotateLeft')}
+        title={t('rotateLeftTitle')}
       >
         <RotateCcw className="w-5 h-5" />
-        <span className="hidden sm:inline text-sm">逆时针</span>
+        <span className="hidden sm:inline text-sm">{t('rotateLeft')}</span>
       </button>,
       <button
         key="rotate-right"
         type="button"
         onClick={() => handleRotate(90)}
         className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label="顺时针旋转"
-        title="顺时针旋转90度"
+        aria-label={t('rotateRight')}
+        title={t('rotateRightTitle')}
       >
         <RotateCw className="w-5 h-5" />
-        <span className="hidden sm:inline text-sm">顺时针</span>
+        <span className="hidden sm:inline text-sm">{t('rotateRight')}</span>
       </button>,
     ]
 
@@ -367,18 +369,18 @@ export function PhotoLightbox({
           type="button"
           onClick={handleDownload}
           className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-          aria-label="下载原图"
-          title="下载原图（当前为预览图，下载获取高清原图）"
+          aria-label={t('downloadOriginal')}
+          title={t('downloadOriginalTitle')}
         >
           <Download className="w-5 h-5" />
-          <span className="hidden sm:inline text-sm">下载原图</span>
+          <span className="hidden sm:inline text-sm">{t('downloadOriginal')}</span>
         </button>
       )
     }
 
     buttons.push('close')
     return buttons
-  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload, handleRotate])
+  }, [currentPhoto, selectedMap, allowDownload, handleSelect, handleDownload, handleRotate, t])
 
   // 如果未打开或没有照片，不渲染
   if (!open || photos.length === 0) {

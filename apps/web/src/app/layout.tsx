@@ -39,24 +39,38 @@ const playfairDisplay = Playfair_Display({
   variable: '--font-playfair-display',
 })
 
-export const metadata: Metadata = {
-  title: 'PIS - 专业级摄影分享',
-  description: '私有化即时摄影分享系统，让每一刻精彩即时呈现',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'PIS',
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  openGraph: {
-    type: 'website',
-    siteName: 'PIS',
-    title: 'PIS - 专业级摄影分享',
-    description: '私有化即时摄影分享系统',
-  },
+// Metadata will be generated dynamically based on locale
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const messages = await getMessages()
+  
+  // Get translations for metadata
+  const title = locale === 'zh-CN' 
+    ? 'PIS - 专业级摄影分享'
+    : 'PIS - Professional Photo Sharing'
+  const description = locale === 'zh-CN'
+    ? '私有化即时摄影分享系统，让每一刻精彩即时呈现'
+    : 'Private Instant photo Sharing system'
+  
+  return {
+    title,
+    description,
+    manifest: '/manifest.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: 'PIS',
+    },
+    formatDetection: {
+      telephone: false,
+    },
+    openGraph: {
+      type: 'website',
+      siteName: 'PIS',
+      title,
+      description,
+    },
+  }
 }
 
 export const viewport: Viewport = {
@@ -74,6 +88,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const locale = await getLocale()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const messages = await getMessages()
   
   // 获取媒体服务器域名用于预连接

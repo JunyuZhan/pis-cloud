@@ -89,7 +89,17 @@
     "noPhotosDesc": "上传一些照片开始吧",
     "processing": "处理中",
     "completed": "已完成",
-    "failed": "失败"
+    "failed": "失败",
+    "lightbox": {
+      "select": "选择",
+      "deselect": "取消选择",
+      "rotateLeft": "逆时针旋转",
+      "rotateLeftTitle": "逆时针旋转90度",
+      "rotateRight": "顺时针旋转",
+      "rotateRightTitle": "顺时针旋转90度",
+      "downloadOriginal": "下载原图",
+      "downloadOriginalTitle": "下载原图（当前为预览图，下载获取高清原图）"
+    }
   },
   "admin": {
     "dashboard": "管理后台",

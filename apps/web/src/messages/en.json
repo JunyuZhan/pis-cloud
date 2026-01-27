@@ -89,7 +89,17 @@
     "noPhotosDesc": "Upload some photos to get started",
     "processing": "Processing",
     "completed": "Completed",
-    "failed": "Failed"
+    "failed": "Failed",
+    "lightbox": {
+      "select": "Select",
+      "deselect": "Deselect",
+      "rotateLeft": "Rotate Counterclockwise",
+      "rotateLeftTitle": "Rotate 90° counterclockwise",
+      "rotateRight": "Rotate Clockwise",
+      "rotateRightTitle": "Rotate 90° clockwise",
+      "downloadOriginal": "Download Original",
+      "downloadOriginalTitle": "Download original image (currently viewing preview, download for high-resolution original)"
+    }
   },
   "admin": {
     "dashboard": "Admin Dashboard",

@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Languages } from 'lucide-react'
 import { locales, localeNames, type Locale, defaultLocale } from '@/i18n/config'
 import { getLocaleFromCookie, setLocaleCookie } from '@/lib/i18n'
@@ -21,6 +22,7 @@ import {
 
 export function LanguageSwitcher() {
   const router = useRouter()
+  const t = useTranslations('common')
   const [locale, setLocale] = useState<Locale>(defaultLocale)
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger asChild>
         <button
           className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface transition-colors"
-          aria-label="Change Language"
+          aria-label={t('changeLanguage')}
         >
           <Languages className="w-4 h-4" />
           <span className="text-sm font-medium">{localeNames[locale]}</span>
