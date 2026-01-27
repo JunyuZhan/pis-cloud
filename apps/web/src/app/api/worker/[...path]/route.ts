@@ -165,7 +165,12 @@ async function proxyRequest(
       targetPath = '/health'
     } else if (pathSegments[0] === 'presign') {
       // presign 端点需要映射到 /api/presign
-      targetPath = '/api/presign'
+      // presign/get 端点映射到 /api/presign/get
+      if (pathSegments[1] === 'get') {
+        targetPath = '/api/presign/get'
+      } else {
+        targetPath = '/api/presign'
+      }
     } else if (pathSegments[0] === 'api') {
       // 如果第一个段是 'api'，保持原样
       targetPath = '/' + pathSegments.join('/')

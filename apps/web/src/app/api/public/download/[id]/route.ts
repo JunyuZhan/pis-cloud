@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { Client as MinioClient } from 'minio'
 
 interface RouteParams {
   params: Promise<{ id: string }>
-}
-
-// MinIO 客户端（懒初始化）
-let minioClient: MinioClient | null = null
-
-function getMinioClient(): MinioClient {
-  if (!minioClient) {
-    minioClient = new MinioClient({
-      endPoint: process.env.MINIO_ENDPOINT || 'localhost',
-      port: parseInt(process.env.MINIO_PORT || '9000'),
-      useSSL: process.env.MINIO_USE_SSL === 'true',
-      accessKey: process.env.MINIO_ACCESS_KEY || '',
-      secretKey: process.env.MINIO_SECRET_KEY || '',
-    })
-  }
-  return minioClient
 }
 
 /**
@@ -82,28 +65,53 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 生成 Presigned URL（有效期 5 分钟）
-    const bucket = process.env.MINIO_BUCKET || 'pis-photos'
-    const minio = getMinioClient()
+    // 通过 Worker API 生成 Presigned URL（Vercel 无法直接连接内网 MinIO）
+    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || process.env.WORKER_URL || 'http://localhost:3001'
+    const workerApiKey = process.env.WORKER_API_KEY
     
-    const downloadUrl = await minio.presignedGetObject(
-      bucket,
-      photo.original_key,
-      5 * 60, // 5 分钟有效期
-      {
-        'response-content-disposition': `attachment; filename="${encodeURIComponent(photo.filename)}"`,
-      }
-    )
+    if (!workerApiKey) {
+      console.error('[Download API] WORKER_API_KEY not configured')
+      return NextResponse.json(
+        { error: { code: 'CONFIG_ERROR', message: '服务器配置错误' } },
+        { status: 500 }
+      )
+    }
+
+    // 调用 Worker API 生成 presigned URL
+    const workerResponse = await fetch(`${workerUrl}/api/presign/get`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': workerApiKey,
+      },
+      body: JSON.stringify({
+        key: photo.original_key,
+        expirySeconds: 5 * 60, // 5 分钟有效期
+        responseContentDisposition: `attachment; filename="${encodeURIComponent(photo.filename)}"`,
+      }),
+    })
+
+    if (!workerResponse.ok) {
+      const errorText = await workerResponse.text()
+      console.error('[Download API] Worker API error:', workerResponse.status, errorText)
+      return NextResponse.json(
+        { error: { code: 'WORKER_ERROR', message: '生成下载链接失败' } },
+        { status: 500 }
+      )
+    }
+
+    const { url: downloadUrl } = await workerResponse.json()
 
     return NextResponse.json({
       downloadUrl,
       filename: photo.filename,
       expiresIn: 300, // 5 分钟
     })
-  } catch {
-    console.error('Download API error:')
+  } catch (error: unknown) {
+    console.error('[Download API] Error:', error)
+    const errorMessage = error instanceof Error ? error.message : '服务器错误'
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: '服务器错误' } },
+      { error: { code: 'INTERNAL_ERROR', message: errorMessage } },
       { status: 500 }
     )
   }

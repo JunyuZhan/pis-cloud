@@ -862,6 +862,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 获取预签名下载 URL
+  if (url.pathname === '/api/presign/get' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { key, expirySeconds = 300, responseContentDisposition } = body;
+      
+      if (!key) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing key' }));
+        return;
+      }
+
+      // 生成 presigned URL
+      let presignedUrl = await getPresignedGetUrl(key, expirySeconds);
+      
+      // 如果指定了 Content-Disposition，添加到 URL 参数中
+      if (responseContentDisposition) {
+        const urlObj = new URL(presignedUrl);
+        urlObj.searchParams.set('response-content-disposition', responseContentDisposition);
+        presignedUrl = urlObj.toString();
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ url: presignedUrl }));
+    } catch (err: any) {
+      console.error('[Presign Get] Error:', err);
+      const statusCode = err.message?.includes('Invalid JSON') || err.message?.includes('Invalid') ? 400 :
+                        err.message?.includes('timeout') ? 408 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: err.message || 'Internal server error',
+        ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
+    }
+    return;
+  }
+
   // 直接上传文件到 MinIO (代理模式)
   if (url.pathname === '/api/upload' && req.method === 'PUT') {
     const key = url.searchParams.get('key');
