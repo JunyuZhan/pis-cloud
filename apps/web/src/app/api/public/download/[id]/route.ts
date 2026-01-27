@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // 通过 Worker API 生成 Presigned URL（Vercel 无法直接连接内网 MinIO）
-    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || process.env.WORKER_URL || 'http://localhost:3001'
+    const workerUrl = process.env.WORKER_API_URL || process.env.WORKER_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
     const workerApiKey = process.env.WORKER_API_KEY
     
     if (!workerApiKey) {
