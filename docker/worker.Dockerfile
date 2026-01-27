@@ -15,10 +15,11 @@ RUN ALPINE_VERSION=$(cat /etc/alpine-release | cut -d'.' -f1,2) && \
      echo "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories && \
      echo "Using official mirrors") || true
 
-# 更新包索引并安装必要的系统依赖 (Sharp + HEIC 支持)
+# 更新包索引并安装必要的系统依赖 (Sharp + HEIC 支持 + 中文字体)
 # libheif-dev: 用于处理 HEIC/HEIF 格式的 iPhone 照片
 # vips-dev: 高性能图像处理库
 # build-base: 编译工具链（用于从源码编译 Sharp）
+# font-noto-cjk: 中文字体支持（用于水印文字渲染）
 RUN apk update --no-cache && \
     apk add --no-cache --virtual .build-deps \
     libc6-compat \
@@ -26,6 +27,8 @@ RUN apk update --no-cache && \
     libheif-dev \
     build-base \
     python3 \
+    && apk add --no-cache \
+    font-noto-cjk \
     || (echo "Trying alternative repositories..." && \
         ALPINE_VERSION=$(cat /etc/alpine-release | cut -d'.' -f1,2) && \
         echo "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" > /etc/apk/repositories && \
@@ -36,7 +39,9 @@ RUN apk update --no-cache && \
         vips-dev \
         libheif-dev \
         build-base \
-        python3)
+        python3 \
+        && apk add --no-cache \
+        font-noto-cjk)
 
 WORKDIR /app
 
