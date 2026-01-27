@@ -109,13 +109,23 @@ psql $DATABASE_URL < database/full_schema.sql
 
 ### 4. 创建管理员账号
 
-1. 进入 **Authentication** → **Users**
+> ⚠️ **重要**：必须先创建管理员账号才能访问管理后台。
+
+**步骤：**
+
+1. 进入 Supabase Dashboard → **Authentication** → **Users**
 2. 点击 **Add user** → **Create new user**
-3. 填写:
-   - Email: 你的管理员邮箱
-   - Password: 强密码
-   - ☑️ Auto Confirm User
+3. 填写表单：
+   - **Email**: 你的管理员邮箱（例如：`admin@example.com`）
+   - **Password**: 设置一个强密码（至少 8 个字符）
+   - ✅ **Auto Confirm User**（勾选此项 - 很重要！）
 4. 点击 **Create user**
+5. ✅ 完成！现在可以使用这个邮箱和密码在 `/admin/login` 登录
+
+**注意**：
+- 这里创建的邮箱和密码将用于登录管理后台
+- 确保勾选 "Auto Confirm User"，这样你可以立即登录
+- 如果需要，可以创建多个管理员账号
 
 ### 5. 配置 Auth URLs
 

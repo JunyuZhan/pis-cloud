@@ -262,13 +262,23 @@ psql $DATABASE_URL < database/full_schema.sql
 
 ### 4. Create Admin Account
 
-1. Go to **Authentication** → **Users**
+> ⚠️ **Important**: You must create an admin account before you can access the admin dashboard.
+
+**Steps:**
+
+1. Go to **Authentication** → **Users** in Supabase Dashboard
 2. Click **Add user** → **Create new user**
-3. Fill in:
-   - Email: Your admin email
-   - Password: Strong password
-   - ☑️ Auto Confirm User
+3. Fill in the form:
+   - **Email**: Your admin email (e.g., `admin@example.com`)
+   - **Password**: Set a strong password (at least 8 characters)
+   - ✅ **Auto Confirm User** (check this box - important!)
 4. Click **Create user**
+5. ✅ Done! You can now use this email and password to log in at `/admin/login`
+
+**Note**: 
+- The email and password you create here will be used to log in to the admin dashboard
+- Make sure to check "Auto Confirm User" so you can log in immediately
+- You can create multiple admin accounts if needed
 
 ### 5. Configure Auth URLs
 

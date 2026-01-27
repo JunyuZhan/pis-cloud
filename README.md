@@ -121,7 +121,15 @@ The setup wizard will automatically:
    - Copy and paste the entire content of `database/full_schema.sql`
    - Click **Run** to execute
    - ✅ Done!
-3. Create admin account in **Authentication** → **Users**
+3. **Create admin account**:
+   - Go to **Authentication** → **Users** in Supabase Dashboard
+   - Click **Add user** → **Create new user**
+   - Fill in:
+     - **Email**: Your admin email (e.g., `admin@example.com`)
+     - **Password**: Set a strong password
+     - ✅ **Auto Confirm User** (check this box)
+   - Click **Create user**
+   - ✅ This account will be used to log in to `/admin/login`
 4. Copy API Keys from **Settings** → **API**
 
 #### 2. Configure Environment Variables
@@ -182,8 +190,10 @@ pnpm dev
 | URL | Description |
 |-----|-------------|
 | http://localhost:3000 | Homepage |
-| http://localhost:3000/admin/login | Admin dashboard |
-| http://localhost:9001 | MinIO Console |
+| http://localhost:3000/admin/login | Admin dashboard (use the admin account created in Supabase) |
+| http://localhost:9001 | MinIO Console (username: `minioadmin`, password: `minioadmin`) |
+
+> 💡 **First time login**: Use the email and password you created in Supabase **Authentication** → **Users** to log in to the admin dashboard.
 
 ---
 

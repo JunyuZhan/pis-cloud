@@ -116,7 +116,15 @@ pnpm setup
    - 复制 `database/full_schema.sql` 文件的全部内容
    - 粘贴并点击 **Run** 执行
    - ✅ 完成！
-3. 在 **Authentication** → **Users** 创建管理员账号
+3. **创建管理员账号**：
+   - 进入 Supabase Dashboard → **Authentication** → **Users**
+   - 点击 **Add user** → **Create new user**
+   - 填写信息：
+     - **Email**: 你的管理员邮箱（例如：`admin@example.com`）
+     - **Password**: 设置一个强密码
+     - ✅ **Auto Confirm User**（勾选此项）
+   - 点击 **Create user**
+   - ✅ 此账号将用于登录 `/admin/login` 管理后台
 4. 在 **Settings** → **API** 复制 API Keys
 
 #### 2. 配置环境变量
@@ -177,8 +185,10 @@ pnpm dev
 | 地址 | 说明 |
 |------|------|
 | http://localhost:3000 | 首页 |
-| http://localhost:3000/admin/login | 管理后台 |
-| http://localhost:9001 | MinIO 控制台 |
+| http://localhost:3000/admin/login | 管理后台（使用在 Supabase 中创建的管理员账号登录） |
+| http://localhost:9001 | MinIO 控制台（用户名：`minioadmin`，密码：`minioadmin`） |
+
+> 💡 **首次登录**：使用你在 Supabase **Authentication** → **Users** 中创建的邮箱和密码登录管理后台。
 
 ---
 
