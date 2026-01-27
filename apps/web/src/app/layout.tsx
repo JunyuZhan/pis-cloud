@@ -42,7 +42,8 @@ const playfairDisplay = Playfair_Display({
 // Metadata will be generated dynamically based on locale
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale()
-  const messages = await getMessages()
+  // Messages are loaded but not used in metadata (only used in layout)
+  await getMessages()
   
   // Get translations for metadata
   const title = locale === 'zh-CN' 
