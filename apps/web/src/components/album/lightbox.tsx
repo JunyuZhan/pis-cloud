@@ -472,6 +472,7 @@ export function PhotoLightbox({
                 transition: 'transform 0.3s ease-out',
               }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={slide.src}
                 alt={typeof slide.title === 'string' ? slide.title : ''}
