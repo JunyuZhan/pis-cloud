@@ -55,32 +55,44 @@ export function MasonryGrid({
   const lastViewedIndexRef = useRef<number | null>(null)
   
   // 图片预加载：预加载即将可见的图片（优化性能）
-  // 使用 fetchpriority 提示浏览器优先级，避免预加载警告
-  const preloadImages = useCallback((startIndex: number, count: number = 3) => {
+  // 只在图片即将进入视口时预加载，减少预加载警告
+  const preloadImages = useCallback((startIndex: number, count: number = 2) => {
     const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
-    if (!mediaUrl) return
+    if (!mediaUrl || typeof window === 'undefined') return
     
-    for (let i = 0; i < count && startIndex + i < photos.length; i++) {
-      const photo = photos[startIndex + i]
-      if (!photo?.thumb_key) continue
-      
-      // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
-      const imageSrc = photo.updated_at 
-        ? `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?t=${new Date(photo.updated_at).getTime()}`
-        : `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`
-      
-      // 检查是否已存在预加载链接
-      if (document.querySelector(`link[href="${imageSrc}"]`)) continue
-      
-      // 使用 link preload 预加载图片，添加 fetchpriority 提示
-      const link = document.createElement('link')
-      link.rel = 'preload'
-      link.as = 'image'
-      link.href = imageSrc
-      // fetchpriority 提示浏览器这是高优先级资源（即将可见）
-      link.setAttribute('fetchpriority', i === 0 ? 'high' : 'auto')
-      document.head.appendChild(link)
-    }
+    // 延迟预加载，确保图片确实会被使用
+    setTimeout(() => {
+      for (let i = 0; i < count && startIndex + i < photos.length; i++) {
+        const photo = photos[startIndex + i]
+        if (!photo?.thumb_key) continue
+        
+        // 只使用 updated_at 作为时间戳，避免 Date.now() 导致的 hydration mismatch
+        const imageSrc = photo.updated_at 
+          ? `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}?t=${new Date(photo.updated_at).getTime()}`
+          : `${mediaUrl.replace(/\/$/, '')}/${photo.thumb_key.replace(/^\//, '')}`
+        
+        // 检查是否已存在预加载链接或图片已加载
+        if (document.querySelector(`link[href="${imageSrc}"]`) || 
+            document.querySelector(`img[src="${imageSrc}"]`)) continue
+        
+        // 使用 link preload 预加载图片，添加 fetchpriority 提示
+        const link = document.createElement('link')
+        link.rel = 'preload'
+        link.as = 'image'
+        link.href = imageSrc
+        // fetchpriority 提示浏览器这是高优先级资源（即将可见）
+        link.setAttribute('fetchpriority', i === 0 ? 'high' : 'low')
+        document.head.appendChild(link)
+        
+        // 设置超时清理：如果 5 秒后图片还没使用，移除预加载链接
+        setTimeout(() => {
+          const linkElement = document.querySelector(`link[href="${imageSrc}"]`)
+          if (linkElement && !document.querySelector(`img[src="${imageSrc}"]`)) {
+            linkElement.remove()
+          }
+        }, 5000)
+      }
+    }, 100) // 延迟 100ms，确保页面已渲染
   }, [photos])
 
   useEffect(() => {
@@ -107,13 +119,15 @@ export function MasonryGrid({
   useEffect(() => {
     if (photos.length === 0) return
     
-    // 只预加载前 3 张图片（首屏可见区域），减少预加载警告
+    // 只预加载前 2 张图片（首屏可见区域），减少预加载警告
     // 其他图片通过 Intersection Observer 在进入视口时自然加载
-    preloadImages(0, 3)
+    if (photos.length > 0) {
+      preloadImages(0, 2)
+    }
     
     // 如果用户已经滚动到某个位置，预加载该位置附近的图片
     if (lastViewedIndexRef.current !== null && lastViewedIndexRef.current < photos.length) {
-      preloadImages(lastViewedIndexRef.current, 2)
+      preloadImages(lastViewedIndexRef.current, 1)
     }
   }, [photos, preloadImages])
 

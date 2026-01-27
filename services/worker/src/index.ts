@@ -1152,6 +1152,13 @@ const server = http.createServer(async (req, res) => {
     
     req.on('end', async () => {
       if (isAborted) return;
+      
+      // 检查连接是否仍然有效
+      if (res.destroyed || res.writableEnded) {
+        console.warn(`[Multipart] Response already closed for part ${partNumber}`);
+        return;
+      }
+      
       try {
         const buffer = Buffer.concat(chunks);
         console.log(`[Multipart] Uploading part ${partNumber} for ${key}, size: ${buffer.length}`);
@@ -1159,15 +1166,24 @@ const server = http.createServer(async (req, res) => {
         const { etag } = await uploadPart(key, uploadId, partNumber, buffer);
         console.log(`[Multipart] Part ${partNumber} uploaded, etag: ${etag}`);
         
-        if (!isAborted) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+        // 再次检查连接状态
+        if (!isAborted && !res.destroyed && !res.writableEnded) {
+          res.writeHead(200, { 
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive', // 保持连接
+          });
           res.end(JSON.stringify({ etag, partNumber }));
+        } else {
+          console.warn(`[Multipart] Response closed before sending result for part ${partNumber}`);
         }
       } catch (err: any) {
-        if (!isAborted) {
-          console.error('Multipart upload error:', err);
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
+        if (!isAborted && !res.destroyed && !res.writableEnded) {
+          console.error(`[Multipart] Upload error for part ${partNumber}:`, err);
+          res.writeHead(500, { 
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive',
+          });
+          res.end(JSON.stringify({ error: err.message || 'Upload failed' }));
         }
       }
     });
@@ -1175,9 +1191,22 @@ const server = http.createServer(async (req, res) => {
     req.on('error', (err) => {
       if (!isAborted) {
         isAborted = true;
-        console.error('Multipart request error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Request error' }));
+        console.error(`[Multipart] Request error for part ${partNumber}:`, err);
+        if (!res.destroyed && !res.writableEnded) {
+          res.writeHead(500, { 
+            'Content-Type': 'application/json',
+            'Connection': 'close',
+          });
+          res.end(JSON.stringify({ error: 'Request error' }));
+        }
+      }
+    });
+    
+    // 监听响应关闭事件
+    res.on('close', () => {
+      if (!isAborted) {
+        isAborted = true;
+        console.warn(`[Multipart] Response closed unexpectedly for part ${partNumber}`);
       }
     });
     
@@ -2140,6 +2169,10 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
   // 不立即退出，记录错误即可
 });
+
+// 配置服务器 keep-alive
+server.keepAliveTimeout = 65000; // 65秒（略大于 Cloudflare 的 60 秒）
+server.headersTimeout = 66000; // 66秒（略大于 keepAliveTimeout）
 
 server.listen(HTTP_PORT, () => {
   console.log(`🌐 HTTP API listening on port ${HTTP_PORT}`);

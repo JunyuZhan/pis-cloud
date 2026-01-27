@@ -63,14 +63,28 @@ export function PhotoLightbox({
   // const [loadedOriginals, setLoadedOriginals] = useState<Set<string>>(new Set())
   const prevIndexRef = useRef(index)
 
-  // 预加载相邻图片
+  // 预加载相邻图片（只在 Lightbox 打开时预加载）
   const preloadImage = useCallback((imageSrc: string) => {
-    if (!imageSrc) return
+    if (!imageSrc || typeof window === 'undefined') return
+    
+    // 检查是否已存在预加载链接或图片已加载
+    if (document.querySelector(`link[href="${imageSrc}"]`) || 
+        document.querySelector(`img[src="${imageSrc}"]`)) return
+    
     const link = document.createElement('link')
     link.rel = 'preload'
     link.as = 'image'
     link.href = imageSrc
+    link.setAttribute('fetchpriority', 'high') // Lightbox 相邻图片是高优先级
     document.head.appendChild(link)
+    
+    // 设置超时清理：如果 3 秒后图片还没使用，移除预加载链接
+    setTimeout(() => {
+      const linkElement = document.querySelector(`link[href="${imageSrc}"]`)
+      if (linkElement && !document.querySelector(`img[src="${imageSrc}"]`)) {
+        linkElement.remove()
+      }
+    }, 3000)
   }, [])
 
   // 同步外部传入的 index 到内部 state，并预加载相邻图片
