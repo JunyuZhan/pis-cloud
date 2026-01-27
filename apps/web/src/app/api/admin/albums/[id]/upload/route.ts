@@ -9,7 +9,56 @@ interface RouteParams {
 
 /**
  * 获取上传凭证 API
- * 返回 Presigned URL 用于直接上传到 MinIO
+ * 
+ * 为客户端生成 Presigned URL，用于直接上传文件到 MinIO 存储。
+ * 
+ * @route POST /api/admin/albums/[id]/upload
+ * 
+ * @param request - Next.js 请求对象
+ * @param params - 路由参数，包含相册 ID
+ * @param params.id - 相册 ID
+ * 
+ * @requestBody
+ * {
+ *   "filename": "photo.jpg",        // 文件名（必需）
+ *   "contentType": "image/jpeg",    // MIME 类型（必需）
+ *   "fileSize": 1024000             // 文件大小（字节，可选）
+ * }
+ * 
+ * @returns
+ * - 200: 成功返回上传凭证
+ *   {
+ *     "photoId": "uuid",
+ *     "uploadUrl": "https://your-storage-domain.com/presigned-url",
+ *     "originalKey": "raw/album-id/photo-id.jpg",
+ *     "albumId": "album-id"
+ *   }
+ * - 400: 请求参数错误
+ * - 401: 未授权（未登录或认证失败）
+ * - 404: 相册不存在
+ * - 429: 速率限制
+ * - 500: 服务器错误
+ * 
+ * @security
+ * - 需要用户认证（Supabase Auth）
+ * - 速率限制：每个用户每分钟最多 20 次请求
+ * - 文件类型限制：仅支持 image/jpeg, image/png, image/heic, image/webp
+ * - 文件大小限制：最大 100MB
+ * 
+ * @example
+ * ```typescript
+ * const response = await fetch('/api/admin/albums/album-123/upload', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({
+ *     filename: 'photo.jpg',
+ *     contentType: 'image/jpeg',
+ *     fileSize: 1024000
+ *   })
+ * });
+ * const data = await response.json();
+ * // 使用 data.uploadUrl 上传文件
+ * ```
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   let response: NextResponse | null = null

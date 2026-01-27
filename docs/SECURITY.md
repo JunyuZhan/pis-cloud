@@ -2,7 +2,7 @@
 
 > 本文档说明 PIS 系统的安全措施和部署建议
 
-**最后更新**: 2026-01-25
+**最后更新**: 2026-01-27
 
 ---
 
@@ -135,23 +135,7 @@ STORAGE_ACCESS_KEY="${MINIO_ACCESS_KEY}"  # 从环境变量获取
 
 ### 1. HTTPS 配置
 
-**必须**: 生产环境必须启用 HTTPS。
-
-**Nginx 配置示例**:
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com;
-    
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-    
-    # SSL 安全配置
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-}
-```
+**重要**: 生产环境应启用 HTTPS。
 
 ---
 
@@ -366,7 +350,7 @@ headers: [
 - ✅ 双重限制（IP + 邮箱）
 - ✅ 自动内存清理（防止内存泄漏）
 
-**详细审计报告**: 参见 `docs/LOGIN_SECURITY_AUDIT.md`
+**详细审计报告**: 登录安全功能已完整实现，详见本文档的 [登录安全](#-登录安全-) 章节
 
 **已改进**:
 - ✅ 邮箱格式验证：使用正则表达式验证邮箱格式
@@ -377,7 +361,7 @@ headers: [
 - ✅ **Cloudflare Turnstile**：已实现 Invisible 模式（可选，完全免费）
   - 完全后台验证，用户无感知
   - 防止自动化攻击和机器人
-  - 配置方式：参见 `docs/TURNSTILE_SETUP.md`
+  - 配置方式：参见本文档的 [Cloudflare Turnstile 配置](#-cloudflare-turnstile-配置) 章节
   - 如果不配置，登录功能仍然正常工作（降级策略）
 
 **生产环境建议**:
@@ -387,7 +371,7 @@ headers: [
 - [ ] 监控异常登录行为（异地登录、异常时间等）
 - [ ] 启用双因素认证（2FA）
 
-**详细补充审计报告**: 参见 `docs/LOGIN_SECURITY_DEEP_AUDIT.md`
+**详细补充审计报告**: 登录安全功能已完整实现，详见本文档的 [登录安全](#-登录安全-) 章节
 
 ### 🔍 EXIF 隐私保护
 
@@ -538,6 +522,80 @@ WHERE schemaname = 'public';
 
 ---
 
+## 🔐 Turnstile 配置（可选）
+
+Turnstile 用于防止机器人攻击，支持 Invisible 模式。
+
+### 配置环境变量
+
+```bash
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-site-key
+TURNSTILE_SECRET_KEY=your-secret-key
+```
+
+---
+
+## 📝 敏感文档管理
+
+> 管理包含敏感信息的文档，确保不会泄露到公开仓库
+
+### ⚠️ 重要提示
+
+以下文档包含敏感信息（API 密钥、Token、密码等），**不会提交到 Git**：
+
+- `ENVIRONMENT_VARIABLES.md` - 包含真实的环境变量配置
+- `ARCHITECTURE.md` - 包含真实的服务器 IP、域名和配置
+- 环境变量配置文档（包含敏感信息）
+- `ENGINEER_REFERENCE.md` - 包含真实的配置信息
+
+### 📝 示例文档
+
+这些文档的示例版本（`.example.md`）已提交到 Git，所有敏感信息已用占位符替换：
+
+- `ENVIRONMENT_VARIABLES.example.md`
+- `ARCHITECTURE.example.md`
+- `VERCEL_ENV_QUICK_REFERENCE.example.md`
+- `ENGINEER_REFERENCE.example.md`
+
+### 🔧 如何更新示例文档
+
+如果原始文档有更新，运行以下命令重新生成示例版本：
+
+```bash
+python3 scripts/create-example-docs.py
+```
+
+这个脚本会：
+1. 读取原始文档
+2. 用占位符替换所有敏感信息
+3. 生成 `.example.md` 文件
+
+### 📋 敏感信息替换规则
+
+脚本会替换以下敏感信息：
+
+- **Supabase**: URL 和 JWT tokens → `your-project-id.supabase.co` 和 `eyJhbGci...`
+- **Worker API Key**: 64 字符十六进制字符串 → `your-worker-api-key-here`
+- API Token 和 Zone ID → `your-api-token` 和 `your-zone-id`
+- Turnstile Secret Key → `your-turnstile-key`
+- 存储 Access Key 和 Secret Key → `your-access-key` 和 `your-secret-key`
+- 域名 → `your-domain.com`
+- 服务器 IP → `your-server-ip`
+
+### 🔒 安全建议
+
+1. **不要**将包含敏感信息的文档提交到 Git
+2. **不要**在公开场合分享包含真实配置的文档
+3. **定期**检查 Git 历史，确保没有意外提交敏感信息
+4. **使用** `.gitignore` 确保敏感文件不会被跟踪
+
+### 📚 相关文件
+
+- `.gitignore` - 已配置忽略敏感文档
+- `scripts/create-example-docs.py` - 生成示例文档的脚本
+
+---
+
 ## 📚 参考资源
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
@@ -547,7 +605,7 @@ WHERE schemaname = 'public';
 
 ---
 
-**最后更新**: 2026-01-24
+**最后更新**: 2026-01-27
 
 ---
 
@@ -671,7 +729,7 @@ bash scripts/check-security.sh
 
 1. **立即撤销所有密钥**
    - **Supabase**: 登录 Dashboard → Settings → API → 重新生成 Service Role Key
-   - **Vercel**: 登录 Dashboard → Settings → Tokens → 删除泄露的 token → 生成新的 token
+   - 登录对应平台控制台，删除泄露的 token 并生成新的 token
    - **OSS/COS/S3**: 登录控制台 → 重新生成所有 Access Key
 
 2. **从 Git 历史中删除**

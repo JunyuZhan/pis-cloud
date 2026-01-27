@@ -12,16 +12,10 @@ This directory contains multi-language documentation for PIS.
 ### English (en/)
 
 - [Deployment Guide](en/DEPLOYMENT.md) - Detailed deployment steps
-- [Storage Configuration](en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
-- [Database Configuration](en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration
-- [Multi-Storage & Database Support](en/MULTI_STORAGE_DATABASE.md) - Feature guide and migration
 
 ### 中文 (zh-CN/)
 
 - [部署指南](zh-CN/DEPLOYMENT.md) - 详细的部署步骤
-- [存储配置](zh-CN/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 配置指南
-- [数据库配置](zh-CN/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL 配置指南
-- [多存储和多数据库支持](zh-CN/MULTI_STORAGE_DATABASE.md) - 功能说明和迁移指南
 
 ## 🔗 Quick Links
 
@@ -63,15 +57,9 @@ Documentation is organized in the `docs/i18n/` directory:
 docs/i18n/
 ├── README.md                    # Documentation index
 ├── en/                          # English documentation
-│   ├── DEPLOYMENT.md
-│   ├── STORAGE_CONFIG.md
-│   ├── DATABASE_CONFIG.md
-│   └── MULTI_STORAGE_DATABASE.md
+│   └── DEPLOYMENT.md
 └── zh-CN/                       # Chinese documentation
-    ├── DEPLOYMENT.md
-    ├── STORAGE_CONFIG.md
-    ├── DATABASE_CONFIG.md
-    └── MULTI_STORAGE_DATABASE.md
+    └── DEPLOYMENT.md
 ```
 
 ### Finding Documentation

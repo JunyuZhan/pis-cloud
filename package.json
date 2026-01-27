@@ -16,6 +16,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "turbo test",
+    "test:coverage": "turbo test:coverage",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "setup": "bash scripts/setup.sh",
     "security-check": "bash scripts/check-security.sh",
@@ -24,7 +26,7 @@
     "docker:down": "cd docker && docker-compose down",
     "docker:logs": "cd docker && docker-compose logs -f",
     "db:types": "cd apps/web && pnpm supabase:types",
-    "pre-commit": "pnpm security-check && pnpm lint"
+    "pre-commit": "pnpm security-check && pnpm lint && pnpm test"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

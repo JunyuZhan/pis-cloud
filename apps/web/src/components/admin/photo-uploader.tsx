@@ -7,10 +7,10 @@ import { cn, formatFileSize } from '@/lib/utils'
 
 // 上传配置
 // 启用分片上传以绕过 Cloudflare 的 30 秒 Proxy Write Timeout 限制
-// 由于 pic.albertzhan.top 也经过 Cloudflare，分片上传也会受到 30 秒限制
-// 因此减小分片大小：2MB（确保每个分片上传时间 < 30 秒，即使网速较慢）
+// 如果前端域名也经过 Cloudflare，分片上传也会受到 30 秒限制
+// 因此减小分片大小：1MB（确保每个分片上传时间 < 30 秒，即使网速较慢）
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024 // 5MB 以上使用分片上传
-const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB 分片大小（确保每个分片上传时间 < 30 秒，即使网速 < 67KB/s）
+const CHUNK_SIZE = 1 * 1024 * 1024 // 1MB 分片大小（确保每个分片上传时间 < 30 秒，即使网速 < 33KB/s）
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 const MAX_RETRIES = 3 // 最大重试次数
 
@@ -441,8 +441,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         )
       )
 
-      // 3. 并行上传分片（每批 3 个）
-      const batchSize = 3
+      // 3. 并行上传分片（每批 2 个）
+      const batchSize = 2
       for (let i = 0; i < totalChunks; i += batchSize) {
         const batch = []
         for (let j = i; j < Math.min(i + batchSize, totalChunks); j++) {

@@ -9,6 +9,14 @@ config({ path: resolve(__dirname, '../../.env.local') })
 const withNextIntl = createNextIntlPlugin()
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // 构建时忽略 ESLint 错误（测试文件会被 ESLint 检查，但不应阻止构建）
+    ignoreDuringBuilds: false,
+  },
+  typescript: {
+    // 构建时忽略 TypeScript 错误
+    ignoreBuildErrors: false,
+  },
   // 生成唯一的构建 ID，用于缓存破坏
   generateBuildId: async () => {
     // 使用 Git commit SHA 或时间戳

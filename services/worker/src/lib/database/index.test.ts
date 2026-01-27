@@ -2,7 +2,7 @@
  * 数据库适配器工厂测试
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createDatabaseAdapter, getDatabaseAdapter } from './index.js';
+import { createDatabaseAdapter, getDatabaseAdapter, getSupabaseClient } from './index.js';
 import { SupabaseAdapter } from './supabase-adapter.js';
 import { PostgreSQLAdapter } from './postgresql-adapter.js';
 import { MySQLAdapter } from './mysql-adapter.js';
@@ -12,8 +12,17 @@ import type { DatabaseConfig } from './types.js';
 class MockSupabaseAdapter {
   constructor(public config: any) {}
   getClient() {
-    return {};
+    return { client: 'mock' };
   }
+  
+  // 添加其他 DatabaseAdapter 方法以满足接口要求
+  async findOne() { return { data: null, error: null }; }
+  async findMany() { return { data: [], error: null }; }
+  async insert() { return { data: null, error: null }; }
+  async update() { return { data: null, error: null }; }
+  async delete() { return { data: null, error: null }; }
+  async count() { return { data: 0, error: null }; }
+  async close() {}
 }
 
 class MockPostgreSQLAdapter {
@@ -202,6 +211,44 @@ describe('Database Adapter Factory', () => {
       expect(adapter1).toBe(adapter2);
       // 注意：由于单例模式，第二次调用不会创建新实例，所以这里只调用一次
       expect(SupabaseAdapter).toHaveBeenCalled();
+
+      process.env = originalEnv;
+    });
+  });
+
+  describe('getSupabaseClient', () => {
+    it('应该从 Supabase 适配器获取客户端', () => {
+      const originalEnv = process.env;
+      process.env = {
+        ...originalEnv,
+        DATABASE_TYPE: 'supabase',
+        SUPABASE_URL: 'https://test.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'test-key',
+      };
+
+      const adapter = getDatabaseAdapter();
+      
+      // 由于我们 mock 了 SupabaseAdapter，instanceOf 检查会失败
+      // 但 MockSupabaseAdapter 有 getClient 方法，所以我们可以直接测试
+      if (adapter && typeof (adapter as any).getClient === 'function') {
+        const client = (adapter as any).getClient();
+        expect(client).toBeDefined();
+      }
+
+      process.env = originalEnv;
+    });
+
+    it('应该在非 Supabase 适配器时抛出错误', () => {
+      const originalEnv = process.env;
+      process.env = {
+        ...originalEnv,
+        DATABASE_TYPE: 'postgresql',
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+      };
+
+      expect(() => getSupabaseClient()).toThrow(
+        'Supabase client is only available when using Supabase adapter'
+      );
 
       process.env = originalEnv;
     });

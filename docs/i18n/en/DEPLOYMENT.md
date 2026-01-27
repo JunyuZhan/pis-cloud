@@ -5,19 +5,164 @@
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Prerequisites](#prerequisites)
-3. [Supabase Configuration](#supabase-configuration)
-4. [Local Development Environment](#local-development-environment)
-5. [Production Deployment](#production-deployment)
-6. [Environment Variables](#environment-variables)
-7. [Verification & Testing](#verification--testing)
-8. [Maintenance & Operations](#maintenance--operations)
-9. [Troubleshooting](#troubleshooting)
+1. [🚀 Quick Start (One-Click Deployment)](#-quick-start-one-click-deployment) - Fastest way to deploy
+2. [Architecture Overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Supabase Configuration](#supabase-configuration)
+5. [Local Development Environment](#local-development-environment)
+6. [Production Deployment](#production-deployment)
+7. [Environment Variables](#environment-variables)
+8. [Verification & Testing](#verification--testing)
+9. [Maintenance & Operations](#maintenance--operations)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## 🚀 Quick Start (One-Click Deployment)
+
+> **Fastest way to deploy PIS on your server**
+
+### Quick Deploy
+
+**SSH into your server and run:**
+
+```bash
+# Method 1: Download then execute (recommended, supports interactive input)
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
+bash /tmp/deploy.sh
+
+# Method 2: Pipe directly (requires environment variables)
+export SUPABASE_URL="https://your-project.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="your-key"
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
+```
+
+The script will automatically:
+- ✅ Install Docker, Docker Compose, Git
+- ✅ Download the latest code
+- ✅ Guide you through database and network selection
+- ✅ Start all services
+
+### Deployment Flow
+
+```
+Step 1: Install environment (Docker, Git)
+Step 2: Clone code
+Step 3: Choose database (Supabase/PostgreSQL/MySQL)
+Step 4: Choose network mode (Public/Internal)
+Step 5: Configure database credentials
+Step 6: Start services
+Step 7: Verify services
+```
+
+### Database Options
+
+| Type | Recommended For | Features |
+|------|-----------------|----------|
+| **Supabase** | Production (Recommended) | Cloud-hosted, includes auth |
+| **PostgreSQL** | Self-hosted | Local Docker |
+| **MySQL** | Self-hosted | Local Docker |
+
+### Getting Supabase Credentials
+
+1. Visit https://supabase.com/dashboard
+2. Select project → **Settings** → **API**
+3. Copy **Project URL** and **service_role key**
+
+### Server Requirements
+
+- **OS**: Ubuntu 20.04+ / Debian 11+ / CentOS 7+
+- **Specs**: 2 cores, 2GB RAM minimum, 4GB recommended
+- **Ports**: 19000, 19001, 3001 (public mode)
+
+### Alternative Deployment Methods
+
+#### Deploy from Local Machine
+
+If you want to deploy from your local computer to a remote server:
+
+```bash
+# Clone the project
+git clone https://github.com/junyuzhan/pis.git
+cd pis
+
+# Remote deploy (replace with your server IP and username)
+bash scripts/deploy.sh your-server-ip root
+```
+
+#### Using Environment Variables
+
+Set environment variables to skip manual input:
+
+```bash
+export SUPABASE_URL="https://your-project.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="your-key"
+
+curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
+```
+
+### Post-Deployment Configuration
+
+#### 1. Access MinIO Console
+
+```
+http://your-server-ip:19001
+```
+
+#### 2. Initialize Database Schema (Supabase)
+
+⚠️ **Important**: Execute `database/full_schema.sql` **once** in Supabase Dashboard → SQL Editor. This file is for **new databases only**.
+
+#### 3. Configure Frontend Environment Variables
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Dashboard>
+NEXT_PUBLIC_MEDIA_URL=http://your-server-ip:19000/pis-photos
+NEXT_PUBLIC_WORKER_URL=http://your-server-ip:3001
+```
+
+### Common Commands
+
+```bash
+# View logs
+cd /opt/pis/docker && docker-compose logs -f
+
+# Restart services
+cd /opt/pis/docker && docker-compose restart
+
+# Update code
+cd /opt/pis && git pull && cd docker && docker-compose up -d --build
+```
+
+### Quick Troubleshooting
+
+**Q: Deployment failed?**
+
+```bash
+cd /opt/pis/docker && docker-compose logs
+```
+
+**Q: Port already in use?**
+
+```bash
+ss -tuln | grep -E ":(19000|19001|3001)"
+```
+
+> 💡 **Need more details?** Continue reading the full deployment guide below.
 
 ---
 
 ## Architecture Overview
+
+> ⚠️ **Important**: The following is an **example deployment architecture**. PIS supports multiple deployment options:
+> - **Frontend**: Vercel, self-hosted, Docker, K8s, or any platform supporting Next.js
+> - **Worker**: Standalone server, Docker, K8s, Cloud Functions, etc.
+> - **Storage**: MinIO, OSS, COS, S3, or any S3-compatible storage
+> - **Database**: Supabase, PostgreSQL, MySQL
+> - **Reverse Proxy**: frpc, nginx, Caddy, Traefik, etc. (optional, not needed if services are on the same network)
+
+**Example Deployment Architecture**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -40,15 +185,21 @@
         └────────────────────┴────────────┴───────────────────────────────┘
 ```
 
-| Component | Deployment Location | Purpose |
+| Component | Example Deployment | Purpose |
 |-----------|-------------------|---------|
-| Next.js Frontend | Vercel | User interface, API routes |
-| PostgreSQL | Supabase | Metadata storage |
-| Auth | Supabase | User authentication |
-| Realtime | Supabase | Real-time push |
-| MinIO | Internal Docker | Photo storage |
-| Worker | Internal Docker | Image processing |
-| Redis | Internal Docker | Task queue |
+| Next.js Frontend | Vercel (example) | User interface, API routes |
+| PostgreSQL | Supabase (example) | Metadata storage |
+| Auth | Supabase (example) | User authentication |
+| Realtime | Supabase (example) | Real-time push |
+| MinIO | Internal Docker (example) | Photo storage |
+| Worker | Internal Docker (example) | Image processing |
+| Redis | Internal Docker (example) | Task queue |
+
+**Other Deployment Options**:
+- **Fully Self-Hosted**: All services on the same server with nginx/Caddy
+- **Cloud-Native**: Vercel + Cloud Functions + S3 + Supabase
+- **Hybrid**: Self-hosted frontend + Cloud storage + Cloud database
+- **Containerized**: Docker Compose or Kubernetes for all services
 
 ---
 
@@ -63,11 +214,13 @@
 
 ### Production Deployment
 
-- A Linux server (recommended 2 cores 4GB+)
-- Docker installed
-- Domain names resolved to server (need two: main site + media)
-- Supabase account (free tier is fine)
-- Vercel account (free tier is fine)
+PIS supports flexible deployment options. Example requirements:
+
+- A Linux server (recommended 2 cores 4GB+) - *if self-hosting Worker*
+- Docker installed - *if using Docker deployment*
+- Domain names - *optional, depends on your deployment*
+- Supabase account (free tier is fine) - *or use PostgreSQL/MySQL*
+- Vercel account (free tier is fine) - *or use other hosting platforms*
 
 ---
 
@@ -385,6 +538,26 @@ Click **Deploy**, wait for build to complete.
 1. **Settings** → **Domains**
 2. Add `yourdomain.com`
 3. Configure DNS as prompted (CNAME or A record)
+
+---
+
+## Configuration
+
+### Storage
+
+Supports MinIO, OSS, COS, S3. Configure `STORAGE_TYPE` and related environment variables. See `.env.example` for details.
+
+### Database
+
+Supports Supabase (recommended), PostgreSQL, MySQL. Configure `DATABASE_TYPE` and related environment variables. See `.env.example` for details.
+
+### CDN
+
+Configure CDN to improve image loading speed:
+1. Add media server domain to CDN
+2. Configure cache rules (long-term cache for thumbnails/previews)
+3. Update `NEXT_PUBLIC_MEDIA_URL` to point to CDN address
+4. (Optional) Configure `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID` for automatic cache purging
 
 ---
 

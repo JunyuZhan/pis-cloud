@@ -53,6 +53,12 @@ coverage
 scripts/test-*.sh
 docs/UPLOAD_TEST_GUIDE.md
 
+# Documentation files with sensitive information (use .example versions instead)
+docs/ENVIRONMENT_VARIABLES.md
+docs/ARCHITECTURE.md
+docs/VERCEL_ENV_QUICK_REFERENCE.md
+docs/ENGINEER_REFERENCE.md
+
 # Misc
 *.tsbuildinfo
 .vercel

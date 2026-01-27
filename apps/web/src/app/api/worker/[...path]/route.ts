@@ -27,34 +27,105 @@ import { createClientFromRequest } from '@/lib/supabase/server'
 
 // Worker 服务 URL (服务端环境变量，不暴露给客户端)
 // 支持多个变量名，确保兼容性
-const WORKER_URL = process.env.WORKER_URL || process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+// 使用函数在运行时获取，而不是模块加载时，以便测试可以修改环境变量
+function getWorkerUrl(): string {
+  return process.env.WORKER_URL || process.env.WORKER_API_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, await params)
+  try {
+    return await proxyRequest(request, await params)
+  } catch (error) {
+    // 处理 params 解析错误
+    if (error instanceof Error && error.message.includes('params')) {
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'PROXY_ERROR',
+            message: error.message,
+            details: '请求参数解析失败'
+          } 
+        },
+        { status: 500 }
+      )
+    }
+    throw error
+  }
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, await params)
+  try {
+    return await proxyRequest(request, await params)
+  } catch (error) {
+    // 处理 params 解析错误
+    if (error instanceof Error && error.message.includes('params')) {
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'PROXY_ERROR',
+            message: error.message,
+            details: '请求参数解析失败'
+          } 
+        },
+        { status: 500 }
+      )
+    }
+    throw error
+  }
 }
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, await params)
+  try {
+    return await proxyRequest(request, await params)
+  } catch (error) {
+    // 处理 params 解析错误
+    if (error instanceof Error && error.message.includes('params')) {
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'PROXY_ERROR',
+            message: error.message,
+            details: '请求参数解析失败'
+          } 
+        },
+        { status: 500 }
+      )
+    }
+    throw error
+  }
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return proxyRequest(request, await params)
+  try {
+    return await proxyRequest(request, await params)
+  } catch (error) {
+    // 处理 params 解析错误
+    if (error instanceof Error && error.message.includes('params')) {
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'PROXY_ERROR',
+            message: error.message,
+            details: '请求参数解析失败'
+          } 
+        },
+        { status: 500 }
+      )
+    }
+    throw error
+  }
 }
 
 async function proxyRequest(
@@ -107,7 +178,7 @@ async function proxyRequest(
     const url = new URL(request.url)
     const queryString = url.search
     
-    const targetUrl = `${WORKER_URL}${targetPath}${queryString}`
+    const targetUrl = `${getWorkerUrl()}${targetPath}${queryString}`
     
     console.log(`[Worker Proxy] ${request.method} ${targetUrl}`)
     
@@ -197,7 +268,7 @@ async function proxyRequest(
           error: { 
             code: 'WORKER_UNAVAILABLE',
             message: 'Worker 服务不可用',
-            details: `无法连接到 Worker 服务 (${WORKER_URL})。请检查 Worker 服务是否正在运行，以及 WORKER_URL 环境变量是否正确配置。`
+            details: `无法连接到 Worker 服务 (${getWorkerUrl()})。请检查 Worker 服务是否正在运行，以及 WORKER_URL 环境变量是否正确配置。`
           }
         },
         { 

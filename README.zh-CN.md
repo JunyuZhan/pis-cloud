@@ -101,7 +101,7 @@ pnpm setup
 - ✅ 启动 Docker 服务 (MinIO + Redis)
 - ✅ 显示下一步操作指引
 
-> 💡 **提示**：你也可以手动配置存储和数据库类型，详见 [存储配置文档](docs/i18n/zh-CN/STORAGE_CONFIG.md) 和 [数据库配置文档](docs/i18n/zh-CN/DATABASE_CONFIG.md)
+> 💡 **提示**：你也可以手动配置存储和数据库类型，详见 [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) 中的详细配置说明
 
 ### 手动部署
 
@@ -158,7 +158,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
 
-> 💡 **使用云存储？** 查看 [存储配置文档](docs/i18n/zh-CN/STORAGE_CONFIG.md) 了解如何配置阿里云 OSS、腾讯云 COS 或 AWS S3
+> 💡 **使用云存储？** 查看 [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) 了解如何配置阿里云 OSS、腾讯云 COS 或 AWS S3
 
 #### 3. 启动服务
 
@@ -209,7 +209,7 @@ cd pis
 bash scripts/deploy.sh 192.168.1.100 root
 ```
 
-> 📖 **部署指南**: [docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md)
+> 📖 **部署指南**: [docs/i18n/zh-CN/DEPLOYMENT.md](docs/i18n/zh-CN/DEPLOYMENT.md) (包含一键部署快速开始)
 
 ### 手动部署
 
@@ -246,31 +246,7 @@ pnpm lint       # 运行代码检查
 
 关键变量: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`
 
-> 📖 **完整配置指南**: 查看 [.env.example](.env.example) 和 [存储配置](docs/i18n/zh-CN/STORAGE_CONFIG.md)
-
----
-
----
-
-## 🔧 常见问题
-
-**Q: 图片上传后不显示？**  
-检查 Worker 日志: `docker-compose logs worker` 并确认 `NEXT_PUBLIC_MEDIA_URL`
-
-**Q: 登录后一直跳转？**  
-清除浏览器 Cookies 并检查 Supabase Auth Redirect URLs
-
-**Q: 如何切换存储？**  
-详见 [存储配置](docs/i18n/zh-CN/STORAGE_CONFIG.md)
-
-**Q: 支持哪些存储/数据库？**  
-存储: MinIO、OSS、COS、S3 | 数据库: Supabase（推荐）、PostgreSQL、MySQL
-
-**Q: 如何配置 CDN？**  
-详见 [CDN 配置指南](docs/CDN_SETUP_GUIDE.md)
-
-**Q: 扫描同步功能如何使用？**  
-上传到 `sync/{albumId}/` 目录，然后调用扫描 API。详见 [扫描同步功能](docs/SCAN_SYNC_FEATURE.md)
+> 📖 **完整配置指南**: 查看 [.env.example](.env.example)
 
 ---
 
@@ -312,19 +288,11 @@ MIT License © 2026 junyuzhan
 ## 📚 更多文档
 
 ### 快速开始
-- [一键部署](docs/i18n/zh-CN/ONE_CLICK_DEPLOY.md) - 一条命令部署到服务器
-- [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) - 详细的部署步骤
-- [存储配置](docs/i18n/zh-CN/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 配置指南
-- [数据库配置](docs/i18n/zh-CN/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL 配置指南
-- [多存储和多数据库支持](docs/i18n/zh-CN/MULTI_STORAGE_DATABASE.md) - 功能说明和迁移指南
+- [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) - 详细的部署步骤（包含一键部署快速开始）
 
 ### 开发与安全
-- [开发指南](docs/DEVELOPMENT.md) - 开发环境搭建、代码规范和功能文档
+- [开发指南](docs/DEVELOPMENT.md) - 开发环境搭建、代码规范、功能文档和所有功能说明
 - [安全指南](docs/SECURITY.md) - 安全最佳实践、部署检查清单和开源前安全检查清单
-- [性能优化](docs/PERFORMANCE_OPTIMIZATION.md) - 性能优化指南
-
-### 功能说明
-- [开发指南](docs/DEVELOPMENT.md) - 完整开发指南，包含所有功能说明
 
 ---
 

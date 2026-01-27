@@ -106,7 +106,7 @@ The setup wizard will automatically:
 - ✅ Start Docker services (MinIO + Redis)
 - ✅ Display next steps
 
-> 💡 **Tip**: You can also manually configure storage and database types. See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) and [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md)
+> 💡 **Tip**: You can also manually configure storage and database types. See the [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) for detailed configuration instructions.
 
 ### Manual Setup
 
@@ -163,7 +163,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
 
-> 💡 **Using cloud storage?** See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) for Alibaba Cloud OSS, Tencent Cloud COS, or AWS S3 setup
+> 💡 **Using cloud storage?** See the [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) for Alibaba Cloud OSS, Tencent Cloud COS, or AWS S3 setup instructions
 
 #### 3. Start Services
 
@@ -214,7 +214,7 @@ cd pis
 bash scripts/deploy.sh 192.168.1.100 root
 ```
 
-> 📖 **Deployment guide**: [docs/i18n/en/ONE_CLICK_DEPLOY.md](docs/i18n/en/ONE_CLICK_DEPLOY.md)
+> 📖 **Deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md) (includes one-click deployment quick start)
 
 ### Manual Deployment
 
@@ -251,31 +251,7 @@ pnpm lint       # Run linter
 
 Key variables: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`
 
-> 📖 **Full configuration guide**: See [.env.example](.env.example) and [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
-
----
-
----
-
-## 🔧 FAQ
-
-**Q: Images don't display after upload?**  
-Check Worker logs: `docker-compose logs worker` and verify `NEXT_PUBLIC_MEDIA_URL`
-
-**Q: Login redirect loop?**  
-Clear browser cookies and check Supabase Auth Redirect URLs
-
-**Q: How to switch storage?**  
-See [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md)
-
-**Q: Supported storage/databases?**  
-Storage: MinIO, OSS, COS, S3 | Database: Supabase (recommended), PostgreSQL, MySQL
-
-**Q: How to configure CDN?**  
-See [CDN Setup Guide](docs/CDN_SETUP_GUIDE.md)
-
-**Q: How does scan & sync work?**  
-Upload to `sync/{albumId}/` via FTP/command line, then call scan API. See [Scan & Sync Feature](docs/SCAN_SYNC_FEATURE.md)
+> 📖 **Full configuration guide**: See [.env.example](.env.example)
 
 ---
 
@@ -319,20 +295,13 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 > 📖 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation index.
 
 ### Getting Started
-- [One-Click Deployment](docs/i18n/en/ONE_CLICK_DEPLOY.md) - Deploy with one command on your server
-- [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Detailed deployment steps (Vercel)
-- [Storage Configuration](docs/i18n/en/STORAGE_CONFIG.md) - MinIO/OSS/COS/S3 configuration
-- [Database Configuration](docs/i18n/en/DATABASE_CONFIG.md) - Supabase/PostgreSQL/MySQL configuration
-- [Multi-Storage & Database Support](docs/i18n/en/MULTI_STORAGE_DATABASE.md) - Feature guide and migration
+- [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) - Complete deployment guide (includes one-click deployment quick start)
+- [Architecture Guide](docs/ARCHITECTURE.example.md) - System architecture and quick reference
+- [Environment Variables](docs/ENVIRONMENT_VARIABLES.example.md) - Environment configuration (includes Vercel quick setup)
 
 ### Development & Security
 - [Development Guide](docs/DEVELOPMENT.md) - Development setup, code standards, and feature documentation
-- [Security Guide](docs/SECURITY.md) - Security best practices, deployment checklist
-- [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) - Performance optimization guide
-- [CDN Setup Guide](docs/CDN_SETUP_GUIDE.md) - Cloudflare/阿里云/腾讯云 CDN configuration
-
-### Features
-- [Development Guide](docs/DEVELOPMENT.md) - Complete development guide including all features
+- [Security Guide](docs/SECURITY.md) - Security best practices, Turnstile setup, sensitive docs management
 
 ---
 

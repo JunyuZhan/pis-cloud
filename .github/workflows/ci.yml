@@ -66,3 +66,13 @@ jobs:
       - name: Type check
         run: pnpm build
         continue-on-error: true
+
+      - name: Test
+        run: pnpm test
+        continue-on-error: true
+
+      - name: Test Coverage
+        run: |
+          cd services/worker && pnpm test:coverage
+          cd ../../apps/web && pnpm test:coverage || true
+        continue-on-error: true

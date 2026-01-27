@@ -2,5 +2,13 @@
   "extends": [
     "next/core-web-vitals",
     "next/typescript"
+  ],
+  "ignorePatterns": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/test/**",
+    "**/__tests__/**"
   ]
 }

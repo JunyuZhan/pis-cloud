@@ -102,9 +102,13 @@ echo ""
 # 6. 检查 .env.example 文件是否包含真实密钥
 echo "7️⃣  检查 .env.example 文件..."
 if [ -f ".env.example" ]; then
-    REAL_KEYS=$(grep -E "(hapkufkiavhrxxcuzptm|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS)" .env.example 2>/dev/null || true)
+    # 检查是否包含真实的 Supabase 项目 ID（20+ 字符的字母数字组合）
+    # 检查是否包含完整的 JWT token（以 eyJ 开头，包含多个点分隔的部分）
+    REAL_KEYS=$(grep -E "[a-z0-9]{20,}\.supabase\.co|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+" .env.example 2>/dev/null || true)
     if [ -n "$REAL_KEYS" ]; then
-        echo -e "${RED}❌ .env.example 包含真实密钥！${NC}"
+        echo -e "${RED}❌ .env.example 可能包含真实密钥！${NC}"
+        echo -e "${YELLOW}请检查以下内容：${NC}"
+        echo "$REAL_KEYS" | head -3
         ERRORS=$((ERRORS + 1))
     else
         echo -e "${GREEN}✅ .env.example 只包含占位符${NC}"

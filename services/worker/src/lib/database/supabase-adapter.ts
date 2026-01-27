@@ -187,6 +187,14 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   /**
+   * 关闭连接（Supabase 客户端不需要显式关闭，但为了接口一致性提供此方法）
+   */
+  async close(): Promise<void> {
+    // Supabase 客户端不需要显式关闭连接
+    // 但为了与其他适配器保持一致，提供此方法
+  }
+
+  /**
    * 获取原始 Supabase 客户端（用于高级用法）
    */
   getClient(): SupabaseClient {
