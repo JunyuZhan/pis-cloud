@@ -4,7 +4,7 @@
  * 测试 GET 方法
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GET } from './route'
 import { createMockRequest } from '@/test/test-utils'
 
@@ -19,14 +19,26 @@ vi.mock('@/lib/supabase/server', () => {
   }
 })
 
+// Mock global fetch for Worker API calls
+const originalFetch = global.fetch
+let mockFetch: ReturnType<typeof vi.fn>
+
 describe('GET /api/public/albums/[slug]/download-selected', () => {
   let mockAdminClient: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
+    // Setup fetch mock
+    mockFetch = vi.fn()
+    global.fetch = mockFetch as any
+    
     const { createAdminClient } = await import('@/lib/supabase/server')
     mockAdminClient = createAdminClient()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
   })
 
   describe('album validation', () => {
@@ -170,19 +182,37 @@ describe('GET /api/public/albums/[slug]/download-selected', () => {
         })
         .mockReturnValueOnce(mockQuery2)
 
-      // Set environment variable for media URL
-      const originalMediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL
-      process.env.NEXT_PUBLIC_MEDIA_URL = 'https://media.example.com'
+      // Mock Worker API responses for presigned URLs
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ url: 'https://presigned-url-1.com/photo-1.jpg' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ url: 'https://presigned-url-2.com/photo-2.jpg' }),
+        } as Response)
+
+      // Set environment variables for Worker API
+      const originalWorkerUrl = process.env.WORKER_API_URL
+      const originalWorkerKey = process.env.WORKER_API_KEY
+      process.env.WORKER_API_URL = 'http://localhost:3001'
+      process.env.WORKER_API_KEY = 'test-api-key'
 
       const request = createMockRequest('http://localhost:3000/api/public/albums/test-slug/download-selected')
       const response = await GET(request, { params: Promise.resolve({ slug: 'test-slug' }) })
       const data = await response.json()
 
-      // Restore environment variable
-      if (originalMediaUrl) {
-        process.env.NEXT_PUBLIC_MEDIA_URL = originalMediaUrl
+      // Restore environment variables
+      if (originalWorkerUrl) {
+        process.env.WORKER_API_URL = originalWorkerUrl
       } else {
-        delete process.env.NEXT_PUBLIC_MEDIA_URL
+        delete process.env.WORKER_API_URL
+      }
+      if (originalWorkerKey) {
+        process.env.WORKER_API_KEY = originalWorkerKey
+      } else {
+        delete process.env.WORKER_API_KEY
       }
 
       expect(response.status).toBe(200)
@@ -191,7 +221,23 @@ describe('GET /api/public/albums/[slug]/download-selected', () => {
       expect(data.photos).toHaveLength(2)
       expect(data.photos[0].id).toBe('photo-1')
       expect(data.photos[0].filename).toBe('photo1.jpg')
-      expect(data.photos[0].url).toBe('https://media.example.com/raw/album-123/photo-1.jpg')
+      expect(data.photos[0].url).toBe('https://presigned-url-1.com/photo-1.jpg')
+      expect(data.photos[1].id).toBe('photo-2')
+      expect(data.photos[1].filename).toBe('photo2.jpg')
+      expect(data.photos[1].url).toBe('https://presigned-url-2.com/photo-2.jpg')
+      
+      // Verify Worker API was called correctly
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3001/api/presign/get',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-API-Key': 'test-api-key',
+          }),
+        })
+      )
     })
 
     it('should return 400 if no photos are selected', async () => {

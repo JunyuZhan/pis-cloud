@@ -351,7 +351,7 @@ export function ShareLinkButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="btn-primary text-sm !min-h-[32px] md:!min-h-[44px] !px-2 md:!px-3 !py-1 md:!py-2"
+        className="btn-primary text-sm min-h-[44px] px-3 py-2"
         aria-label="分享相册"
         aria-haspopup="dialog"
         aria-expanded={open}

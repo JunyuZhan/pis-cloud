@@ -180,6 +180,47 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // 清理和验证文件名（防止路径遍历、注入攻击）
+    // 1. 移除路径分隔符和特殊字符（防止路径遍历）
+    const sanitizedFilename = filename
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // 移除特殊字符和控制字符
+      .replace(/^\.+/, '') // 移除开头的点
+      .replace(/\.+$/, '') // 移除结尾的点
+      .trim()
+    
+    // 2. 验证文件名长度（防止DoS攻击）
+    const MAX_FILENAME_LENGTH = 255 // 标准文件名长度限制
+    if (!sanitizedFilename || sanitizedFilename.length === 0) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_FILENAME', message: '文件名无效' } },
+        { 
+          status: 400,
+          headers: response.headers,
+        }
+      )
+    }
+    
+    if (sanitizedFilename.length > MAX_FILENAME_LENGTH) {
+      return NextResponse.json(
+        { error: { code: 'FILENAME_TOO_LONG', message: `文件名过长（最大 ${MAX_FILENAME_LENGTH} 字符）` } },
+        { 
+          status: 400,
+          headers: response.headers,
+        }
+      )
+    }
+    
+    // 3. 验证文件名不包含路径遍历字符
+    if (sanitizedFilename.includes('..') || sanitizedFilename.includes('../') || sanitizedFilename.includes('..\\')) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_FILENAME', message: '文件名包含非法字符' } },
+        { 
+          status: 400,
+          headers: response.headers,
+        }
+      )
+    }
+
     // 验证文件类型（双重验证：MIME 类型 + 文件扩展名）
     const allowedTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp', 'image/gif', 'image/tiff']
     const allowedExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp', '.gif', '.tiff', '.tif']
@@ -196,7 +237,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     
     // 2. 验证文件扩展名（防止伪造 MIME 类型）
-    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    const ext = sanitizedFilename.split('.').pop()?.toLowerCase() || ''
     const fileExtension = ext ? `.${ext}` : ''
     if (!allowedExtensions.includes(fileExtension)) {
       return NextResponse.json(
@@ -251,7 +292,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         id: photoId,
         album_id: albumId,
         original_key: originalKey,
-        filename,
+        filename: sanitizedFilename, // 使用清理后的文件名
         file_size: fileSize,
         mime_type: contentType,
         status: 'pending',

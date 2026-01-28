@@ -64,19 +64,69 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 4. 生成下载链接
-    const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL || ''
+    // 4. 通过 Worker API 生成 presigned URL
+    const workerUrl = process.env.WORKER_API_URL || process.env.WORKER_URL || process.env.NEXT_PUBLIC_WORKER_URL || 'http://localhost:3001'
+    const workerApiKey = process.env.WORKER_API_KEY
+    
+    if (!workerApiKey) {
+      console.error('[Batch Download API] WORKER_API_KEY not configured')
+      return NextResponse.json(
+        { error: { code: 'CONFIG_ERROR', message: '服务器配置错误' } },
+        { status: 500 }
+      )
+    }
 
-    const downloadLinks = photos.map(photo => ({
-      id: photo.id,
-      filename: photo.filename,
-      url: `${mediaUrl}/${photo.original_key}`,
-    }))
+    // 为每张照片生成 presigned URL
+    const downloadLinks = await Promise.all(
+      photos.map(async (photo) => {
+        try {
+          const workerResponse = await fetch(`${workerUrl}/api/presign/get`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': workerApiKey,
+            },
+            body: JSON.stringify({
+              key: photo.original_key,
+              expirySeconds: 5 * 60, // 5 分钟有效期
+              responseContentDisposition: `attachment; filename="${encodeURIComponent(photo.filename)}"`,
+            }),
+          })
+
+          if (!workerResponse.ok) {
+            console.error(`[Batch Download API] Failed to generate presigned URL for photo ${photo.id}`)
+            throw new Error('Failed to generate download URL')
+          }
+
+          const { url: downloadUrl } = await workerResponse.json()
+
+          return {
+            id: photo.id,
+            filename: photo.filename,
+            url: downloadUrl,
+          }
+        } catch (error) {
+          console.error(`[Batch Download API] Error generating URL for photo ${photo.id}:`, error)
+          // 如果生成失败，返回 null，前端可以跳过这张照片
+          return null
+        }
+      })
+    )
+
+    // 过滤掉生成失败的链接
+    const validLinks = downloadLinks.filter((link): link is NonNullable<typeof link> => link !== null)
+
+    if (validLinks.length === 0) {
+      return NextResponse.json(
+        { error: { code: 'GENERATION_ERROR', message: '无法生成下载链接' } },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       albumTitle: album.title,
-      count: photos.length,
-      photos: downloadLinks,
+      count: validLinks.length,
+      photos: validLinks,
     })
 
   } catch (error) {

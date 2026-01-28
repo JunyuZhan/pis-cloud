@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Copy, Check } from 'lucide-react'
+import { Loader2, Copy, Check, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import type { AlbumTemplate } from '@/types/database'
+import { StylePresetSelector } from './style-preset-selector'
 
 interface CreateAlbumDialogProps {
   open: boolean
@@ -26,6 +27,10 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
   const [location, setLocation] = useState('')
   const [templateId, setTemplateId] = useState<string>('')
   const [templates, setTemplates] = useState<AlbumTemplate[]>([])
+  const [stylePresetId, setStylePresetId] = useState<string | null>(null)
+  const [showStyleSelector, setShowStyleSelector] = useState(false)
+  const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([])
+  const [allowBatchDownload, setAllowBatchDownload] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<{
@@ -38,8 +43,21 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
   useEffect(() => {
     if (open) {
       loadTemplates()
+      loadPresets()
     }
   }, [open])
+
+  const loadPresets = async () => {
+    try {
+      const res = await fetch('/api/admin/style-presets')
+      const data = await res.json()
+      if (res.ok) {
+        setPresets(data.presets || [])
+      }
+    } catch (error) {
+      console.error('加载预设列表失败:', error)
+    }
+  }
 
   const loadTemplates = async () => {
     try {
@@ -94,6 +112,9 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
           description: description.trim(),
           event_date: eventDate || null,
           location: location.trim() || null,
+          color_grading: stylePresetId ? { preset: stylePresetId } : null,  // 新增：调色配置
+          // 如果选择了模板，使用模板的配置；否则使用用户的选择
+          allow_batch_download: templateId ? undefined : allowBatchDownload,
           ...templateConfig,
         }),
       })
@@ -131,6 +152,9 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
     setEventDate('')
     setLocation('')
     setTemplateId('')
+    setStylePresetId(null)
+    setShowStyleSelector(false)
+    setAllowBatchDownload(false)
     setError('')
     setCreated(null)
     onOpenChange(false)
@@ -257,6 +281,64 @@ export function CreateAlbumDialog({ open, onOpenChange }: CreateAlbumDialogProps
                   </p>
                 </div>
               )}
+
+              {/* 批量下载设置（仅在未选择模板时显示） */}
+              {!templateId && (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface">
+                  <div className="flex-1 pr-4">
+                    <p className="font-medium flex items-center gap-2 text-sm">
+                      <Download className="w-4 h-4" />
+                      允许批量下载
+                    </p>
+                    <p className="text-xs text-text-secondary mt-1">访客可一键下载所有已选照片</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAllowBatchDownload(!allowBatchDownload)}
+                    className={`relative rounded-full transition-colors shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center ${
+                      allowBatchDownload ? 'bg-accent' : 'bg-surface-elevated'
+                    } w-12 h-7 md:w-11 md:h-6`}
+                  >
+                    <div className={`absolute top-[2px] left-[2px] w-6 h-6 md:w-5 md:h-5 bg-white rounded-full transition-transform ${
+                      allowBatchDownload ? 'translate-x-5 md:translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              )}
+
+              {/* 风格设置（可选） */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowStyleSelector(!showStyleSelector)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/50 transition-colors min-h-[44px] active:scale-[0.98] touch-manipulation active:bg-surface-elevated"
+                >
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-text-primary">
+                      风格设置（可选）
+                    </div>
+                    <div className="text-xs text-text-muted mt-1">
+                      {stylePresetId 
+                        ? `已选择：${presets.find(p => p.id === stylePresetId)?.name || stylePresetId}`
+                        : '为相册选择调色风格'}
+                    </div>
+                  </div>
+                  {showStyleSelector ? (
+                    <ChevronUp className="w-4 h-4 text-text-muted" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-text-muted" />
+                  )}
+                </button>
+                
+                {showStyleSelector && (
+                  <div className="mt-3 p-3 sm:p-4 bg-surface rounded-lg border border-border max-h-[60vh] sm:max-h-[500px] overflow-y-auto touch-pan-y">
+                    <StylePresetSelector
+                      value={stylePresetId}
+                      onChange={setStylePresetId}
+                    />
+                  </div>
+                )}
+              </div>
 
               <DialogFooter className="mt-6 flex-col gap-3 sm:flex-row sm:gap-2">
                 <button

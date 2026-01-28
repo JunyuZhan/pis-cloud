@@ -1,6 +1,6 @@
 # PIS 文档索引
 
-> 最后更新: 2026-01-27
+> 最后更新: 2026-01-28
 
 欢迎查阅 PIS (Private Instant Photo Sharing) 的完整文档。
 
@@ -27,6 +27,12 @@
 
 ---
 
+### 🎨 功能设计
+
+- [图片风格调色功能设计](./IMAGE_STYLE_PRESET_DESIGN.md) - 相册风格预设功能的设计文档
+
+---
+
 ## 📖 文档结构
 
 ```
@@ -37,6 +43,7 @@ docs/
 ├── ENVIRONMENT_VARIABLES.md           # 原始文档（包含敏感信息，不提交到 Git）
 ├── DEVELOPMENT.md                     # 开发指南（包含功能说明）
 ├── SECURITY.md                        # 安全最佳实践（包含 Turnstile 配置、敏感文档管理）
+├── IMAGE_STYLE_PRESET_DESIGN.md      # 图片风格调色功能设计文档
 └── i18n/                              # 多语言文档
     └── en/                            # 英文文档
         └── DEPLOYMENT.md              # 部署指南（包含配置说明）
@@ -54,6 +61,7 @@ docs/
 - **部署 PIS** → [部署指南](./i18n/en/DEPLOYMENT.md)
 - **开发功能** → [开发指南](./DEVELOPMENT.md)
 - **了解安全** → [安全最佳实践](./SECURITY.md)
+- **图片风格功能** → [图片风格调色功能设计](./IMAGE_STYLE_PRESET_DESIGN.md)
 
 ---
 

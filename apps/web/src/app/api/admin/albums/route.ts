@@ -104,10 +104,12 @@ export async function POST(request: NextRequest) {
       layout?: 'masonry' | 'grid' | 'carousel'
       sort_rule?: 'capture_desc' | 'capture_asc' | 'manual'
       allow_download?: boolean
+      allow_batch_download?: boolean
       show_exif?: boolean
       watermark_enabled?: boolean
       watermark_type?: 'text' | 'logo' | null
       watermark_config?: Json
+      color_grading?: { preset?: string } | null  // 新增：调色配置
     }
     let body: CreateAlbumRequestBody
     try {
@@ -130,10 +132,12 @@ export async function POST(request: NextRequest) {
       layout,
       sort_rule,
       allow_download,
+      allow_batch_download,
       show_exif,
       watermark_enabled,
       watermark_type,
       watermark_config,
+      color_grading,  // 新增：调色配置
     } = body
 
     // 验证必填字段
@@ -174,6 +178,29 @@ export async function POST(request: NextRequest) {
         { error: { code: 'VALIDATION_ERROR', message: '无效的水印类型' } },
         { status: 400 }
       )
+    }
+
+    // 验证调色配置格式
+    let validatedColorGrading: { preset?: string } | null = null
+    if (color_grading !== undefined) {
+      if (color_grading === null) {
+        validatedColorGrading = null
+      } else if (typeof color_grading === 'object' && color_grading !== null) {
+        const config = color_grading as Record<string, unknown>
+        if (config.preset && typeof config.preset === 'string' && config.preset.trim() !== '') {
+          validatedColorGrading = { preset: config.preset.trim() }
+        } else {
+          return NextResponse.json(
+            { error: { code: 'VALIDATION_ERROR', message: '调色配置必须包含有效的 preset 字段' } },
+            { status: 400 }
+          )
+        }
+      } else {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: '调色配置格式错误' } },
+          { status: 400 }
+        )
+      }
     }
 
     // 验证海报图片URL格式和安全性
@@ -226,11 +253,13 @@ export async function POST(request: NextRequest) {
       layout: layout || 'masonry',
       sort_rule: sort_rule || 'capture_desc',
       allow_download: allow_download ?? true,
+      allow_batch_download: allow_batch_download ?? false, // 默认关闭，需要管理员明确开启
       show_exif: show_exif ?? true,
       allow_share: true, // 默认允许分享
       watermark_enabled: watermark_enabled ?? false,
       watermark_type: watermark_type || null,
       watermark_config: (watermark_config || {}) as Json,
+      color_grading: validatedColorGrading as Json | null,  // 新增：调色配置
     }
 
     // 创建相册

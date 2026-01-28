@@ -113,8 +113,7 @@ pnpm setup
 1. 创建 [Supabase](https://supabase.com) 项目
 2. **执行数据库架构**：
    - 进入 Supabase Dashboard → **SQL Editor**
-   - 复制 `database/full_schema.sql` 文件的全部内容
-   - 粘贴并点击 **Run** 执行
+   - 执行数据库迁移（参见部署文档）
    - ✅ 完成！
 3. **创建管理员账号**：
    - 进入 Supabase Dashboard → **Authentication** → **Users**

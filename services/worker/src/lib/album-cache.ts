@@ -8,6 +8,7 @@ interface CachedAlbum {
   watermark_enabled: boolean;
   watermark_type: string | null;
   watermark_config: any;
+  color_grading?: { preset?: string } | null;
   cachedAt: number;
 }
 

@@ -88,6 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       watermark_enabled?: boolean
       watermark_type?: 'text' | 'logo' | null
       watermark_config?: Record<string, unknown> | null
+      color_grading?: { preset?: string } | null  // 新增：调色配置
       password?: string | null
       expires_at?: string | null
       share_title?: string | null
@@ -124,6 +125,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       'watermark_enabled',
       'watermark_type',
       'watermark_config',
+      'color_grading',  // 新增：调色配置
       'password',
       'expires_at',
       'share_title',
@@ -238,6 +240,45 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           }
           
           ;(updateData as Record<string, unknown>)[field] = watermarkConfigValue
+        } else if (field === 'color_grading') {
+          // 验证调色配置格式
+          const colorGradingValue = (body as Record<string, unknown>)[field]
+          
+          // null 是允许的（表示无风格）
+          if (colorGradingValue === null) {
+            ;(updateData as Record<string, unknown>)[field] = null
+          } else if (colorGradingValue !== undefined) {
+            // 必须是对象
+            if (typeof colorGradingValue !== 'object' || colorGradingValue === null) {
+              return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: '调色配置格式错误' } },
+                { status: 400 }
+              )
+            }
+            
+            const config = colorGradingValue as Record<string, unknown>
+            
+            // 必须包含 preset 字段
+            if (!config.preset || typeof config.preset !== 'string') {
+              return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: '调色配置必须包含 preset 字段' } },
+                { status: 400 }
+              )
+            }
+            
+            // 预设 ID 不能为空
+            if (config.preset.trim() === '') {
+              return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: '预设 ID 不能为空' } },
+                { status: 400 }
+              )
+            }
+            
+            // 验证预设 ID 是否有效（可选，如果需要严格校验）
+            // 这里只做基本格式校验，具体预设 ID 的验证在数据库层面完成
+            
+            ;(updateData as Record<string, unknown>)[field] = colorGradingValue
+          }
         } else if (field === 'share_image_url') {
           // 验证分享图片URL格式和安全性
           const shareImageUrl = (body as Record<string, unknown>)[field] as string | null | undefined

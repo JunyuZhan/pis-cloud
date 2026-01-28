@@ -428,12 +428,14 @@ const worker = new Worker<PhotoJobData>(
             ? Promise.resolve({ data: cachedAlbum, error: null })
             : supabase
                 .from('albums')
-                .select('id, watermark_enabled, watermark_type, watermark_config')
+                .select('id, watermark_enabled, watermark_type, watermark_config, color_grading')
                 .eq('id', albumId)
                 .single()
         ]);
         
-        originalBuffer = downloadResult;
+        // 确保 Buffer 完全独立（防止潜在的引用共享问题）
+        // 创建新的 Buffer 副本，确保每个 job 都有完全独立的内存空间
+        originalBuffer = Buffer.from(downloadResult);
         const { data: albumData, error: albumError } = albumResult;
         
         if (albumError || !albumData) {
@@ -449,6 +451,7 @@ const worker = new Worker<PhotoJobData>(
             watermark_enabled: albumData.watermark_enabled,
             watermark_type: albumData.watermark_type,
             watermark_config: albumData.watermark_config,
+            color_grading: albumData.color_grading,
           });
         }
       } catch (err: any) {
@@ -473,13 +476,20 @@ const worker = new Worker<PhotoJobData>(
         position: watermarkConfigRaw.position ?? 'center',
       };
 
-      // 4. 处理图片 (Sharp)
+      // 4. 读取风格预设 ID
+      const colorGrading = album?.color_grading as { preset?: string } | null;
+      const stylePresetId = colorGrading?.preset || null;
+
+      // 5. 处理图片 (Sharp)
+      // 安全措施：再次确保 Buffer 独立（防御性编程）
+      // 虽然理论上不需要，但可以防止任何潜在的 Buffer 引用问题
+      const processingBuffer = Buffer.from(originalBuffer);
       console.time(`[${job.id}] Process`);
-      const processor = new PhotoProcessor(originalBuffer);
-      const result = await processor.process(watermarkConfig, photoRotation);
+      const processor = new PhotoProcessor(processingBuffer);
+      const result = await processor.process(watermarkConfig, photoRotation, stylePresetId);
       console.timeEnd(`[${job.id}] Process`);
 
-      // 5. 上传处理后的图片到存储
+      // 6. 上传处理后的图片到存储
       const thumbKey = `processed/thumbs/${albumId}/${photoId}.jpg`;
       const previewKey = `processed/previews/${albumId}/${photoId}.jpg`;
 
@@ -490,7 +500,7 @@ const worker = new Worker<PhotoJobData>(
       ]);
       console.timeEnd(`[${job.id}] Upload`);
 
-      // 6. 解析 EXIF DateTimeOriginal 为 ISO 格式
+      // 7. 解析 EXIF DateTimeOriginal 为 ISO 格式
       // EXIF 标准格式通常是 "YYYY:MM:DD HH:MM:SS"，需要转换为 ISO 8601
       const parseExifDateTime = (dateTimeStr: string | undefined | null): string | null => {
         if (!dateTimeStr || typeof dateTimeStr !== 'string') {
@@ -538,7 +548,7 @@ const worker = new Worker<PhotoJobData>(
           height: result.metadata.height,
           blur_data: result.blurHash,
           exif: result.exif,
-          file_size: originalBuffer.length,
+          file_size: processingBuffer.length, // 使用处理时的 Buffer 长度
           mime_type: result.metadata.format,
           // 使用解析后的拍摄时间
           captured_at: capturedAt,

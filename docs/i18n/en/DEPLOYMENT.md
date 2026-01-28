@@ -111,7 +111,7 @@ http://your-server-ip:19001
 
 #### 2. Initialize Database Schema (Supabase)
 
-⚠️ **Important**: Execute `database/full_schema.sql` **once** in Supabase Dashboard → SQL Editor. This file is for **new databases only**.
+⚠️ **Important**: Execute database migrations **once** in Supabase Dashboard → SQL Editor. See project documentation for migration scripts.
 
 #### 3. Configure Frontend Environment Variables
 
@@ -250,14 +250,13 @@ Go to project → **Settings** → **API**, copy the following information:
 
 1. Go to project → **SQL Editor**
 2. Click **New query**
-3. Copy the **entire content** of `database/full_schema.sql`
-4. Paste into SQL Editor
-5. Click **Run** to execute
-6. ✅ Done!
+3. Execute database migration scripts (see project documentation or Supabase migrations)
+4. Click **Run** to execute
+5. ✅ Done!
 
 **Or use command line**:
 ```bash
-psql $DATABASE_URL < database/full_schema.sql
+# Use Supabase CLI or other migration tools to execute database schema
 ```
 
 ### 4. Create Admin Account

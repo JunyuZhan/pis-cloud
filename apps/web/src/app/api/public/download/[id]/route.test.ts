@@ -18,38 +18,51 @@ vi.mock('@/lib/supabase/server', () => {
   }
 })
 
-const mockPresignedGetObject = vi.fn().mockResolvedValue('https://minio.example.com/presigned-url')
+// Mock fetch for Worker API calls
+const mockFetch = vi.fn()
 
-vi.mock('minio', () => {
-  // 使用类的方式定义mock
-  class MockMinioClient {
-    presignedGetObject = mockPresignedGetObject
-  }
-
-  return {
-    Client: MockMinioClient,
-  }
-})
+// Mock global fetch
+global.fetch = mockFetch
 
 
 describe('GET /api/public/download/[id]', () => {
   let mockSupabaseClient: any
   let GET: typeof import('./route').GET
+  const originalEnv = process.env
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    vi.resetModules() // 清除模块缓存，确保每次测试都重新加载route模块
+    vi.resetModules()
+    
+    // 设置必要的环境变量
+    process.env = {
+      ...originalEnv,
+      WORKER_API_URL: 'http://localhost:3001',
+      WORKER_API_KEY: 'test-api-key',
+    }
+    
+    // Mock global fetch
+    global.fetch = mockFetch
     
     const { createClient } = await import('@/lib/supabase/server')
     mockSupabaseClient = await createClient()
     
-    // 重置并设置mock返回值
-    mockPresignedGetObject.mockReset()
-    mockPresignedGetObject.mockResolvedValue('https://minio.example.com/presigned-url')
+    // 重置 fetch mock
+    mockFetch.mockReset()
+    
+    // 默认 mock Worker API 成功响应
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ url: 'https://minio.example.com/presigned-url' }),
+    })
     
     // 重新导入route模块以使用新的mock
     const routeModule = await import('./route')
     GET = routeModule.GET
+  })
+
+  afterEach(() => {
+    process.env = originalEnv
   })
 
   describe('photo validation', () => {
@@ -200,7 +213,10 @@ describe('GET /api/public/download/[id]', () => {
       })
 
       const mockDownloadUrl = 'https://minio.example.com/presigned-url'
-      mockPresignedGetObject.mockResolvedValue(mockDownloadUrl)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ url: mockDownloadUrl }),
+      })
 
       const request = createMockRequest('http://localhost:3000/api/public/download/photo-123')
       const response = await GET(request, { params: Promise.resolve({ id: 'photo-123' }) })
@@ -211,8 +227,16 @@ describe('GET /api/public/download/[id]', () => {
       expect(data.filename).toBe('photo.jpg')
       expect(data.expiresIn).toBe(300) // 5 minutes
       
-      // 验证 presignedGetObject 被调用（由于单例模式，可能不是第一次调用）
-      expect(mockPresignedGetObject).toHaveBeenCalled()
+      // 验证 Worker API 被调用
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/presign/get'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'X-API-Key': 'test-api-key',
+          }),
+        })
+      )
     })
 
     it('should return download URL with correct format', async () => {
@@ -242,7 +266,10 @@ describe('GET /api/public/download/[id]', () => {
       })
 
       const mockDownloadUrl = 'https://minio.example.com/presigned-url'
-      mockPresignedGetObject.mockResolvedValue(mockDownloadUrl)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ url: mockDownloadUrl }),
+      })
 
       const request = createMockRequest('http://localhost:3000/api/public/download/photo-123')
       const response = await GET(request, { params: Promise.resolve({ id: 'photo-123' }) })
@@ -291,14 +318,19 @@ describe('GET /api/public/download/[id]', () => {
         single: mockSingle,
       })
 
-      mockPresignedGetObject.mockRejectedValue(new Error('MinIO error'))
+      // Mock Worker API 返回错误
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Worker API error',
+      })
 
       const request = createMockRequest('http://localhost:3000/api/public/download/photo-123')
       const response = await GET(request, { params: Promise.resolve({ id: 'photo-123' }) })
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error.code).toBe('INTERNAL_ERROR')
+      expect(data.error.code).toBe('WORKER_ERROR')
     })
 
     it('should return 500 on database error', async () => {

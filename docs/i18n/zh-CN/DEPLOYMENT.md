@@ -97,14 +97,13 @@
 
 1. 进入项目 → **SQL Editor**
 2. 点击 **New query**
-3. 复制 `database/full_schema.sql` 文件的**全部内容**
-4. 粘贴到 SQL Editor
-5. 点击 **Run** 执行
-6. ✅ 完成！
+3. 执行数据库迁移脚本（请参考项目文档或 Supabase migrations）
+4. 点击 **Run** 执行
+5. ✅ 完成！
 
 **或者使用命令行**：
 ```bash
-psql $DATABASE_URL < database/full_schema.sql
+# 使用 Supabase CLI 或其他迁移工具执行数据库架构
 ```
 
 ### 4. 创建管理员账号

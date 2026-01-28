@@ -8,6 +8,7 @@
 import sharp from 'sharp';
 import { encode } from 'blurhash';
 import exifReader from 'exif-reader';
+import { STYLE_PRESETS, getPresetById, type StylePresetConfig } from './lib/style-presets.js';
 
 export interface ProcessedResult {
   metadata: sharp.Metadata;
@@ -102,7 +103,66 @@ export class PhotoProcessor {
     }
   }
 
-  async process(watermarkConfig?: WatermarkConfig, manualRotation?: number | null): Promise<ProcessedResult> {
+  /**
+   * 应用风格预设
+   * @param image Sharp 图像对象
+   * @param presetId 预设 ID（如 "japanese-fresh"）或 null（无风格）
+   * @returns 处理后的 Sharp 图像对象
+   */
+  private applyStylePreset(
+    image: sharp.Sharp,
+    presetId: string | null | undefined
+  ): sharp.Sharp {
+    // 如果未选择预设或选择"无风格"，直接返回原图
+    if (!presetId || presetId === 'none') {
+      return image;
+    }
+
+    // 获取预设配置
+    const preset = getPresetById(presetId);
+    if (!preset) {
+      console.warn(`[StylePreset] Unknown preset: ${presetId}, skipping`);
+      return image;
+    }
+
+    const config = preset.config;
+    let processedImage = image.clone();
+
+    // 应用 modulate（亮度、饱和度、色相）
+    if (config.brightness !== undefined || 
+        config.saturation !== undefined || 
+        config.hue !== undefined) {
+      processedImage = processedImage.modulate({
+        brightness: config.brightness ?? 1.0,
+        saturation: config.saturation ?? 1.0,
+        hue: config.hue ?? 0,
+      });
+    }
+
+    // 应用对比度
+    // 注意：Sharp 的 TypeScript 类型定义可能不完整，使用类型断言
+    if (config.contrast !== undefined && config.contrast !== 0) {
+      processedImage = (processedImage as any).contrast(config.contrast);
+    }
+
+    // 应用伽马校正
+    if (config.gamma !== undefined && config.gamma !== 1.0) {
+      processedImage = processedImage.gamma(config.gamma);
+    }
+
+    // 应用色调叠加（用于色温模拟）
+    if (config.tint) {
+      processedImage = processedImage.tint(config.tint);
+    }
+
+    return processedImage;
+  }
+
+  async process(
+    watermarkConfig?: WatermarkConfig, 
+    manualRotation?: number | null,
+    stylePresetId?: string | null
+  ): Promise<ProcessedResult> {
     // 先获取原始 metadata（用于提取 EXIF）
     const originalMetadata = await this.image.metadata();
     
@@ -127,6 +187,10 @@ export class PhotoProcessor {
       // 自动旋转：只根据 EXIF orientation
       rotatedImage = this.image.clone().rotate();
     }
+    
+    // 应用风格预设（在旋转之后，水印之前）
+    rotatedImage = this.applyStylePreset(rotatedImage, stylePresetId);
+    
     const metadata = await rotatedImage.metadata();
 
     // 2. 并行生成：BlurHash + 缩略图（优化性能）

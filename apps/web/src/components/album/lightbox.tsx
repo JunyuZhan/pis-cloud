@@ -356,7 +356,7 @@ export function PhotoLightbox({
         key="rotate-left"
         type="button"
         onClick={() => handleRotate(-90)}
-        className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+        className="yarl__button flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors min-h-[44px] active:scale-[0.98] touch-manipulation"
         aria-label={t('rotateLeft')}
         title={t('rotateLeftTitle')}
       >
@@ -367,7 +367,7 @@ export function PhotoLightbox({
         key="rotate-right"
         type="button"
         onClick={() => handleRotate(90)}
-        className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+        className="yarl__button flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors min-h-[44px] active:scale-[0.98] touch-manipulation"
         aria-label={t('rotateRight')}
         title={t('rotateRightTitle')}
       >
@@ -382,7 +382,7 @@ export function PhotoLightbox({
           key="download"
           type="button"
           onClick={handleDownload}
-          className="yarl__button flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+          className="yarl__button flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors min-h-[44px] active:scale-[0.98] touch-manipulation"
           aria-label={t('downloadOriginal')}
           title={t('downloadOriginalTitle')}
         >

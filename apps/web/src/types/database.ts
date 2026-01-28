@@ -39,6 +39,8 @@ export interface Database {
           watermark_enabled: boolean
           watermark_type: 'text' | 'logo' | null
           watermark_config: Json
+          // 调色配置
+          color_grading: Json | null
           // 分享配置
           share_title: string | null
           share_description: string | null
@@ -77,6 +79,7 @@ export interface Database {
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
+          color_grading?: Json | null
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null
@@ -109,6 +112,7 @@ export interface Database {
           watermark_enabled?: boolean
           watermark_type?: 'text' | 'logo' | null
           watermark_config?: Json
+          color_grading?: Json | null
           share_title?: string | null
           share_description?: string | null
           share_image_url?: string | null

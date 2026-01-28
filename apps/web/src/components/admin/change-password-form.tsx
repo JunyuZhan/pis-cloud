@@ -97,7 +97,8 @@ export function ChangePasswordForm() {
           <button
             type="button"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1.5 -m-1.5 rounded active:scale-[0.95] touch-manipulation"
+            aria-label={showCurrentPassword ? '隐藏密码' : '显示密码'}
           >
             {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -119,7 +120,8 @@ export function ChangePasswordForm() {
           <button
             type="button"
             onClick={() => setShowNewPassword(!showNewPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1.5 -m-1.5 rounded active:scale-[0.95] touch-manipulation"
+            aria-label={showNewPassword ? '隐藏密码' : '显示密码'}
           >
             {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -141,7 +143,8 @@ export function ChangePasswordForm() {
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1.5 -m-1.5 rounded active:scale-[0.95] touch-manipulation"
+            aria-label={showConfirmPassword ? '隐藏密码' : '显示密码'}
           >
             {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>

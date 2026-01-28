@@ -118,8 +118,7 @@ The setup wizard will automatically:
 1. Create a [Supabase](https://supabase.com) project
 2. **Execute database schema**:
    - Go to **SQL Editor** in Supabase Dashboard
-   - Copy and paste the entire content of `database/full_schema.sql`
-   - Click **Run** to execute
+   - Execute the database migrations (see deployment documentation)
    - ✅ Done!
 3. **Create admin account**:
    - Go to **Authentication** → **Users** in Supabase Dashboard

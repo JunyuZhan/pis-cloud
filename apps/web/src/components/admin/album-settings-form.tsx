@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Save, Eye, EyeOff, Lock, Calendar, Download, Radio, Share2 } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { MultiWatermarkManager, type WatermarkItem } from './multi-watermark-manager'
+import { StylePresetSelector } from './style-preset-selector'
 import { showSuccess, handleApiError } from '@/lib/toast'
 
 type Album = Database['public']['Tables']['albums']['Row']
@@ -91,6 +92,10 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
   }
 
   const initialWatermarkConfig = parseWatermarkConfig(album.watermark_config, album.watermark_enabled ?? false)
+  
+  // 解析调色配置
+  const initialColorGrading = album.color_grading as { preset?: string } | null
+  const initialStylePresetId = initialColorGrading?.preset || null
 
   const [formData, setFormData] = useState({
     title: album.title,
@@ -107,7 +112,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     sort_rule: album.sort_rule || 'capture_desc',
     // 功能开关
     allow_download: album.allow_download ?? false,
-    allow_batch_download: album.allow_batch_download ?? true,
+    allow_batch_download: album.allow_batch_download ?? false,
     show_exif: album.show_exif ?? true,
     allow_share: album.allow_share ?? true,
     // 水印设置
@@ -119,6 +124,8 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     share_image_url: album.share_image_url || '',
     // 海报配置
     poster_image_url: album.poster_image_url || '',
+    // 调色配置
+    color_grading: initialStylePresetId,
   })
 
   // 获取默认水印配置（单个水印对象）
@@ -144,7 +151,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
     }
   }
 
-  const handleChange = (field: string, value: string | boolean | number | Record<string, unknown>) => {
+  const handleChange = (field: string, value: string | boolean | number | Record<string, unknown> | null) => {
     setFormData((prev) => {
       // 如果启用水印开关，且当前没有水印配置或水印文字为空，自动添加/更新默认水印
       if (field === 'watermark_enabled' && value === true) {
@@ -227,6 +234,11 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         }
       }
       
+      // 准备调色配置
+      const colorGrading = formData.color_grading 
+        ? { preset: formData.color_grading } 
+        : null
+      
       const submitData = {
         ...formData,
         watermark_enabled: watermarkEnabled,
@@ -240,6 +252,7 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         // 海报配置：空字符串转换为 null
         poster_image_url: formData.poster_image_url.trim() || null,
         watermark_config: watermarkConfig,
+        color_grading: colorGrading,  // 新增：调色配置
       }
 
       const response = await fetch(`/api/admin/albums/${album.id}`, {
@@ -256,8 +269,42 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
       }
 
       const result = await response.json()
+      
+      // 如果相册已有照片，询问是否重新处理
+      const colorGradingChanged = JSON.stringify(initialColorGrading) !== JSON.stringify(colorGrading)
+      if (album.photo_count > 0 && colorGradingChanged) {
+        const shouldReprocess = window.confirm(
+          `相册中有 ${album.photo_count} 张照片，是否重新处理以应用新的调色配置？\n\n` +
+          `选择"确定"：所有照片将应用新的调色配置（后台处理，约 1-3 分钟）\n` +
+          `选择"取消"：仅对新上传的照片生效`
+        )
+        
+        if (shouldReprocess) {
+          // 触发重新处理任务
+          try {
+            const reprocessRes = await fetch(`/api/admin/albums/${album.id}/reprocess`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apply_color_grading: true })
+            })
+            
+            if (reprocessRes.ok) {
+              showSuccess('调色配置已保存，照片正在后台重新处理...')
+            } else {
+              showSuccess('调色配置已保存，但重新处理失败，请稍后手动重新处理')
+            }
+          } catch (error) {
+            console.error('Reprocess error:', error)
+            showSuccess('调色配置已保存，但重新处理失败，请稍后手动重新处理')
+          }
+        } else {
+          showSuccess('调色配置已保存，将应用于新上传的照片')
+        }
+      } else {
+        showSuccess(result.message || '设置已保存')
+      }
+      
       router.refresh()
-      showSuccess(result.message || '设置已保存')
     } catch (error) {
       console.error('Save error:', error)
       handleApiError(error, '保存失败，请重试')
@@ -572,6 +619,29 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
               watermarks={formData.watermark_config.watermarks || []}
               onChange={handleWatermarksChange}
             />
+          </div>
+        )}
+      </section>
+
+      {/* 风格设置 */}
+      <section className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-medium">风格设置</h2>
+          <p className="text-sm text-text-muted mt-1">
+            为相册选择调色风格，所有照片将应用统一的视觉风格
+          </p>
+        </div>
+        
+        <StylePresetSelector
+          value={formData.color_grading as string | null}
+          onChange={(presetId) => handleChange('color_grading', presetId)}
+        />
+        
+        {album.photo_count > 0 && (
+          <div className="p-3 bg-surface-elevated rounded-lg text-sm text-text-muted">
+            <p>
+              💡 相册中有 {album.photo_count} 张照片。切换风格后，系统会询问是否重新处理所有照片。
+            </p>
           </div>
         )}
       </section>
