@@ -25,6 +25,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClientFromRequest } from '@/lib/supabase/server'
 
+// 配置路由超时时间（Vercel 默认 10 秒，分片上传需要更长时间）
+// 分片上传可能需要 5 分钟，设置为 300 秒
+export const maxDuration = 300
+
 // Worker 服务 URL (服务端环境变量，不暴露给客户端)
 // 支持多个变量名，确保兼容性
 // 使用函数在运行时获取，而不是模块加载时，以便测试可以修改环境变量
