@@ -188,6 +188,9 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
     ascending = true
   } else if (currentSort === 'upload_desc') {
     orderBy = 'created_at'
+  } else if (currentSort === 'manual') {
+    orderBy = 'sort_order'
+    ascending = true
   }
 
   // 获取分组列表（如果相册有分组）

@@ -31,7 +31,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
-    const sort = searchParams.get('sort') || 'capture_desc'
     const groupId = searchParams.get('group')
 
     const supabase = await createClient()
@@ -71,6 +70,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 如果相册是私有的且设置了密码，需要先验证密码才能访问照片
 
     const album = albumData as { id: string; sort_rule: string | null }
+    
+    // 确定排序规则：优先使用URL参数，否则使用相册的sort_rule，最后使用默认值
+    const sort = searchParams.get('sort') || album.sort_rule || 'capture_desc'
 
     // 如果指定了分组，先获取分组中的照片ID
     let photoIds: string[] | null = null
