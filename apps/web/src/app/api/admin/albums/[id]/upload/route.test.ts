@@ -822,7 +822,7 @@ describe('POST /api/admin/albums/[id]/upload', () => {
       expect(data.originalKey).toContain('.heic') // Should be lowercase
     })
 
-    it('should handle filename without extension', async () => {
+    it('should reject filename without extension', async () => {
       const request = createMockRequest('http://localhost:3000/api/admin/albums/album-123/upload', {
         method: 'POST',
         body: {
@@ -834,11 +834,10 @@ describe('POST /api/admin/albums/[id]/upload', () => {
       const response = await POST(request, { params: Promise.resolve({ id: 'album-123' }) })
       const data = await response.json()
 
-      expect(response.status).toBe(200)
-      // When no extension, filename.split('.').pop() returns the whole filename
-      // So it becomes 'test' instead of 'jpg'
-      expect(data.originalKey).toContain('test-photo-id')
-      expect(data.originalKey).toContain('raw/album-123')
+      // 现在要求必须有文件扩展名（安全考虑）
+      expect(response.status).toBe(400)
+      expect(data.error.code).toBe('INVALID_FILE_TYPE')
+      expect(data.error.message).toContain('不支持的文件扩展名')
     })
 
     it('should handle IP extraction from x-real-ip header', async () => {

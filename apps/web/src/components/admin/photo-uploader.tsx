@@ -186,7 +186,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
   const addFiles = useCallback(async (newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles)
-    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp', 'image/gif', 'image/tiff']
     const invalidFiles: string[] = []
     
     const validFiles = fileArray.filter((file) => {
@@ -207,7 +207,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       const invalidCount = invalidFiles.length
       const fileList = invalidFiles.slice(0, 3).join('、')
       const moreText = invalidCount > 3 ? `等 ${invalidCount} 个文件` : ''
-      alert(`不支持的文件类型：${fileList}${moreText}\n\n仅支持图片格式：JPG、PNG、HEIC、WebP`)
+      alert(`不支持的文件类型：${fileList}${moreText}\n\n仅支持图片格式：JPG、PNG、HEIC、WebP、GIF、TIFF`)
     }
 
     // 检查重复文件
@@ -1389,7 +1389,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           type="file"
           id="file-input"
           multiple
-          accept="image/jpeg,image/png,image/heic,image/webp,.jpg,.jpeg,.png,.heic,.webp"
+          accept="image/jpeg,image/png,image/heic,image/webp,image/gif,image/tiff,.jpg,.jpeg,.png,.heic,.webp,.gif,.tiff,.tif"
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) {
               addFiles(e.target.files)

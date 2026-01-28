@@ -490,6 +490,43 @@ const worker = new Worker<PhotoJobData>(
       ]);
       console.timeEnd(`[${job.id}] Upload`);
 
+      // 6. 解析 EXIF DateTimeOriginal 为 ISO 格式
+      // EXIF 标准格式通常是 "YYYY:MM:DD HH:MM:SS"，需要转换为 ISO 8601
+      const parseExifDateTime = (dateTimeStr: string | undefined | null): string | null => {
+        if (!dateTimeStr || typeof dateTimeStr !== 'string') {
+          return null;
+        }
+        
+        try {
+          // 如果已经是 ISO 格式，直接返回
+          if (dateTimeStr.includes('T') || dateTimeStr.includes('Z')) {
+            const date = new Date(dateTimeStr);
+            return isNaN(date.getTime()) ? null : date.toISOString();
+          }
+          
+          // EXIF 格式: "YYYY:MM:DD HH:MM:SS" 或 "YYYY:MM:DD HH:MM:SS.SSS"
+          // 替换冒号为连字符，空格为 T，添加时区
+          const exifPattern = /^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})(\.\d+)?$/;
+          const match = dateTimeStr.match(exifPattern);
+          
+          if (match) {
+            const [, year, month, day, hour, minute, second, millisecond] = match;
+            const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}${millisecond || ''}Z`;
+            const date = new Date(isoString);
+            return isNaN(date.getTime()) ? null : date.toISOString();
+          }
+          
+          // 尝试直接解析
+          const date = new Date(dateTimeStr);
+          return isNaN(date.getTime()) ? null : date.toISOString();
+        } catch {
+          return null;
+        }
+      };
+
+      const exifDateTime = result.exif?.exif?.DateTimeOriginal;
+      const capturedAt = parseExifDateTime(exifDateTime) || new Date().toISOString();
+
       // 7. 更新数据库
       const { error } = await supabase
         .from('photos')
@@ -503,8 +540,8 @@ const worker = new Worker<PhotoJobData>(
           exif: result.exif,
           file_size: originalBuffer.length,
           mime_type: result.metadata.format,
-          // 尝试从 EXIF 获取拍摄时间，否则用当前时间
-          captured_at: result.exif?.exif?.DateTimeOriginal || new Date().toISOString(),
+          // 使用解析后的拍摄时间
+          captured_at: capturedAt,
           // 更新时间戳（用于前端缓存破坏）
           updated_at: new Date().toISOString(),
         })
@@ -1505,7 +1542,7 @@ const server = http.createServer(async (req, res) => {
         const objects = await listObjects(prefix);
         
         // 2. 过滤出图片文件
-        const imageExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp'];
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp', '.gif', '.tiff', '.tif'];
         const imageObjects = objects.filter(obj => {
           const keyLower = obj.key.toLowerCase();
           const lastDotIndex = keyLower.lastIndexOf('.');

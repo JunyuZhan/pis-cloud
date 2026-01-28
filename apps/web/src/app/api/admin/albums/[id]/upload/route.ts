@@ -42,7 +42,7 @@ interface RouteParams {
  * @security
  * - 需要用户认证（Supabase Auth）
  * - 速率限制：每个用户每分钟最多 20 次请求
- * - 文件类型限制：仅支持 image/jpeg, image/png, image/heic, image/webp
+ * - 文件类型限制：仅支持 image/jpeg, image/png, image/heic, image/webp, image/gif, image/tiff
  * - 文件大小限制：最大 100MB
  * 
  * @example
@@ -180,11 +180,47 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 验证文件类型
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
+    // 验证文件类型（双重验证：MIME 类型 + 文件扩展名）
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp', 'image/gif', 'image/tiff']
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.heic', '.webp', '.gif', '.tiff', '.tif']
+    
+    // 1. 验证 MIME 类型
     if (!allowedTypes.includes(contentType)) {
       return NextResponse.json(
         { error: { code: 'INVALID_FILE_TYPE', message: '不支持的文件格式' } },
+        { 
+          status: 400,
+          headers: response.headers,
+        }
+      )
+    }
+    
+    // 2. 验证文件扩展名（防止伪造 MIME 类型）
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
+    const fileExtension = ext ? `.${ext}` : ''
+    if (!allowedExtensions.includes(fileExtension)) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_FILE_TYPE', message: '不支持的文件扩展名' } },
+        { 
+          status: 400,
+          headers: response.headers,
+        }
+      )
+    }
+    
+    // 3. 验证 MIME 类型与扩展名是否匹配（防止类型伪造）
+    const mimeToExtMap: Record<string, string[]> = {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/heic': ['.heic'],
+      'image/webp': ['.webp'],
+      'image/gif': ['.gif'],
+      'image/tiff': ['.tiff', '.tif'],
+    }
+    const validExtensions = mimeToExtMap[contentType] || []
+    if (!validExtensions.includes(fileExtension)) {
+      return NextResponse.json(
+        { error: { code: 'INVALID_FILE_TYPE', message: '文件类型与扩展名不匹配' } },
         { 
           status: 400,
           headers: response.headers,
@@ -205,7 +241,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 生成照片 ID 和存储路径
     photoId = uuidv4()
-    const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
     const originalKey = `raw/${albumId}/${photoId}.${ext}`
 
     // 创建照片记录 (状态为 pending)
