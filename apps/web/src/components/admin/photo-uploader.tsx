@@ -484,6 +484,30 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                     }),
                   })
 
+                  // 如果 presign-part 端点不存在（404），回退到通过 Worker API 上传
+                  if (presignRes.status === 404) {
+                    console.warn(`[Upload] presign-part endpoint not available (404), falling back to Worker API upload`)
+                    // 回退到旧方式：通过 Worker API 上传分片
+                    const partRes = await fetch(
+                      `/api/worker/multipart/upload?key=${encodeURIComponent(originalKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${j + 1}`,
+                      {
+                        method: 'PUT',
+                        body: chunk,
+                        headers: {
+                          'Content-Type': 'application/octet-stream',
+                        },
+                      }
+                    )
+
+                    if (!partRes.ok) {
+                      const errorText = await partRes.text()
+                      throw new Error(`上传分片 ${j + 1} 失败: HTTP ${partRes.status} ${errorText}`)
+                    }
+
+                    const partData = await partRes.json()
+                    return { partNumber: j + 1, etag: partData.etag }
+                  }
+
                   if (!presignRes.ok) {
                     const errorText = await presignRes.text()
                     throw new Error(`获取分片 ${j + 1} 上传地址失败: HTTP ${presignRes.status} ${errorText}`)
