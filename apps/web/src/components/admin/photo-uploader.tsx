@@ -528,25 +528,61 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                   console.log(`[Upload] Uploading part ${j + 1}/${totalChunks} (${chunk.size} bytes) to MinIO`)
 
                   // 2. 直接上传分片到 MinIO（绕过 Vercel）
-                  const partRes = await fetch(presignedUrl, {
-                    method: 'PUT',
-                    body: chunk,
-                    headers: {
-                      'Content-Type': 'application/octet-stream',
-                    },
-                  })
-                  
-                  console.log(`[Upload] Part ${j + 1}/${totalChunks} uploaded, status: ${partRes.status}`)
+                  // 如果直接上传失败（网络错误、连接关闭等），回退到 Worker API 上传
+                  let etag = ''
+                  let useWorkerFallback = false
 
-                  if (!partRes.ok) {
-                    const errorText = await partRes.text()
-                    throw new Error(`上传分片 ${j + 1} 失败: HTTP ${partRes.status} ${errorText}`)
+                  try {
+                    const partRes = await fetch(presignedUrl, {
+                      method: 'PUT',
+                      body: chunk,
+                      headers: {
+                        'Content-Type': 'application/octet-stream',
+                      },
+                    })
+
+                    console.log(`[Upload] Part ${j + 1}/${totalChunks} uploaded, status: ${partRes.status}`)
+
+                    if (!partRes.ok) {
+                      const errorText = await partRes.text()
+                      console.warn(`[Upload] Direct upload failed: HTTP ${partRes.status}, falling back to Worker API`)
+                      useWorkerFallback = true
+                    } else {
+                      // 从响应头获取 ETag（S3/MinIO 标准）
+                      etag = partRes.headers.get('ETag')?.replace(/"/g, '') || ''
+                      if (!etag) {
+                        console.warn(`[Upload] No ETag received, falling back to Worker API`)
+                        useWorkerFallback = true
+                      }
+                    }
+                  } catch (networkError) {
+                    // 网络错误：ERR_CONNECTION_CLOSED, TypeError 等
+                    console.warn(`[Upload] Network error when uploading to MinIO:`, networkError instanceof Error ? networkError.message : networkError)
+                    console.log(`[Upload] Falling back to Worker API upload`)
+                    useWorkerFallback = true
                   }
 
-                  // 从响应头获取 ETag（S3/MinIO 标准）
-                  const etag = partRes.headers.get('ETag')?.replace(/"/g, '') || ''
-                  if (!etag) {
-                    throw new Error(`上传分片 ${j + 1} 失败: 未收到 ETag`)
+                  // 回退到 Worker API 上传
+                  if (useWorkerFallback) {
+                    console.log(`[Upload] Uploading part ${j + 1}/${totalChunks} via Worker API`)
+                    const partRes = await fetch(
+                      `/api/worker/multipart/upload?key=${encodeURIComponent(originalKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${j + 1}`,
+                      {
+                        method: 'PUT',
+                        body: chunk,
+                        headers: {
+                          'Content-Type': 'application/octet-stream',
+                        },
+                      }
+                    )
+
+                    if (!partRes.ok) {
+                      const errorText = await partRes.text()
+                      throw new Error(`上传分片 ${j + 1} 失败: HTTP ${partRes.status} ${errorText}`)
+                    }
+
+                    const partData = await partRes.json()
+                    etag = partData.etag
                   }
 
                   return { partNumber: j + 1, etag }
