@@ -59,7 +59,7 @@ import {
 } from './lib/storage/index.js';
 import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
-import { getAlbumCache } from './lib/album-cache.js';
+import { getAlbumCache, destroyAlbumCache } from './lib/album-cache.js';
 import { purgePhotoCache } from './lib/cloudflare-purge.js';
 
 // 检查必要的环境变量 (支持两种变量名)
@@ -2163,6 +2163,9 @@ async function gracefulShutdown(signal: string) {
   server.close(() => {
     console.log('✅ HTTP server closed');
   });
+  
+  // 清理缓存定时器
+  destroyAlbumCache();
   
   // 等待正在处理的任务完成（设置超时，避免无限等待）
   const shutdownPromise = Promise.all([

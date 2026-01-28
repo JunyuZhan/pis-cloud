@@ -196,6 +196,25 @@ export function getRateLimitStats() {
 }
 
 // 每 5 分钟清理一次过期记录（定期清理，双重保障）
+// 注意：在 Next.js 中，这个定时器会在服务器进程生命周期内运行
+// 进程重启时会自动清理，无需手动清理
+let cleanupInterval: NodeJS.Timeout | null = null;
 if (typeof setInterval !== 'undefined') {
-  setInterval(cleanupExpiredRecords, 5 * 60 * 1000)
+  cleanupInterval = setInterval(cleanupExpiredRecords, 5 * 60 * 1000);
+  
+  // 在进程退出时清理（可选，进程退出时会自动清理）
+  if (typeof process !== 'undefined' && process.on) {
+    process.on('SIGTERM', () => {
+      if (cleanupInterval) {
+        clearInterval(cleanupInterval);
+        cleanupInterval = null;
+      }
+    });
+    process.on('SIGINT', () => {
+      if (cleanupInterval) {
+        clearInterval(cleanupInterval);
+        cleanupInterval = null;
+      }
+    });
+  }
 }

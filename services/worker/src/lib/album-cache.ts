@@ -14,14 +14,26 @@ interface CachedAlbum {
 class AlbumCache {
   private cache: Map<string, CachedAlbum> = new Map();
   private ttl: number;
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(ttlMs: number = 300000) {
     this.ttl = ttlMs;
     
     // 定期清理过期缓存（每5分钟）
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 5 * 60 * 1000);
+  }
+
+  /**
+   * 清理定时器（用于优雅退出）
+   */
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.clear();
   }
 
   get(albumId: string): CachedAlbum | null {
@@ -82,5 +94,15 @@ export function getAlbumCache(): AlbumCache {
 export function clearAlbumCache(): void {
   if (albumCacheInstance) {
     albumCacheInstance.clear();
+  }
+}
+
+/**
+ * 销毁缓存实例（用于优雅退出）
+ */
+export function destroyAlbumCache(): void {
+  if (albumCacheInstance) {
+    albumCacheInstance.destroy();
+    albumCacheInstance = null;
   }
 }
