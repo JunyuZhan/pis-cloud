@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export type SortRule = 'capture_desc' | 'capture_asc' | 'upload_desc'
+export type SortRule = 'capture_desc' | 'capture_asc' | 'upload_desc' | 'manual'
 
 interface SortToggleProps {
   currentSort: SortRule

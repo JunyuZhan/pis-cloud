@@ -178,7 +178,7 @@ export default async function AlbumPage({ params, searchParams }: AlbumPageProps
   // 如果相册设置了密码，需要在客户端验证后才能显示照片
   
   // 确定排序和布局规则
-  const currentSort = (sort as SortRule) || album.sort_rule || 'capture_desc'
+  const currentSort: SortRule = (sort as SortRule) || (album.sort_rule as SortRule) || 'capture_desc'
   const currentLayout = (layout as LayoutMode) || album.layout || 'masonry'
   
   let orderBy = 'captured_at'
