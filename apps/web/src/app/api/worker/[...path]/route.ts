@@ -67,7 +67,10 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params
-    console.log(`[Worker Proxy POST] Resolved params:`, resolvedParams)
+    console.log(`[Worker Proxy POST] Request URL: ${request.url}`)
+    console.log(`[Worker Proxy POST] Resolved params:`, JSON.stringify(resolvedParams))
+    console.log(`[Worker Proxy POST] Path segments:`, JSON.stringify(resolvedParams.path))
+    
     const response = await proxyRequest(request, resolvedParams)
     
     // 确保所有响应都包含缓存控制头，防止 Cloudflare 缓存
@@ -75,6 +78,8 @@ export async function POST(
     headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
     headers.set('Pragma', 'no-cache')
     headers.set('Expires', '0')
+    
+    console.log(`[Worker Proxy POST] Response status: ${response.status}`)
     
     return new NextResponse(response.body, {
       status: response.status,
@@ -84,6 +89,7 @@ export async function POST(
   } catch (error) {
     // 处理 params 解析错误
     console.error(`[Worker Proxy POST] Error:`, error)
+    console.error(`[Worker Proxy POST] Request URL: ${request.url}`)
     
     // 设置缓存控制头，防止 Cloudflare 缓存错误响应
     const errorHeaders = new Headers()
