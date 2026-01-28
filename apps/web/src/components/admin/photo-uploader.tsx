@@ -555,7 +555,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         }
 
         const batchResults = await Promise.all(batch)
-        parts.push(...batchResults)
+        // 过滤掉失败的结果（如果有的话）
+        const successfulParts = batchResults.filter(p => p && p.partNumber && p.etag)
+        parts.push(...successfulParts)
 
         // 更新进度和速度
         const progress = Math.round(((i + batch.length) / totalChunks) * 100)
@@ -580,19 +582,35 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         )
       }
 
+      // 验证所有分片都已上传
+      if (parts.length !== totalChunks) {
+        console.error(`[Upload] Parts count mismatch: expected ${totalChunks}, got ${parts.length}`)
+        throw new Error(`上传不完整：期望 ${totalChunks} 个分片，实际 ${parts.length} 个`)
+      }
+
       // 4. 完成分片上传
+      // 去重并排序 parts（防止重复的 partNumber）
+      const uniqueParts = Array.from(
+        new Map(parts.map(p => [p.partNumber, p])).values()
+      ).sort((a, b) => a.partNumber - b.partNumber)
+
+      console.log(`[Upload] Completing multipart upload: ${uniqueParts.length} parts, total chunks: ${totalChunks}`)
+      
       const completeRes = await fetch('/api/worker/multipart/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: originalKey,
           uploadId,
-          parts: parts.sort((a, b) => a.partNumber - b.partNumber),
+          parts: uniqueParts,
         }),
       })
 
       if (!completeRes.ok) {
-        throw new Error('完成分片上传失败')
+        const errorData = await completeRes.json().catch(() => ({}))
+        const errorMessage = errorData.error?.message || errorData.error || '完成分片上传失败'
+        console.error('[Upload] Complete multipart upload failed:', errorMessage, errorData)
+        throw new Error(`完成分片上传失败: ${errorMessage}`)
       }
 
       // 5. 触发处理
