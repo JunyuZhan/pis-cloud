@@ -452,6 +452,9 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
       // 3. 并行上传分片（每批 2 个）
       const batchSize = 2
+      let lastUpdateTime = Date.now()
+      let lastUploadedBytes = 0
+      
       for (let i = 0; i < totalChunks; i += batchSize) {
         const batch = []
         for (let j = i; j < Math.min(i + batchSize, totalChunks); j++) {
@@ -554,11 +557,25 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         const batchResults = await Promise.all(batch)
         parts.push(...batchResults)
 
-        // 更新进度
+        // 更新进度和速度
         const progress = Math.round(((i + batch.length) / totalChunks) * 100)
+        const now = Date.now()
+        const timeDiff = (now - lastUpdateTime) / 1000 // 秒
+        const uploadedBytes = (i + batch.length) * CHUNK_SIZE
+        const bytesDiff = uploadedBytes - lastUploadedBytes
+        
+        let speed = 0
+        if (timeDiff >= 0.2 && bytesDiff > 0) {
+          speed = bytesDiff / timeDiff
+          lastUpdateTime = now
+          lastUploadedBytes = uploadedBytes
+        }
+        
         setFiles((prev) =>
           prev.map((f) =>
-            f.id === uploadFile.id ? { ...f, progress } : f
+            f.id === uploadFile.id 
+              ? { ...f, progress, ...(speed > 0 ? { speed } : {}) } 
+              : f
           )
         )
       }
