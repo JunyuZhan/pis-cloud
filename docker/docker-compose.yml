@@ -29,7 +29,7 @@ networks:
 services:
   # MinIO 对象存储 (独立端口部署)
   minio:
-    image: minio/minio:RELEASE.2024-07-15T19-02-30Z
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: pis-minio
     # 使用根目录的 .env 文件（统一配置）
     env_file:
