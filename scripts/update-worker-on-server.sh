@@ -94,6 +94,23 @@ if ! command -v docker &> /dev/null; then
   exit 1
 fi
 
+# 检测 docker-compose 命令（支持新版本 docker compose 和旧版本 docker-compose）
+DOCKER_COMPOSE_CMD=""
+if docker compose version &> /dev/null 2>&1; then
+  # 新版本 Docker（docker compose 作为插件）
+  DOCKER_COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
+  # 旧版本 Docker（独立的 docker-compose 命令）
+  DOCKER_COMPOSE_CMD="docker-compose"
+else
+  echo "❌ Docker Compose 未安装"
+  echo "   请安装 Docker Compose 或更新 Docker 到最新版本"
+  exit 1
+fi
+
+echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
+echo ""
+
 # 5. 重新构建 Worker 镜像
 echo "🔨 重新构建 Worker 镜像..."
 cd "$PROJECT_DIR"
@@ -102,23 +119,23 @@ cd "$PROJECT_DIR"
 if [ -f "docker/docker-compose.yml" ]; then
   echo "   使用 docker-compose 构建..."
   cd docker
-  docker-compose build worker
+  $DOCKER_COMPOSE_CMD build worker
   echo "✅ Worker 镜像构建完成"
   echo ""
   
   echo "🔄 重启 Worker 服务..."
-  docker-compose restart worker
+  $DOCKER_COMPOSE_CMD restart worker
   echo "✅ Worker 服务已重启"
   cd ..
 elif [ -f "docker-compose.yml" ]; then
   # 兼容根目录的 docker-compose.yml
   echo "   使用 docker-compose 构建（根目录）..."
-  docker-compose build worker
+  $DOCKER_COMPOSE_CMD build worker
   echo "✅ Worker 镜像构建完成"
   echo ""
   
   echo "🔄 重启 Worker 服务..."
-  docker-compose restart worker
+  $DOCKER_COMPOSE_CMD restart worker
   echo "✅ Worker 服务已重启"
 else
   # 使用 Dockerfile 直接构建
@@ -136,7 +153,7 @@ else
       # 如果使用 docker-compose，应该通过 docker-compose 启动
       if [ -f "docker/docker-compose.yml" ]; then
         cd docker
-        docker-compose up -d worker
+        $DOCKER_COMPOSE_CMD up -d worker
         cd ..
       else
         echo "⚠️  未找到容器，请使用 docker-compose 启动"
@@ -170,9 +187,9 @@ echo ""
 echo "   3. 检查 Worker 服务状态:"
 if [ -f "docker/docker-compose.yml" ] || [ -f "docker-compose.yml" ]; then
   if [ -f "docker/docker-compose.yml" ]; then
-    echo "      cd docker && docker-compose ps worker"
+    echo "      cd docker && $DOCKER_COMPOSE_CMD ps worker"
   else
-    echo "      docker-compose ps worker"
+    echo "      $DOCKER_COMPOSE_CMD ps worker"
   fi
 else
   echo "      docker ps --filter 'name=pis-worker'"
