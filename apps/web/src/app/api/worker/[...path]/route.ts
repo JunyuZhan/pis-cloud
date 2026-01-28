@@ -214,13 +214,66 @@ async function proxyRequest(
         fetchOptions.body = body
       } else {
         // 二进制数据 (如分片上传)
-        const body = await request.arrayBuffer()
-        fetchOptions.body = body
-        headers['Content-Type'] = contentType || 'application/octet-stream'
+        // 使用流式传输，避免大文件导致内存问题
+        // 注意：Next.js 的 request.body 是一个 ReadableStream
+        try {
+          const body = await request.arrayBuffer()
+          fetchOptions.body = body
+          headers['Content-Type'] = contentType || 'application/octet-stream'
+          
+          // 添加 Content-Length（如果存在）
+          const contentLength = request.headers.get('Content-Length')
+          if (contentLength) {
+            headers['Content-Length'] = contentLength
+          }
+        } catch (bodyError) {
+          // 如果读取 body 失败（如连接关闭），返回错误
+          console.error('[Worker Proxy] Failed to read request body:', bodyError)
+          return NextResponse.json(
+            { 
+              error: { 
+                code: 'BODY_READ_ERROR',
+                message: '读取请求体失败',
+                details: bodyError instanceof Error ? bodyError.message : '连接可能已关闭'
+              } 
+            },
+            { status: 400 }
+          )
+        }
       }
     }
     
-    const workerResponse = await fetch(targetUrl, fetchOptions)
+    // 设置超时（分片上传可能需要更长时间）
+    const controller = new AbortController()
+    // 检查是否是分片上传请求：/api/worker/multipart/upload 或 /api/worker/api/multipart/upload
+    const isMultipartUpload = (pathSegments.includes('multipart') && pathSegments.includes('upload')) ||
+                              targetPath.includes('/multipart/upload')
+    const timeout = isMultipartUpload ? 300000 : 30000 // 分片上传：5分钟，其他：30秒
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    
+    let workerResponse: Response
+    try {
+      workerResponse = await fetch(targetUrl, {
+        ...fetchOptions,
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { 
+            error: { 
+              code: 'TIMEOUT',
+              message: '请求超时',
+              details: isMultipartUpload ? '分片上传超时（超过5分钟）' : '请求超时（超过30秒）'
+            } 
+          },
+          { status: 408 }
+        )
+      }
+      throw fetchError
+    }
     
     // 读取响应
     const responseContentType = workerResponse.headers.get('Content-Type') || ''

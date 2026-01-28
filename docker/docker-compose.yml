@@ -95,18 +95,20 @@ services:
       dockerfile: docker/worker.Dockerfile
     container_name: pis-worker
     # 使用根目录的 .env 文件（统一配置）
+    # 注意：env_file 会自动加载所有变量，不需要在 environment 中重复声明
+    # 但为了确保某些关键变量存在，我们仍然显式声明
     env_file:
       - ../.env
     environment:
-      # Supabase Cloud
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Supabase Cloud（从 .env 文件读取）
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       # MinIO (Docker 内部网络，使用服务名)
       - MINIO_ENDPOINT_HOST=${MINIO_ENDPOINT_HOST:-minio}
       - MINIO_ENDPOINT_PORT=${MINIO_ENDPOINT_PORT:-9000}
       - MINIO_USE_SSL=false
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-albert}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-Zjy-1314}
       - MINIO_BUCKET=${MINIO_BUCKET:-pis-photos}
       # Redis (Docker 内部网络，使用服务名)
       - REDIS_HOST=${REDIS_HOST:-redis}

@@ -146,7 +146,15 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
     // 使用 setTimeout 确保在下一个事件循环中处理，避免状态更新冲突
     setTimeout(() => {
       setFiles(currentFiles => {
+        // 计算当前正在上传的文件数量（确保状态准确）
         const uploadingCount = currentFiles.filter(f => f.status === 'uploading').length
+        
+        // 确保不超过最大并发数
+        if (uploadingCount >= MAX_CONCURRENT_UPLOADS) {
+          isProcessingQueueRef.current = false
+          return currentFiles
+        }
+        
         const availableSlots = MAX_CONCURRENT_UPLOADS - uploadingCount
 
         if (availableSlots > 0 && uploadQueueRef.current.length > 0) {
@@ -158,7 +166,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           })
 
           if (uploadQueueRef.current.length > 0 && availableSlots > 0) {
-            const toStart = uploadQueueRef.current.splice(0, availableSlots)
+            // 确保不超过可用槽位
+            const toStart = uploadQueueRef.current.splice(0, Math.min(availableSlots, uploadQueueRef.current.length))
             // 先重置标志，避免阻塞后续调用
             isProcessingQueueRef.current = false
             
@@ -1014,11 +1023,24 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       return
     }
     
-    setFiles(prev => prev.map(f => 
-      f.id === file.id ? { ...f, status: 'pending' as const, progress: 0, error: undefined } : f
-    ))
-    uploadQueueRef.current.unshift(file.id) // 加到队列最前面
-    setTimeout(processQueue, 0)
+    // 确保文件 ID 不在队列中（避免重复）
+    if (!uploadQueueRef.current.includes(file.id)) {
+      uploadQueueRef.current.unshift(file.id) // 加到队列最前面
+    }
+    
+    // 更新状态为 pending，并触发队列处理
+    setFiles(prev => {
+      const updated = prev.map(f => 
+        f.id === file.id ? { ...f, status: 'pending' as const, progress: 0, error: undefined } : f
+      )
+      
+      // 在状态更新后处理队列，确保状态已同步
+      setTimeout(() => {
+        processQueue()
+      }, 0)
+      
+      return updated
+    })
   }
 
   const uploadSingleFile = async (uploadFile: UploadFile) => {
