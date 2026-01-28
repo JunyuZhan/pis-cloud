@@ -140,6 +140,9 @@ async function proxyRequest(
   try {
     const pathSegments = params.path
     
+    // 调试日志
+    console.log(`[Worker Proxy] Request path: ${request.url}, pathSegments:`, pathSegments)
+    
     // 添加认证检查（除了 health 端点）
     // health 端点用于监控，不需要认证
     if (pathSegments[0] !== 'health') {
@@ -190,7 +193,7 @@ async function proxyRequest(
     
     const targetUrl = `${getWorkerUrl()}${targetPath}${queryString}`
     
-    console.log(`[Worker Proxy] ${request.method} ${targetUrl}`)
+    console.log(`[Worker Proxy] ${request.method} ${request.url} -> ${targetUrl} (pathSegments: ${JSON.stringify(pathSegments)}, targetPath: ${targetPath})`)
     
     // 准备请求头
     const headers: HeadersInit = {
