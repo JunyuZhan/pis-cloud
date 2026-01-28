@@ -66,9 +66,12 @@ export async function POST(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    return await proxyRequest(request, await params)
+    const resolvedParams = await params
+    console.log(`[Worker Proxy POST] Resolved params:`, resolvedParams)
+    return await proxyRequest(request, resolvedParams)
   } catch (error) {
     // 处理 params 解析错误
+    console.error(`[Worker Proxy POST] Error:`, error)
     if (error instanceof Error && error.message.includes('params')) {
       return NextResponse.json(
         { 
@@ -141,7 +144,25 @@ async function proxyRequest(
     const pathSegments = params.path
     
     // 调试日志
-    console.log(`[Worker Proxy] Request path: ${request.url}, pathSegments:`, pathSegments)
+    console.log(`[Worker Proxy] Request path: ${request.url}`)
+    console.log(`[Worker Proxy] params:`, JSON.stringify(params))
+    console.log(`[Worker Proxy] pathSegments:`, JSON.stringify(pathSegments))
+    console.log(`[Worker Proxy] pathSegments type:`, typeof pathSegments, Array.isArray(pathSegments))
+    
+    // 确保 pathSegments 是数组
+    if (!Array.isArray(pathSegments)) {
+      console.error(`[Worker Proxy] pathSegments is not an array:`, pathSegments)
+      return NextResponse.json(
+        { 
+          error: { 
+            code: 'INVALID_PATH',
+            message: 'Invalid path segments',
+            details: `pathSegments should be an array, got: ${typeof pathSegments}`
+          } 
+        },
+        { status: 400 }
+      )
+    }
     
     // 添加认证检查（除了 health 端点）
     // health 端点用于监控，不需要认证
