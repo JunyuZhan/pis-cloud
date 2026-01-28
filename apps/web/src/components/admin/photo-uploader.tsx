@@ -483,6 +483,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
               while (partRetryCount < maxPartRetries) {
                 try {
                   // 1. 获取分片的 presigned URL（通过 Next.js API 路由）
+                  console.log(`[Upload] Requesting presigned URL for part ${j + 1}/${totalChunks}`)
                   const presignRes = await fetch('/api/worker/multipart/presign-part', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -524,6 +525,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                   }
 
                   const { url: presignedUrl } = await presignRes.json()
+                  console.log(`[Upload] Uploading part ${j + 1}/${totalChunks} (${chunk.size} bytes) to MinIO`)
 
                   // 2. 直接上传分片到 MinIO（绕过 Vercel）
                   const partRes = await fetch(presignedUrl, {
@@ -533,6 +535,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
                       'Content-Type': 'application/octet-stream',
                     },
                   })
+                  
+                  console.log(`[Upload] Part ${j + 1}/${totalChunks} uploaded, status: ${partRes.status}`)
 
                   if (!partRes.ok) {
                     const errorText = await partRes.text()
@@ -566,11 +570,13 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         const successfulParts = batchResults.filter(p => p && p.partNumber && p.etag)
         parts.push(...successfulParts)
 
-        // 更新进度和速度
-        const progress = Math.round(((i + batch.length) / totalChunks) * 100)
+        // 更新进度和速度（基于已完成的分片数量）
+        const completedChunks = parts.length
+        const progress = Math.round((completedChunks / totalChunks) * 100)
         const now = Date.now()
         const timeDiff = (now - lastUpdateTime) / 1000 // 秒
-        const uploadedBytes = (i + batch.length) * CHUNK_SIZE
+        // 计算实际上传的字节数（考虑最后一个分片可能小于 CHUNK_SIZE）
+        const uploadedBytes = Math.min(completedChunks * CHUNK_SIZE, uploadFile.file.size)
         const bytesDiff = uploadedBytes - lastUploadedBytes
         
         let speed = 0
@@ -579,6 +585,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
           lastUpdateTime = now
           lastUploadedBytes = uploadedBytes
         }
+        
+        console.log(`[Upload] Progress: ${completedChunks}/${totalChunks} (${progress}%), speed: ${speed > 0 ? formatSpeed(speed) : 'N/A'}`)
         
         setFiles((prev) =>
           prev.map((f) =>
