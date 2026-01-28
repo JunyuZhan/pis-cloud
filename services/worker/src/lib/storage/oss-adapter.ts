@@ -123,6 +123,18 @@ export class OSSAdapter implements StorageAdapter {
     });
   }
 
+  async getPresignedPartUrl(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    expirySeconds = 3600
+  ): Promise<string> {
+    // OSS 使用 MinIO SDK（S3 兼容），但 MinIO SDK 不直接支持分片上传的 presigned URL
+    // 需要使用 AWS SDK 的方式，但 OSS 适配器目前使用 MinIO SDK
+    // 暂时抛出错误，提示使用 MinIO 存储或通过 Worker 上传
+    throw new Error('OSS adapter does not support presigned part URLs. Please use MinIO storage or upload through Worker API.');
+  }
+
   async completeMultipartUpload(
     key: string,
     uploadId: string,
