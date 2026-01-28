@@ -1,16 +1,47 @@
 #!/bin/bash
 
 # Worker 更新脚本 - 在服务器上运行
-# 用途: 拉取最新代码，更新环境配置，重新构建 Worker 镜像
+# 用途: 拉取最新代码（可选），更新环境配置，重新构建 Worker 镜像并重启服务
+#
+# 用法:
+#   bash scripts/update-worker-on-server.sh           # 完整流程（包括 git pull）
+#   bash scripts/update-worker-on-server.sh --skip-pull  # 跳过 git pull（如果已手动拉取）
+#   bash scripts/update-worker-on-server.sh --force   # 在本地运行
+#   bash scripts/update-worker-on-server.sh --no-cache   # 使用 --no-cache 构建（不缓存层）
 
 set -e
+
+SKIP_PULL=false
+FORCE=false
+NO_CACHE=false
+
+# 解析参数
+for arg in "$@"; do
+  case $arg in
+    --skip-pull)
+      SKIP_PULL=true
+      shift
+      ;;
+    --force)
+      FORCE=true
+      shift
+      ;;
+    --no-cache)
+      NO_CACHE=true
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
 
 echo "🚀 Worker 更新脚本"
 echo "=================="
 echo ""
 
 # 检查是否在服务器上
-if [ -z "$SSH_CONNECTION" ] && [ "$1" != "--force" ]; then
+if [ -z "$SSH_CONNECTION" ] && [ "$FORCE" != true ]; then
   echo "⚠️  此脚本应在服务器上运行"
   echo "   如果要在本地运行，请使用 --force 参数"
   echo ""
@@ -39,11 +70,19 @@ cd "$PROJECT_DIR" || exit 1
 echo "📁 项目目录: $PROJECT_DIR"
 echo ""
 
-# 1. 拉取最新代码
-echo "📥 拉取最新代码..."
-git pull origin main
-echo "✅ 代码更新完成"
-echo ""
+# 1. 拉取最新代码（可选）
+if [ "$SKIP_PULL" = true ]; then
+  echo "⏭️  跳过 git pull（使用 --skip-pull 选项）"
+  echo ""
+else
+  echo "📥 拉取最新代码..."
+  if git pull origin main; then
+    echo "✅ 代码更新完成"
+  else
+    echo "⚠️  git pull 失败或没有更新"
+  fi
+  echo ""
+fi
 
 # 2. 检查环境配置文件
 ENV_FILE="$PROJECT_DIR/.env"
@@ -96,19 +135,45 @@ fi
 
 # 检测 docker-compose 命令（支持新版本 docker compose 和旧版本 docker-compose）
 DOCKER_COMPOSE_CMD=""
-if docker compose version &> /dev/null 2>&1; then
+
+# 先检测新版本 docker compose（作为 Docker 插件）
+if docker compose version >/dev/null 2>&1; then
   # 新版本 Docker（docker compose 作为插件）
   DOCKER_COMPOSE_CMD="docker compose"
-elif command -v docker-compose &> /dev/null; then
-  # 旧版本 Docker（独立的 docker-compose 命令）
-  DOCKER_COMPOSE_CMD="docker-compose"
+  echo "✅ 检测到 Docker Compose (新版本插件): docker compose"
+# 再检测旧版本 docker-compose（独立命令）
+elif command -v docker-compose >/dev/null 2>&1; then
+  # 验证命令是否真的可用
+  if docker-compose --version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+    echo "✅ 检测到 Docker Compose (旧版本独立): docker-compose"
+  else
+    echo "⚠️  找到 docker-compose 命令但无法执行，尝试使用 docker compose..."
+    if docker compose version >/dev/null 2>&1; then
+      DOCKER_COMPOSE_CMD="docker compose"
+      echo "✅ 使用 Docker Compose (新版本插件): docker compose"
+    else
+      echo "❌ Docker Compose 不可用"
+      exit 1
+    fi
+  fi
 else
-  echo "❌ Docker Compose 未安装"
-  echo "   请安装 Docker Compose 或更新 Docker 到最新版本"
+  echo "❌ Docker Compose 未安装或不可用"
+  echo ""
+  echo "请选择以下方式之一安装:"
+  echo "  1. 更新 Docker 到最新版本（推荐，包含 docker compose 插件）"
+  echo "  2. 安装独立的 docker-compose:"
+  echo "     curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose"
+  echo "     chmod +x /usr/local/bin/docker-compose"
   exit 1
 fi
 
-echo "✅ 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
+# 验证变量已设置
+if [ -z "$DOCKER_COMPOSE_CMD" ]; then
+  echo "❌ 错误: Docker Compose 命令未正确设置"
+  exit 1
+fi
+
 echo ""
 
 # 5. 重新构建 Worker 镜像
@@ -119,7 +184,12 @@ cd "$PROJECT_DIR"
 if [ -f "docker/docker-compose.yml" ]; then
   echo "   使用 docker-compose 构建..."
   cd docker
-  $DOCKER_COMPOSE_CMD build worker
+  if [ "$NO_CACHE" = true ]; then
+    echo "   ⚠️  使用 --no-cache 选项（不缓存层）"
+    $DOCKER_COMPOSE_CMD build --no-cache worker
+  else
+    $DOCKER_COMPOSE_CMD build worker
+  fi
   echo "✅ Worker 镜像构建完成"
   echo ""
   
@@ -130,7 +200,12 @@ if [ -f "docker/docker-compose.yml" ]; then
 elif [ -f "docker-compose.yml" ]; then
   # 兼容根目录的 docker-compose.yml
   echo "   使用 docker-compose 构建（根目录）..."
-  $DOCKER_COMPOSE_CMD build worker
+  if [ "$NO_CACHE" = true ]; then
+    echo "   ⚠️  使用 --no-cache 选项（不缓存层）"
+    $DOCKER_COMPOSE_CMD build --no-cache worker
+  else
+    $DOCKER_COMPOSE_CMD build worker
+  fi
   echo "✅ Worker 镜像构建完成"
   echo ""
   
@@ -141,7 +216,12 @@ else
   # 使用 Dockerfile 直接构建
   if [ -f "docker/worker.Dockerfile" ]; then
     echo "   使用 Dockerfile 构建..."
-    docker build --network=host -t pis-worker:latest -f docker/worker.Dockerfile .
+    if [ "$NO_CACHE" = true ]; then
+      echo "   ⚠️  使用 --no-cache 选项（不缓存层）"
+      docker build --network=host --no-cache -t pis-worker:latest -f docker/worker.Dockerfile .
+    else
+      docker build --network=host -t pis-worker:latest -f docker/worker.Dockerfile .
+    fi
     echo "✅ Worker 镜像构建完成"
     echo ""
     
@@ -162,7 +242,12 @@ else
     echo "✅ Worker 容器已重启"
   elif [ -f "services/worker/Dockerfile" ]; then
     echo "   使用 Dockerfile 构建..."
-    docker build --network=host -t pis-worker:latest -f services/worker/Dockerfile .
+    if [ "$NO_CACHE" = true ]; then
+      echo "   ⚠️  使用 --no-cache 选项（不缓存层）"
+      docker build --network=host --no-cache -t pis-worker:latest -f services/worker/Dockerfile .
+    else
+      docker build --network=host -t pis-worker:latest -f services/worker/Dockerfile .
+    fi
     echo "✅ Worker 镜像构建完成"
     echo ""
     
@@ -197,6 +282,13 @@ fi
 echo ""
 echo "✅ Worker 更新完成！"
 echo ""
-echo "💡 提示: 如果 Worker 使用公网模式，可以通过以下方式测试:"
-echo "   curl http://$(hostname -I | awk '{print $1}'):3001/health"
+echo "💡 提示:"
+echo "   - 如果 Worker 使用公网模式，可以通过以下方式测试:"
+echo "     curl http://$(hostname -I | awk '{print $1}'):3001/health"
+echo ""
+echo "   - 如果已经手动执行了 git pull，可以使用 --skip-pull 选项跳过:"
+echo "     bash scripts/update-worker-on-server.sh --skip-pull"
+echo ""
+echo "   - 如果需要强制重新构建（不使用缓存），可以使用 --no-cache 选项:"
+echo "     bash scripts/update-worker-on-server.sh --no-cache"
 echo ""
