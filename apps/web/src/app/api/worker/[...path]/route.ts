@@ -68,10 +68,29 @@ export async function POST(
   try {
     const resolvedParams = await params
     console.log(`[Worker Proxy POST] Resolved params:`, resolvedParams)
-    return await proxyRequest(request, resolvedParams)
+    const response = await proxyRequest(request, resolvedParams)
+    
+    // 确保所有响应都包含缓存控制头，防止 Cloudflare 缓存
+    const headers = new Headers(response.headers)
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    headers.set('Pragma', 'no-cache')
+    headers.set('Expires', '0')
+    
+    return new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
   } catch (error) {
     // 处理 params 解析错误
     console.error(`[Worker Proxy POST] Error:`, error)
+    
+    // 设置缓存控制头，防止 Cloudflare 缓存错误响应
+    const errorHeaders = new Headers()
+    errorHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    errorHeaders.set('Pragma', 'no-cache')
+    errorHeaders.set('Expires', '0')
+    
     if (error instanceof Error && error.message.includes('params')) {
       return NextResponse.json(
         { 
@@ -81,7 +100,10 @@ export async function POST(
             details: '请求参数解析失败'
           } 
         },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: errorHeaders,
+        }
       )
     }
     throw error
@@ -307,10 +329,16 @@ async function proxyRequest(
     // 读取响应
     const responseContentType = workerResponse.headers.get('Content-Type') || ''
     
+    // 设置缓存控制头，防止 Cloudflare 缓存 API 路由
+    const responseHeaders = new Headers()
+    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    responseHeaders.set('Pragma', 'no-cache')
+    responseHeaders.set('Expires', '0')
+    responseHeaders.set('X-Robots-Tag', 'noindex')
+    
     if (responseContentType.includes('application/json')) {
       const data = await workerResponse.json()
       // 如果响应包含错误，统一错误格式
-      const responseHeaders = new Headers()
       if (!workerResponse.ok && data.error) {
         return NextResponse.json(
           { 
@@ -335,7 +363,6 @@ async function proxyRequest(
       )
     } else {
       const data = await workerResponse.arrayBuffer()
-      const responseHeaders = new Headers()
       responseHeaders.set('Content-Type', responseContentType)
       return new NextResponse(data, {
         status: workerResponse.status,
@@ -344,6 +371,12 @@ async function proxyRequest(
     }
   } catch (error) {
     console.error('[Worker Proxy] Error:', error)
+    
+    // 设置缓存控制头，防止 Cloudflare 缓存错误响应
+    const errorHeaders = new Headers()
+    errorHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    errorHeaders.set('Pragma', 'no-cache')
+    errorHeaders.set('Expires', '0')
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     const response = new NextResponse()
@@ -365,6 +398,12 @@ async function proxyRequest(
       )
     }
     
+    // 设置缓存控制头，防止 Cloudflare 缓存错误响应
+    const errorHeaders = new Headers(response.headers)
+    errorHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    errorHeaders.set('Pragma', 'no-cache')
+    errorHeaders.set('Expires', '0')
+    
     return NextResponse.json(
       { 
         error: { 
@@ -375,7 +414,7 @@ async function proxyRequest(
       },
       { 
         status: 500,
-        headers: response.headers,
+        headers: errorHeaders,
       }
     )
   }
