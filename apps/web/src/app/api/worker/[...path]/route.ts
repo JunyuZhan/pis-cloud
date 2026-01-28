@@ -379,7 +379,6 @@ async function proxyRequest(
     errorHeaders.set('Expires', '0')
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const response = new NextResponse()
     
     // 检查是否是连接错误
     if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed') || errorMessage.includes('ECONNRESET')) {
@@ -393,16 +392,10 @@ async function proxyRequest(
         },
         { 
           status: 503,
-          headers: response.headers,
+          headers: errorHeaders,
         }
       )
     }
-    
-    // 设置缓存控制头，防止 Cloudflare 缓存错误响应
-    const errorHeaders = new Headers(response.headers)
-    errorHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-    errorHeaders.set('Pragma', 'no-cache')
-    errorHeaders.set('Expires', '0')
     
     return NextResponse.json(
       { 
