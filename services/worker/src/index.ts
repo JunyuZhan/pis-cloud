@@ -351,9 +351,16 @@ const worker = new Worker<PhotoJobData>(
         const [downloadResult, albumResult] = await Promise.all([
           // 下载原图
           downloadFile(originalKey).catch(async (downloadErr: any) => {
+            // 改进的错误检测：支持更多错误格式
             const isFileNotFound = downloadErr?.code === 'NoSuchKey' || 
+                                  downloadErr?.code === 'NotFound' ||
+                                  downloadErr?.statusCode === 404 ||
                                   downloadErr?.message?.includes('does not exist') ||
-                                  downloadErr?.message?.includes('NoSuchKey');
+                                  downloadErr?.message?.includes('NoSuchKey') ||
+                                  downloadErr?.message?.includes('not found') ||
+                                  downloadErr?.message?.includes('NotFound') ||
+                                  downloadErr?.message?.includes('Unable to stat') ||
+                                  downloadErr?.message?.includes('Object does not exist');
             
             if (isFileNotFound) {
               // 文件不存在，但可能是 MinIO 最终一致性问题（文件刚上传但还没完全写入）
@@ -378,9 +385,16 @@ const worker = new Worker<PhotoJobData>(
                   try {
                     return await downloadFile(originalKey);
                   } catch (retryErr: any) {
+                    // 改进的错误检测：支持更多错误格式
                     const retryIsFileNotFound = retryErr?.code === 'NoSuchKey' || 
+                                              retryErr?.code === 'NotFound' ||
+                                              retryErr?.statusCode === 404 ||
                                               retryErr?.message?.includes('does not exist') ||
-                                              retryErr?.message?.includes('NoSuchKey');
+                                              retryErr?.message?.includes('NoSuchKey') ||
+                                              retryErr?.message?.includes('not found') ||
+                                              retryErr?.message?.includes('NotFound') ||
+                                              retryErr?.message?.includes('Unable to stat') ||
+                                              retryErr?.message?.includes('Object does not exist');
                     if (retryIsFileNotFound) {
                       console.log(`[${job.id}] File still not found after retry, cleaning up database record`);
                       try {
@@ -549,9 +563,17 @@ const worker = new Worker<PhotoJobData>(
       console.error(`[${job.id}] Failed:`, err);
       
       // 检查是否是文件不存在的错误（上传失败但数据库记录已创建）
+      // 改进的错误检测：支持更多错误格式（MinIO、S3、OSS、COS 等）
       const isFileNotFound = err?.code === 'NoSuchKey' || 
+                            err?.code === 'NotFound' ||
+                            err?.statusCode === 404 ||
                             err?.message?.includes('does not exist') ||
-                            err?.message?.includes('NoSuchKey');
+                            err?.message?.includes('NoSuchKey') ||
+                            err?.message?.includes('not found') ||
+                            err?.message?.includes('NotFound') ||
+                            err?.message?.includes('Unable to stat') ||
+                            err?.message?.includes('Object does not exist') ||
+                            err?.message === 'FILE_NOT_FOUND';
       
       if (isFileNotFound) {
         // 文件不存在，但可能是 MinIO 最终一致性问题（文件刚上传但还没完全写入）

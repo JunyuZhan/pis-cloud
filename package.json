@@ -26,7 +26,9 @@
     "docker:down": "cd docker && docker-compose down",
     "docker:logs": "cd docker && docker-compose logs -f",
     "db:types": "cd apps/web && pnpm supabase:types",
-    "pre-commit": "pnpm security-check && pnpm lint && pnpm test"
+    "pre-commit": "pnpm security-check && pnpm lint && pnpm test",
+    "cleanup:failed-photos": "cd services/worker && pnpm exec tsx ../../scripts/cleanup-failed-photos.ts",
+    "cleanup:failed-photos:execute": "cd services/worker && pnpm exec tsx ../../scripts/cleanup-failed-photos.ts --execute"
   },
   "devDependencies": {
     "prettier": "^3.2.0",
