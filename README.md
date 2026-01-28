@@ -45,6 +45,11 @@
 - Multiple sizes: thumbnails (400px), previews (2560px), originals
 - BlurHash placeholders for smooth loading
 - Parallel processing with BullMQ queues (13-33% faster)
+- **NEW**: Image style presets (13 presets: portrait, landscape, general)
+  - Apply unified visual style to entire albums
+  - Real-time preview with CSS filters
+  - Reprocess existing photos to apply new styles
+  - Single photo reprocessing support
 
 ### 🎨 **Professional Presentation**
 - Beautiful masonry and grid layouts
@@ -60,6 +65,10 @@
 
 ### 📦 **Client Features**
 - Photo selection and batch ZIP download
+- **NEW**: Admin-controlled batch download (opt-in by default)
+  - Batch download requires explicit admin approval
+  - Generate presigned URLs for secure downloads
+  - One-click download for selected photos
 - Password protection and expiration dates
 - Album templates and view tracking
 
@@ -299,7 +308,36 @@ See [AUTHORS.md](AUTHORS.md) for the list of contributors.
 
 ---
 
+## 🎨 New Features (Latest Release)
+
+### Image Style Presets
+Apply professional color grading to entire albums with 13 carefully tuned presets:
+- **Portrait**: Fresh Portrait, Japanese Style, Realistic, Warm Portrait, Cool Portrait
+- **Landscape**: Natural Landscape, Urban Scenery, Sunset Landscape, Fresh Landscape
+- **General**: Standard, High Contrast, Soft
+
+**Features:**
+- ✅ Album-level unified style application
+- ✅ Real-time preview with cover photo
+- ✅ Reprocess existing photos to apply new styles
+- ✅ Single photo reprocessing support
+- ✅ Automatic application to new uploads
+
+### Enhanced Batch Download
+- ✅ Admin-controlled batch download (disabled by default)
+- ✅ Secure presigned URL generation
+- ✅ One-click download for selected photos
+
+> 📖 **Learn more**: See [Quick Start Guide](./docs/QUICK_START.md) and [User Guide](./docs/USER_GUIDE.md)
+
+---
+
 ## 📚 Documentation
+
+- **[Quick Start Guide](./docs/QUICK_START.md)** - Get started with new features in 3 steps
+- **[User Guide](./docs/USER_GUIDE.md)** - Complete guide for image style presets and batch download
+- **[Implementation Status](./docs/IMPLEMENTATION_STATUS.md)** - Feature implementation tracking
+- **[Mobile Optimization](./docs/MOBILE_OPTIMIZATION.md)** - Mobile UX improvements
 
 > 📖 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation index.
 

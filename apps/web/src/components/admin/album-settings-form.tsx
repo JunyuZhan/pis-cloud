@@ -635,6 +635,12 @@ export function AlbumSettingsForm({ album }: AlbumSettingsFormProps) {
         <StylePresetSelector
           value={formData.color_grading as string | null}
           onChange={(presetId) => handleChange('color_grading', presetId)}
+          previewImage={
+            // 使用封面图作为预览图片
+            album.cover_photo_id && process.env.NEXT_PUBLIC_MEDIA_URL
+              ? `${process.env.NEXT_PUBLIC_MEDIA_URL.replace(/\/$/, '')}/processed/previews/${album.id}/${album.cover_photo_id}.jpg`
+              : undefined
+          }
         />
         
         {album.photo_count > 0 && (

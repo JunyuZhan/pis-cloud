@@ -1202,6 +1202,21 @@ export function AlbumDetailClient({ album, initialPhotos }: AlbumDetailClientPro
                       <span>设为封面</span>
                     </button>
                   )}
+                  {/* 重新处理按钮（仅已完成状态的照片） */}
+                  {photo.status === 'completed' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleReprocessSingle(photo.id)
+                      }}
+                      className="bg-blue-500/80 hover:bg-blue-600 px-3 py-2.5 md:px-2 md:py-1.5 rounded-full text-xs text-white flex items-center justify-center gap-1.5 md:gap-1 min-w-[100px] md:min-w-[80px] min-h-[44px] md:min-h-0"
+                      title="重新处理照片（应用当前相册风格设置）"
+                    >
+                      <RefreshCw className="w-4 h-4 md:w-3 md:h-3" />
+                      <span className="hidden sm:inline">重新处理</span>
+                      <span className="sm:hidden">重处理</span>
+                    </button>
+                  )}
                   {showDeleted ? (
                     <>
                       <button
