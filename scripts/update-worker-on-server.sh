@@ -21,8 +21,12 @@ if [ -z "$SSH_CONNECTION" ] && [ "$1" != "--force" ]; then
 fi
 
 # 项目目录（自动检测）
-if [ -d "/opt/PIS" ]; then
+if [ -d "/opt/pis" ]; then
+  PROJECT_DIR="/opt/pis"
+elif [ -d "/opt/PIS" ]; then
   PROJECT_DIR="/opt/PIS"
+elif [ -d "/root/pis" ]; then
+  PROJECT_DIR="/root/pis"
 elif [ -d "/root/PIS" ]; then
   PROJECT_DIR="/root/PIS"
 else
@@ -94,9 +98,21 @@ fi
 echo "🔨 重新构建 Worker 镜像..."
 cd "$PROJECT_DIR"
 
-# 检查是否有 docker-compose.yml
-if [ -f "docker-compose.yml" ]; then
+# 优先使用 docker-compose（推荐方式）
+if [ -f "docker/docker-compose.yml" ]; then
   echo "   使用 docker-compose 构建..."
+  cd docker
+  docker-compose build worker
+  echo "✅ Worker 镜像构建完成"
+  echo ""
+  
+  echo "🔄 重启 Worker 服务..."
+  docker-compose restart worker
+  echo "✅ Worker 服务已重启"
+  cd ..
+elif [ -f "docker-compose.yml" ]; then
+  # 兼容根目录的 docker-compose.yml
+  echo "   使用 docker-compose 构建（根目录）..."
   docker-compose build worker
   echo "✅ Worker 镜像构建完成"
   echo ""
@@ -105,24 +121,40 @@ if [ -f "docker-compose.yml" ]; then
   docker-compose restart worker
   echo "✅ Worker 服务已重启"
 else
-  # 检查是否有单独的 Dockerfile
-  if [ -f "services/worker/Dockerfile" ] || [ -f "docker/worker.Dockerfile" ]; then
+  # 使用 Dockerfile 直接构建
+  if [ -f "docker/worker.Dockerfile" ]; then
     echo "   使用 Dockerfile 构建..."
-    DOCKERFILE="services/worker/Dockerfile"
-    if [ ! -f "$DOCKERFILE" ]; then
-      DOCKERFILE="docker/worker.Dockerfile"
-    fi
-    
-    docker build -t pis-worker:latest -f "$DOCKERFILE" .
+    docker build --network=host -t pis-worker:latest -f docker/worker.Dockerfile .
     echo "✅ Worker 镜像构建完成"
     echo ""
     
     echo "🔄 重启 Worker 容器..."
-    docker restart pis-worker || docker run -d --name pis-worker --network host -v "$PROJECT_DIR/.env:/app/.env:ro" pis-worker:latest
+    # 尝试重启现有容器，如果不存在则启动新容器
+    if docker ps -a --format '{{.Names}}' | grep -q "^pis-worker$"; then
+      docker restart pis-worker
+    else
+      # 如果使用 docker-compose，应该通过 docker-compose 启动
+      if [ -f "docker/docker-compose.yml" ]; then
+        cd docker
+        docker-compose up -d worker
+        cd ..
+      else
+        echo "⚠️  未找到容器，请使用 docker-compose 启动"
+      fi
+    fi
     echo "✅ Worker 容器已重启"
+  elif [ -f "services/worker/Dockerfile" ]; then
+    echo "   使用 Dockerfile 构建..."
+    docker build --network=host -t pis-worker:latest -f services/worker/Dockerfile .
+    echo "✅ Worker 镜像构建完成"
+    echo ""
+    
+    echo "🔄 重启 Worker 容器..."
+    docker restart pis-worker || echo "⚠️  请手动重启 Worker 容器"
   else
-    echo "⚠️  未找到 Dockerfile，跳过构建"
-    echo "   请手动重启 Worker 服务"
+    echo "❌ 未找到 Dockerfile 或 docker-compose.yml"
+    echo "   请检查项目结构或手动更新 Worker"
+    exit 1
   fi
 fi
 
@@ -131,14 +163,23 @@ echo "📋 验证步骤:"
 echo "   1. 检查 Worker 日志:"
 echo "      docker logs pis-worker --tail 20"
 echo ""
-echo "   2. 检查 API Key 是否生效:"
-echo "      curl -X POST http://your-worker-domain.com/api/process \\"
-echo "        -H 'Content-Type: application/json' \\"
-echo "        -d '{\"photoId\":\"test\",\"albumId\":\"test\",\"originalKey\":\"test\"}'"
-echo "      # 应该返回 401 Unauthorized（如果未带 API Key）"
-echo ""
-echo "   3. 测试健康检查:"
-echo "      curl http://your-worker-domain.com/health"
+echo "   2. 测试健康检查（本地）:"
+echo "      curl http://localhost:3001/health"
 echo "      # 应该返回健康状态（不需要 API Key）"
 echo ""
-echo "✅ 更新完成！"
+echo "   3. 检查 Worker 服务状态:"
+if [ -f "docker/docker-compose.yml" ] || [ -f "docker-compose.yml" ]; then
+  if [ -f "docker/docker-compose.yml" ]; then
+    echo "      cd docker && docker-compose ps worker"
+  else
+    echo "      docker-compose ps worker"
+  fi
+else
+  echo "      docker ps --filter 'name=pis-worker'"
+fi
+echo ""
+echo "✅ Worker 更新完成！"
+echo ""
+echo "💡 提示: 如果 Worker 使用公网模式，可以通过以下方式测试:"
+echo "   curl http://$(hostname -I | awk '{print $1}'):3001/health"
+echo ""

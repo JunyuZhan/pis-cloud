@@ -257,7 +257,7 @@ setup_local() {
     info "启动 MinIO 和 Redis..."
     cd docker
     docker-compose up -d minio redis minio-init
-    cd ..
+    cd .. || return 1
     
     # 等待服务启动
     info "等待服务启动..."
@@ -372,7 +372,7 @@ manage_docker() {
     echo ""
     read -p "请选择 [0-5]: " docker_choice
     
-    cd docker
+    cd docker || return 1
     
     case $docker_choice in
         1)
@@ -403,7 +403,7 @@ manage_docker() {
             ;;
     esac
     
-    cd ..
+    cd .. || return 1
 }
 
 # 数据库架构

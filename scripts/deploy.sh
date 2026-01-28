@@ -631,8 +631,8 @@ EOF
     
     cd ${DEPLOY_DIR}/docker
     
-    # 复制 .env 文件到 docker 目录（docker-compose 需要在这里读取）
-    cp ${DEPLOY_DIR}/.env .env
+    # 注意：docker-compose.yml 使用 ../.env（根目录的 .env 文件）
+    # 不需要复制 .env 到 docker 目录，保持统一配置在根目录
     
     # 使用对应的 docker-compose 文件
     if [ -f "docker-compose.yml.active" ]; then
@@ -789,6 +789,9 @@ PYEOF
         echo "$MSG_BUILD_MANUAL_3"
         exit 1
     fi
+    
+    # 确保在 docker 目录执行 docker-compose 命令
+    cd ${DEPLOY_DIR}/docker
     
     info "$MSG_STARTING_SERVICES"
     docker-compose up -d
