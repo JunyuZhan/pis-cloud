@@ -170,7 +170,7 @@ docker-compose ps
 
 ### 3. 配置环境变量
 
-**apps/web/.env.local:**
+**apps/web/.env:**
 
 ```bash
 # Supabase
@@ -383,7 +383,7 @@ NEXT_PUBLIC_MEDIA_URL=https://media.yourdomain.com/pis-photos
 
 ## 环境变量配置
 
-### 前端 (Vercel / apps/web/.env.local)
+### 前端 (Vercel / apps/web/.env)
 
 | 变量 | 说明 | 示例 |
 |------|------|------|

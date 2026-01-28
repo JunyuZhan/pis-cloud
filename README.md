@@ -142,31 +142,28 @@ The setup wizard will automatically:
 
 #### 2. Configure Environment Variables
 
-**Frontend Configuration** (`apps/web/.env.local`):
+**Unified Configuration** (Root `.env` file):
+> ✅ **Important**: PIS uses a **unified root directory configuration**. Both `apps/web` and `services/worker` read from the root `.env` file.
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and fill in your configuration
+```
+
+**Example `.env` file**:
 ```bash
 # Database configuration
 DATABASE_TYPE=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_URL=https://your-project.supabase.co
 
 # Storage configuration (default: MinIO)
 STORAGE_TYPE=minio
 NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-
-# Application configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-**Worker Configuration** (`services/worker/.env`):
-```bash
-# Database configuration
-DATABASE_TYPE=supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Storage configuration (default: MinIO)
-STORAGE_TYPE=minio
 STORAGE_ENDPOINT=localhost
 STORAGE_PORT=9000
 STORAGE_USE_SSL=false
@@ -174,9 +171,16 @@ STORAGE_ACCESS_KEY=minioadmin
 STORAGE_SECRET_KEY=minioadmin
 STORAGE_BUCKET=pis-photos
 
+# Worker service
+NEXT_PUBLIC_WORKER_URL=http://localhost:3001
+WORKER_API_KEY=your-secret-api-key
+
 # Redis configuration
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# Application configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 > 💡 **Using cloud storage?** See the [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) for Alibaba Cloud OSS, Tencent Cloud COS, or AWS S3 setup instructions

@@ -173,7 +173,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             
             // 如果是认证错误，提供更友好的提示
             if (errorMsg.includes('API key') || errorMsg.includes('Unauthorized')) {
-              reprocessingError = `Worker API 认证失败。请确保 .env.local 中的 WORKER_API_KEY 与 Worker 服务配置一致。当前 Worker URL: ${workerApiUrl}`
+              reprocessingError = `Worker API 认证失败。请确保 .env 中的 WORKER_API_KEY 与 Worker 服务配置一致。当前 Worker URL: ${workerApiUrl}`
             } else {
               reprocessingError = errorMsg
             }

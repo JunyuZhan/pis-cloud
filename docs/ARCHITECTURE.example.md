@@ -289,7 +289,7 @@ PIS/
 │   └── i18n/                       # 多语言文档
 │
 ├── .env.example                    # 环境变量示例
-├── .env.local                      # 本地开发环境变量 (不提交到 Git)
+├── .env                            # 本地开发环境变量 (不提交到 Git)
 ├── package.json                    # Monorepo 根配置
 ├── pnpm-workspace.yaml             # pnpm workspace 配置
 └── turbo.json                      # Turbo 构建配置
@@ -422,7 +422,7 @@ tsx scripts/purge-deleted-photos-cache.ts
 ## 安全注意事项
 
 1. **环境变量安全**
-   - 不要将 `.env.local` 提交到 Git
+   - 不要将 `.env` 提交到 Git
    - `NEXT_PUBLIC_*` 变量会暴露到浏览器，不要包含敏感信息
    - `WORKER_API_KEY` 必须使用强密码（至少 32 字符）
 

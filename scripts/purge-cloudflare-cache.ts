@@ -22,7 +22,7 @@ import { config } from 'dotenv'
 import { resolve } from 'path'
 
 // 加载环境变量
-config({ path: resolve(__dirname, '../.env.local') })
+config({ path: resolve(__dirname, '../.env') })
 
 const zoneId = process.env.CLOUDFLARE_ZONE_ID
 const apiToken = process.env.CLOUDFLARE_API_TOKEN

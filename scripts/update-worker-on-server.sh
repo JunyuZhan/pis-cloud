@@ -42,12 +42,12 @@ echo "✅ 代码更新完成"
 echo ""
 
 # 2. 检查环境配置文件
-ENV_FILE="$PROJECT_DIR/.env.local"
+ENV_FILE="$PROJECT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "⚠️  未找到 .env.local 文件"
+  echo "⚠️  未找到 .env 文件"
   echo "   从 .env.example 创建..."
-  cp .env.example .env.local
-  echo "✅ 已创建 .env.local"
+  cp .env.example .env
+  echo "✅ 已创建 .env"
   echo ""
 fi
 
@@ -118,7 +118,7 @@ else
     echo ""
     
     echo "🔄 重启 Worker 容器..."
-    docker restart pis-worker || docker run -d --name pis-worker --network host -v "$PROJECT_DIR/.env.local:/app/.env.local:ro" pis-worker:latest
+    docker restart pis-worker || docker run -d --name pis-worker --network host -v "$PROJECT_DIR/.env:/app/.env:ro" pis-worker:latest
     echo "✅ Worker 容器已重启"
   else
     echo "⚠️  未找到 Dockerfile，跳过构建"

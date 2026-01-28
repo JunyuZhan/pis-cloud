@@ -99,6 +99,9 @@ services:
       context: ..
       dockerfile: docker/worker.Dockerfile
     container_name: pis-worker
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
     environment:
       # PostgreSQL 配置
       DATABASE_TYPE: ${DATABASE_TYPE:-postgresql}

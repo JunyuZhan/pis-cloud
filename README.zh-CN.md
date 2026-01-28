@@ -137,31 +137,28 @@ pnpm setup
 
 #### 2. 配置环境变量
 
-**前端配置** (`apps/web/.env.local`):
+**统一配置** (根目录 `.env` 文件):
+> ✅ **重要**: PIS 使用**统一的根目录配置**，`apps/web` 和 `services/worker` 都从根目录的 `.env` 读取配置。
+
+```bash
+# 复制示例文件
+cp .env.example .env
+
+# 编辑 .env 并填入你的配置
+```
+
+**示例 `.env` 文件**:
 ```bash
 # 数据库配置
 DATABASE_TYPE=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_URL=https://your-project.supabase.co
 
 # 存储配置（默认使用 MinIO）
 STORAGE_TYPE=minio
 NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-
-# 应用配置
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-**Worker 配置** (`services/worker/.env`):
-```bash
-# 数据库配置
-DATABASE_TYPE=supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# 存储配置（默认使用 MinIO）
-STORAGE_TYPE=minio
 STORAGE_ENDPOINT=localhost
 STORAGE_PORT=9000
 STORAGE_USE_SSL=false
@@ -169,9 +166,16 @@ STORAGE_ACCESS_KEY=minioadmin
 STORAGE_SECRET_KEY=minioadmin
 STORAGE_BUCKET=pis-photos
 
+# Worker 服务
+NEXT_PUBLIC_WORKER_URL=http://localhost:3001
+WORKER_API_KEY=your-secret-api-key
+
 # Redis 配置
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# 应用配置
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 > 💡 **使用云存储？** 查看 [部署指南](docs/i18n/zh-CN/DEPLOYMENT.md) 了解如何配置阿里云 OSS、腾讯云 COS 或 AWS S3

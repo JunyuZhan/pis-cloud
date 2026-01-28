@@ -3,8 +3,8 @@ import createNextIntlPlugin from 'next-intl/plugin'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 
-// 从 monorepo 根目录加载 .env.local（统一配置）
-config({ path: resolve(__dirname, '../../.env.local') })
+// 从 monorepo 根目录加载 .env（统一配置）
+config({ path: resolve(__dirname, '../../.env') })
 
 const withNextIntl = createNextIntlPlugin()
 

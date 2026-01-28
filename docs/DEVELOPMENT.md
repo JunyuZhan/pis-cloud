@@ -42,8 +42,8 @@ docker-compose up -d minio redis minio-init
 cd ..
 
 # 4. 配置环境变量（统一使用根目录配置）
-cp .env.example .env.local
-# 编辑 .env.local，填入 Supabase 凭据
+cp .env.example .env
+# 编辑 .env，填入 Supabase 凭据
 
 # 5. 初始化数据库
 # 复制 database/full_schema.sql 到 Supabase SQL Editor 执行
@@ -54,9 +54,9 @@ pnpm dev
 
 ### 环境变量配置
 
-PIS 使用**统一的根目录配置**，`apps/web` 和 `services/worker` 都从根目录的 `.env.local` 读取配置。
+PIS 使用**统一的根目录配置**，`apps/web` 和 `services/worker` 都从根目录的 `.env` 读取配置。
 
-**根目录 `.env.local`**:
+**根目录 `.env`**:
 
 ```bash
 # ===========================================

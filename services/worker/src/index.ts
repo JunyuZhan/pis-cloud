@@ -10,15 +10,15 @@ import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 
-// 从根目录加载 .env.local（monorepo 统一配置）
-// 支持多种路径：容器内挂载路径 /app/.env.local，或项目根目录
+// 从根目录加载 .env（monorepo 统一配置）
+// 支持多种路径：容器内挂载路径 /app/.env，或项目根目录
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '../../../');
 
 // 优先尝试容器内挂载路径，然后尝试项目根目录
 const envPaths = [
-  '/app/.env.local', // Docker 容器挂载路径
-  resolve(rootDir, '.env.local'), // 项目根目录
+  '/app/.env', // Docker 容器挂载路径
+  resolve(rootDir, '.env'), // 项目根目录
 ];
 
 let envLoaded = false;
@@ -33,7 +33,7 @@ for (const envPath of envPaths) {
   }
 }
 if (!envLoaded) {
-  console.warn('⚠️  No .env.local file found. Tried paths:', envPaths.join(', '));
+  console.warn('⚠️  No .env file found. Tried paths:', envPaths.join(', '));
   console.warn('   Environment variables will be read from system environment or process.env');
 }
 import http from 'http';
@@ -66,7 +66,7 @@ import { purgePhotoCache } from './lib/cloudflare-purge.js';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 if (!supabaseUrl || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ Missing required environment variables: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY');
-  console.error('   Please configure these values in the root .env.local file');
+  console.error('   Please configure these values in the root .env file');
   process.exit(1);
 }
 
@@ -141,7 +141,7 @@ const CONFIG = {
 const WORKER_API_KEY = process.env.WORKER_API_KEY;
 if (!WORKER_API_KEY) {
   console.warn('⚠️  WORKER_API_KEY not set, API endpoints are unprotected!');
-  console.warn('   Please set WORKER_API_KEY in .env.local for production use');
+    console.warn('   Please set WORKER_API_KEY in .env for production use');
 } else {
   console.log('✅ WORKER_API_KEY configured (length:', WORKER_API_KEY.length, 'chars)');
   if (CONFIG.IS_DEVELOPMENT) {
@@ -175,7 +175,7 @@ function authenticateRequest(req: http.IncomingMessage): boolean {
   // 添加调试日志（仅在开发环境）
   if (CONFIG.IS_DEVELOPMENT && !apiKey) {
     console.warn('⚠️  API request without API key header. Worker requires WORKER_API_KEY but request did not include X-API-Key header.');
-    console.warn('   If you set WORKER_API_KEY in .env.local, make sure the frontend API route also sends it in the request.');
+    console.warn('   If you set WORKER_API_KEY in .env, make sure the frontend API route also sends it in the request.');
   }
   
   const isValid = apiKey === WORKER_API_KEY;
@@ -183,7 +183,7 @@ function authenticateRequest(req: http.IncomingMessage): boolean {
   if (!isValid && CONFIG.IS_DEVELOPMENT) {
     const apiKeyPreview = typeof apiKey === 'string' ? apiKey.substring(0, 8) + '...' : 'none';
     console.warn('⚠️  API key mismatch. Expected:', WORKER_API_KEY?.substring(0, 8) + '...', 'Received:', apiKeyPreview);
-    console.warn('   Make sure WORKER_API_KEY in .env.local matches the value expected by the worker service.');
+    console.warn('   Make sure WORKER_API_KEY in .env matches the value expected by the worker service.');
   }
   
   return isValid;
@@ -492,6 +492,44 @@ const worker = new Worker<PhotoJobData>(
       // 6. 上传处理后的图片到存储
       const thumbKey = `processed/thumbs/${albumId}/${photoId}.jpg`;
       const previewKey = `processed/previews/${albumId}/${photoId}.jpg`;
+
+      // 防御性措施：如果是重新处理（照片状态可能是 completed/failed），先删除旧文件
+      // 这确保了不会有部分更新的文件，避免显示混乱的图片
+      // 注意：即使删除失败也继续（文件可能不存在，这是正常的）
+      try {
+        const { data: existingPhoto } = await supabase
+          .from('photos')
+          .select('thumb_key, preview_key')
+          .eq('id', photoId)
+          .single();
+        
+        if (existingPhoto) {
+          const filesToDelete: string[] = [];
+          if (existingPhoto.thumb_key && existingPhoto.thumb_key !== thumbKey) {
+            filesToDelete.push(existingPhoto.thumb_key);
+          }
+          if (existingPhoto.preview_key && existingPhoto.preview_key !== previewKey) {
+            filesToDelete.push(existingPhoto.preview_key);
+          }
+          
+          // 并行删除旧文件（如果存在）
+          if (filesToDelete.length > 0) {
+            await Promise.all(
+              filesToDelete.map(key => 
+                deleteFile(key).catch(err => {
+                  // 文件不存在时忽略错误（这是正常的）
+                  if (err?.code !== 'NoSuchKey' && !err?.message?.includes('does not exist')) {
+                    console.warn(`[${job.id}] Failed to delete old file ${key}:`, err.message);
+                  }
+                })
+              )
+            );
+          }
+        }
+      } catch (cleanupError) {
+        // 清理失败不影响主流程，只记录警告
+        console.warn(`[${job.id}] Failed to cleanup old files (non-critical):`, cleanupError);
+      }
 
       console.time(`[${job.id}] Upload`);
       await Promise.all([

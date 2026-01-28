@@ -323,7 +323,7 @@ docker-compose ps
 
 ### 3. Configure Environment Variables
 
-**apps/web/.env.local:**
+**apps/web/.env:**
 
 ```bash
 # Supabase
@@ -572,7 +572,7 @@ Configure CDN to improve image loading speed:
 
 ## Environment Variables
 
-### Frontend (Vercel / apps/web/.env.local)
+### Frontend (Vercel / apps/web/.env)
 
 | Variable | Description | Example |
 |----------|-------------|---------|

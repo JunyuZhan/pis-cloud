@@ -5,6 +5,11 @@ version: '3.8'
 # ============================================
 # PIS 部署配置 - Supabase 版本
 # 
+# 环境变量配置:
+# - 统一使用根目录的 .env 文件
+# - 在 docker 目录执行时，使用 ../.env
+# - 在根目录执行时，使用 .env
+# 
 # 端口说明:
 # - MinIO API: 19000
 # - MinIO Console: 19001
@@ -89,6 +94,9 @@ services:
       context: ..
       dockerfile: docker/worker.Dockerfile
     container_name: pis-worker
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
     environment:
       # Supabase Cloud
       - SUPABASE_URL=${SUPABASE_URL}

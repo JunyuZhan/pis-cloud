@@ -10,12 +10,12 @@ out
 
 # Environment files
 .env
-.env.local
 .env.*.local
 !.env.example
+# Docker environment files (统一使用根目录的 .env)
+docker/.env
 # Worker environment files
 services/worker/.env
-services/worker/.env.local
 # Additional sensitive files
 *.key
 *.pem

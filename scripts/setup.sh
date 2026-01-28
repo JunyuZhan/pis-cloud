@@ -108,7 +108,7 @@ configure_env() {
 validate_env_vars() {
     step "验证环境变量"
     
-    local env_file=".env.local"
+    local env_file=".env"
     local errors=0
     
     if [ ! -f "$env_file" ]; then
@@ -183,7 +183,7 @@ validate_env_vars() {
     fi
     
     # 创建统一的根目录环境变量文件
-    cat > .env.local << EOF
+    cat > .env << EOF
 # ===========================================
 # PIS 统一环境配置 (根目录)
 # 本地开发: 此文件被 apps/web 和 services/worker 共享
@@ -229,7 +229,7 @@ REDIS_PORT=16379
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 EOF
     
-    success "已创建 .env.local (根目录统一配置)"
+    success "已创建 .env (根目录统一配置)"
     success "环境变量配置完成!"
     echo ""
     info "提示: apps/web 和 services/worker 会自动从根目录读取配置"
@@ -248,7 +248,7 @@ setup_local() {
     success "依赖安装完成"
     
     # 检查环境变量
-    if [[ ! -f ".env.local" ]]; then
+    if [[ ! -f ".env" ]]; then
         warn "未找到环境变量配置"
         configure_env || return 1
     fi
@@ -418,7 +418,7 @@ run_migrations() {
     echo ""
     
     # 检查当前配置的数据库类型
-    local env_file=".env.local"
+    local env_file=".env"
     local db_type="supabase"
     
     if [ -f "$env_file" ]; then
@@ -515,10 +515,10 @@ check_status() {
     
     # 检查环境变量
     echo "环境变量配置:"
-    if [[ -f ".env.local" ]]; then
-        success ".env.local 存在 (根目录统一配置)"
+    if [[ -f ".env" ]]; then
+        success ".env 存在 (根目录统一配置)"
     else
-        warn ".env.local 不存在，请运行配置向导"
+        warn ".env 不存在，请运行配置向导"
     fi
     
     # 检查数据库架构文件

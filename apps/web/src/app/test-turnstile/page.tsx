@@ -47,7 +47,7 @@ export default function TestTurnstilePage() {
                   ⚠️ Turnstile 未配置
                   <br />
                   <span className="text-xs text-text-muted">
-                    请在 .env.local 中配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY
+                    请在 .env 中配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY
                   </span>
                 </div>
               )}

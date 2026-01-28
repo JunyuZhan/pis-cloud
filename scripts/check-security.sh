@@ -43,9 +43,9 @@ else
 fi
 echo ""
 
-# 3. 检查代码中是否有硬编码的 JWT tokens（排除 .env.local 文件）
+# 3. 检查代码中是否有硬编码的 JWT tokens（排除 .env 文件）
 echo "3️⃣  检查硬编码的 JWT tokens..."
-JWT_TOKENS=$(grep -r "eyJ[A-Za-z0-9_-]\{50,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" . 2>/dev/null || true)
+JWT_TOKENS=$(grep -r "eyJ[A-Za-z0-9_-]\{50,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env" . 2>/dev/null || true)
 
 if [ -n "$JWT_TOKENS" ]; then
     echo -e "${RED}❌ 发现可能的硬编码 JWT token：${NC}"
@@ -58,7 +58,7 @@ echo ""
 
 # 4. 检查 Supabase 项目 URL 和密钥
 echo "4️⃣  检查 Supabase 配置..."
-SUPABASE_URLS=$(grep -r "https://[a-z0-9]\{20\}\.supabase\.co" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" . 2>/dev/null || true)
+SUPABASE_URLS=$(grep -r "https://[a-z0-9]\{20\}\.supabase\.co" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env" . 2>/dev/null || true)
 
 if [ -n "$SUPABASE_URLS" ]; then
     echo -e "${RED}❌ 发现硬编码的 Supabase URL：${NC}"
@@ -84,7 +84,7 @@ echo ""
 
 # 5. 检查硬编码的密码（排除测试脚本中的默认值和 UI 代码）
 echo "6️⃣  检查硬编码的密码..."
-PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env.local" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" --exclude="check-security.sh" . 2>/dev/null | \
+PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" --exclude="check-security.sh" . 2>/dev/null | \
     grep -v "password123" | grep -v "minioadmin" | grep -v "your-" | grep -v "PIS_ADMIN_PASSWORD" | grep -v "test-password" | \
     grep -v "show.*Password" | grep -v "showConfirmPassword" | grep -v "type.*password" | grep -v "input.*password" | grep -v "Eye" | \
     grep -v "MSG_.*PASSWORD" | grep -v "Password:" | grep -v "password:" | \
@@ -129,7 +129,7 @@ PUBLIC_DOMAINS="github\.com|npmjs\.com|npm\.com|vercel\.app|netlify\.app|supabas
 # 匹配 http:// 或 https:// 开头的 URL，但排除示例域名和公共域名
 # 排除二进制文件（jpg, png, jpeg, gif, svg, ico, pdf 等）
 PRIVATE_DOMAINS=$(grep -rE "https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.turbo --exclude-dir=.shared --exclude-dir=coverage --exclude-dir=dist \
-    --exclude="*.md" --exclude="*.example" --exclude=".env.local" --exclude=".env" --exclude="*.test.*" --exclude="*.spec.*" \
+    --exclude="*.md" --exclude="*.example" --exclude=".env" --exclude="*.test.*" --exclude="*.spec.*" \
     --exclude="pnpm-lock.yaml" --exclude="package-lock.json" --exclude="yarn.lock" \
     --exclude="*.jpg" --exclude="*.jpeg" --exclude="*.png" --exclude="*.gif" --exclude="*.svg" --exclude="*.ico" --exclude="*.pdf" \
     --exclude="*.d.ts" --exclude="*.log" . 2>/dev/null | \

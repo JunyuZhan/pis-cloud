@@ -12,7 +12,7 @@
 
 - [ ] 运行安全检查脚本: `bash scripts/check-security.sh`
 - [ ] 验证环境变量配置: `bash scripts/setup.sh` (选项 3)
-- [ ] 确保 `.env.local` 不包含真实密钥
+- [ ] 确保 `.env` 不包含真实密钥
 - [ ] 检查 `.gitignore` 正确配置敏感文件
 - [ ] 生产环境启用 HTTPS
 - [ ] 配置强密码和安全密钥
@@ -625,7 +625,7 @@ git ls-files | grep -E "\.env$|\.env\.local$|\.key$|\.pem$"
 **预期结果：** 应该没有输出，表示这些文件未被跟踪。
 
 **需要排除的文件：**
-- ✅ `.env.local` - 应在 `.gitignore` 中
+- ✅ `.env` - 应在 `.gitignore` 中
 - ✅ `services/worker/.env` - 应在 `.gitignore` 中
 - ✅ 所有密钥文件（`.key`, `.pem`, `.p12`）
 - ✅ SSH 密钥文件
@@ -636,7 +636,7 @@ git ls-files | grep -E "\.env$|\.env\.local$|\.key$|\.pem$"
 
 ```bash
 # 检查 Git 历史中是否有敏感文件
-git log --all --full-history --source -- .env.local services/worker/.env .env
+git log --all --full-history --source -- .env services/worker/.env
 ```
 
 **预期结果：** 应该没有输出，表示历史记录干净。
@@ -646,7 +646,7 @@ git log --all --full-history --source -- .env.local services/worker/.env .env
 ```bash
 # 使用 git-filter-repo（推荐）
 pip install git-filter-repo
-git filter-repo --path .env.local --path services/worker/.env --invert-paths
+git filter-repo --path .env --path services/worker/.env --invert-paths
 
 # ⚠️ 警告：这会重写 Git 历史，如果已推送到远程，需要强制推送
 git push origin --force --all
@@ -687,7 +687,6 @@ cat .env.example | grep -E "(your-|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.)"
 ```gitignore
 # Environment files
 .env
-.env.local
 .env.*.local
 !.env.example
 
@@ -736,7 +735,7 @@ bash scripts/check-security.sh
    ```bash
    # 使用 git-filter-repo
    pip install git-filter-repo
-   git filter-repo --path .env.local --path services/worker/.env --invert-paths
+   git filter-repo --path .env --path services/worker/.env --invert-paths
    git push origin --force --all
    ```
 
@@ -745,7 +744,7 @@ bash scripts/check-security.sh
 
 ### 📋 公开仓库前的最终检查清单
 
-- [ ] 确认 `.env.local` 未被 Git 跟踪
+- [ ] 确认 `.env` 未被 Git 跟踪
 - [ ] 确认 `services/worker/.env` 未被 Git 跟踪
 - [ ] 确认 Git 历史中没有敏感文件
 - [ ] 确认代码中没有硬编码的密钥

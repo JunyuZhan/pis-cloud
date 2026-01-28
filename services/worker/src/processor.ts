@@ -196,13 +196,22 @@ export class PhotoProcessor {
     // 2. 并行生成：BlurHash + 缩略图（优化性能）
     // 优化：BlurHash 使用已旋转的图像，避免重复旋转
     // 支持通过环境变量配置缩略图标准，默认 400px（向后兼容）
+    // 重要：每个并行任务都使用独立的 clone()，确保完全隔离，避免图片数据混乱
+    // 防御性措施：在并行处理前创建完全独立的 Sharp 实例，防止并发时的数据共享问题
     const thumbSize = parseInt(process.env.THUMB_MAX_SIZE || '400', 10);
+    
+    // 为每个并行任务创建完全独立的 Sharp 实例
+    // 这确保了即使在 Sharp 内部实现有并发问题的情况下，也能保证数据隔离
+    const thumbImage = rotatedImage.clone();
+    const blurHashImage = rotatedImage.clone();
+    
     const [blurHash, thumbBuffer] = await Promise.all([
       // 生成 BlurHash（基于已旋转的图片，避免重复旋转）
-      this.generateBlurHashFromRotated(rotatedImage),
+      // 使用独立的 Sharp 实例确保数据隔离
+      this.generateBlurHashFromRotated(blurHashImage),
       // 生成缩略图 - 自动根据 EXIF orientation 旋转
-      rotatedImage
-        .clone()
+      // 使用独立的 Sharp 实例确保数据隔离
+      thumbImage
         .resize(thumbSize, null, { withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer()
