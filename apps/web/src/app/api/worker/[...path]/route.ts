@@ -5,7 +5,8 @@
  * 
  * 路由映射:
  * - /api/worker/multipart/init -> WORKER_URL/api/multipart/init
- * - /api/worker/multipart/upload -> WORKER_URL/api/multipart/upload
+ * - /api/worker/multipart/presign-part -> WORKER_URL/api/multipart/presign-part (生成分片 presigned URL，推荐)
+ * - /api/worker/multipart/upload -> WORKER_URL/api/multipart/upload (保留兼容性)
  * - /api/worker/multipart/complete -> WORKER_URL/api/multipart/complete
  * - /api/worker/multipart/abort -> WORKER_URL/api/multipart/abort
  * - /api/worker/upload -> WORKER_URL/api/upload

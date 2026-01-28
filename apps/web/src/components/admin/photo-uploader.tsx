@@ -472,24 +472,46 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
               
               while (partRetryCount < maxPartRetries) {
                 try {
-                  const partRes = await fetch(
-                    `/api/worker/multipart/upload?key=${encodeURIComponent(originalKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${j + 1}`,
-                    {
-                      method: 'PUT',
-                      body: chunk,
-                      headers: {
-                        'Content-Type': 'application/octet-stream',
-                      },
-                    }
-                  )
+                  // 1. 获取分片的 presigned URL（通过 Next.js API 路由）
+                  const presignRes = await fetch('/api/worker/multipart/presign-part', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      key: originalKey,
+                      uploadId,
+                      partNumber: j + 1,
+                      expirySeconds: 3600, // 1小时有效期
+                    }),
+                  })
+
+                  if (!presignRes.ok) {
+                    const errorText = await presignRes.text()
+                    throw new Error(`获取分片 ${j + 1} 上传地址失败: HTTP ${presignRes.status} ${errorText}`)
+                  }
+
+                  const { url: presignedUrl } = await presignRes.json()
+
+                  // 2. 直接上传分片到 MinIO（绕过 Vercel）
+                  const partRes = await fetch(presignedUrl, {
+                    method: 'PUT',
+                    body: chunk,
+                    headers: {
+                      'Content-Type': 'application/octet-stream',
+                    },
+                  })
 
                   if (!partRes.ok) {
                     const errorText = await partRes.text()
                     throw new Error(`上传分片 ${j + 1} 失败: HTTP ${partRes.status} ${errorText}`)
                   }
 
-                  const partData = await partRes.json()
-                  return { partNumber: j + 1, etag: partData.etag }
+                  // 从响应头获取 ETag（S3/MinIO 标准）
+                  const etag = partRes.headers.get('ETag')?.replace(/"/g, '') || ''
+                  if (!etag) {
+                    throw new Error(`上传分片 ${j + 1} 失败: 未收到 ETag`)
+                  }
+
+                  return { partNumber: j + 1, etag }
                 } catch (partError) {
                   partRetryCount++
                   if (partRetryCount >= maxPartRetries) {

@@ -70,6 +70,16 @@ export interface StorageAdapter {
   ): Promise<{ etag: string }>;
   
   /**
+   * 生成分片的预签名上传 URL（用于客户端直接上传到存储）
+   */
+  getPresignedPartUrl(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    expirySeconds?: number
+  ): Promise<string>;
+  
+  /**
    * 完成分片上传
    */
   completeMultipartUpload(

@@ -114,6 +114,15 @@ export async function uploadPart(
   return getStorageAdapter().uploadPart(key, uploadId, partNumber, buffer);
 }
 
+export async function getPresignedPartUrl(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  expirySeconds = 3600
+): Promise<string> {
+  return getStorageAdapter().getPresignedPartUrl(key, uploadId, partNumber, expirySeconds);
+}
+
 export async function completeMultipartUpload(
   key: string,
   uploadId: string,

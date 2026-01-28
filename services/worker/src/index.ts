@@ -47,6 +47,7 @@ import {
   uploadBuffer,
   initMultipartUpload,
   uploadPart,
+  getPresignedPartUrl,
   completeMultipartUpload,
   abortMultipartUpload,
   getPresignedGetUrl,
@@ -1249,7 +1250,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 上传单个分片
+  // 获取分片的预签名上传 URL（用于客户端直接上传到 MinIO）
+  if (url.pathname === '/api/multipart/presign-part' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const { key, uploadId, partNumber, expirySeconds = 3600 } = body;
+      
+      if (!key || !uploadId || !partNumber) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing key, uploadId, or partNumber' }));
+        return;
+      }
+
+      console.log(`[Multipart] Generating presigned URL for part ${partNumber} of ${key}`);
+      const presignedUrl = await getPresignedPartUrl(key, uploadId, partNumber, expirySeconds);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ url: presignedUrl, partNumber }));
+    } catch (err: any) {
+      console.error('[Multipart] Presign part error:', err);
+      const statusCode = err.message?.includes('too large') ? 413 : 
+                        err.message?.includes('Invalid JSON') ? 400 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: err.message || 'Failed to generate presigned URL',
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      }));
+    }
+    return;
+  }
+
+  // 上传单个分片（保留兼容性，但推荐使用 presigned URL 直接上传）
   if (url.pathname === '/api/multipart/upload' && req.method === 'PUT') {
     const key = url.searchParams.get('key');
     const uploadId = url.searchParams.get('uploadId');

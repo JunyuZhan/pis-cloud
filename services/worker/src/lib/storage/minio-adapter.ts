@@ -5,6 +5,7 @@
  */
 import * as Minio from 'minio';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { StorageAdapter, StorageConfig, UploadResult, StorageObject } from './types.js';
 
 export class MinIOAdapter implements StorageAdapter {
@@ -195,6 +196,31 @@ export class MinIOAdapter implements StorageAdapter {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error(`[MinIO] Error uploading part ${partNumber} for ${key}:`, errorMessage);
       throw new Error(`Failed to upload part: ${errorMessage}`);
+    }
+  }
+
+  async getPresignedPartUrl(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    expirySeconds = 3600
+  ): Promise<string> {
+    try {
+      const command = new UploadPartCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+      });
+      
+      const url = await getSignedUrl(this.s3Client, command, { expiresIn: expirySeconds });
+      
+      // 如果配置了 publicUrl，替换为公网地址
+      return this.toPublicUrl(url);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[MinIO] Error generating presigned URL for part ${partNumber} of ${key}:`, errorMessage);
+      throw new Error(`Failed to generate presigned URL for part: ${errorMessage}`);
     }
   }
 
