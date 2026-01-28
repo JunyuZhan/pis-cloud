@@ -121,7 +121,8 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_BUCKET=${MINIO_BUCKET:-pis-photos}
       # Redis (Docker 内部网络，使用服务名)
-      - REDIS_HOST=${REDIS_HOST:-redis}
+      # 注意：强制使用 Docker 服务名 'redis'，忽略 .env 文件中的 localhost 配置
+      - REDIS_HOST=redis
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       # 安全配置
