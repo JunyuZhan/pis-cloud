@@ -31,6 +31,9 @@ services:
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: pis-minio
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
     ports:
       - "19000:9000"  # API (绑定到所有接口，允许局域网访问)
       - "19001:9001"  # 控制台 (绑定到所有接口，允许局域网访问)
@@ -73,6 +76,9 @@ services:
   minio-init:
     image: minio/mc:latest
     container_name: pis-minio-init
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
     depends_on:
       minio:
         condition: service_healthy
