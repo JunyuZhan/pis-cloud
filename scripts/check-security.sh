@@ -82,13 +82,18 @@ else
 fi
 echo ""
 
-# 5. 检查硬编码的密码（排除测试脚本中的默认值和 UI 代码）
+# 5. 检查硬编码的密码（排除测试脚本中的默认值、UI 代码和构建缓存）
 echo "6️⃣  检查硬编码的密码..."
-PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.shared --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" --exclude="check-security.sh" . 2>/dev/null | \
+PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=.turbo --exclude-dir=.shared \
+    --exclude-dir=coverage --exclude-dir=dist --exclude-dir=out \
+    --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" \
+    --exclude="*.tar.zst" --exclude="*.tar.gz" --exclude="*.zip" --exclude="*.log" \
+    --exclude="check-security.sh" . 2>/dev/null | \
     grep -v "password123" | grep -v "minioadmin" | grep -v "your-" | grep -v "PIS_ADMIN_PASSWORD" | grep -v "test-password" | \
     grep -v "show.*Password" | grep -v "showConfirmPassword" | grep -v "type.*password" | grep -v "input.*password" | grep -v "Eye" | \
     grep -v "MSG_.*PASSWORD" | grep -v "Password:" | grep -v "password:" | \
-    grep -v "passwordValue" | grep -v "PASSWORDS=" || true)
+    grep -v "passwordValue" | grep -v "PASSWORDS=" | grep -v "\.turbo" | grep -v "cache" || true)
 
 if [ -n "$PASSWORDS" ]; then
     echo -e "${YELLOW}⚠️  警告：发现可能的硬编码密码：${NC}"
@@ -151,7 +156,8 @@ echo ""
 # 8. 检查 .gitignore 配置
 echo "9️⃣  检查 .gitignore 配置..."
 if [ -f ".gitignore" ]; then
-    if grep -q "\.env" .gitignore && grep -q "\.env\.local" .gitignore; then
+    # 检查是否配置了 .env 文件（支持多种格式：.env, .env.local, .env.*.local 等）
+    if grep -qE "^\.env$|^\.env\." .gitignore || grep -qE "\.env\*|\.env\." .gitignore; then
         echo -e "${GREEN}✅ .gitignore 正确配置了环境变量文件${NC}"
     else
         echo -e "${RED}❌ .gitignore 缺少环境变量文件配置${NC}"
