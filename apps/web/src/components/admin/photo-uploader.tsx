@@ -6,11 +6,11 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, RefreshCw, Pause, Play }
 import { cn, formatFileSize } from '@/lib/utils'
 
 // 上传配置
-// 启用分片上传以绕过 Cloudflare 的 30 秒 Proxy Write Timeout 限制
-// 如果前端域名也经过 Cloudflare，分片上传也会受到 30 秒限制
-// 因此减小分片大小：1MB（确保每个分片上传时间 < 30 秒，即使网速较慢）
+// 启用分片上传以绕过 Vercel 的大小限制
+// 注意：使用 presigned URL 直接上传到 MinIO，绕过 Vercel 和 Cloudflare，不受 30 秒限制
+// S3/MinIO 要求：除了最后一个分片，所有分片必须至少 5MB
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024 // 5MB 以上使用分片上传
-const CHUNK_SIZE = 1 * 1024 * 1024 // 1MB 分片大小（确保每个分片上传时间 < 30 秒，即使网速 < 33KB/s）
+const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB 分片大小（符合 S3/MinIO 最小分片要求）
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 const MAX_RETRIES = 3 // 最大重试次数
 
@@ -459,8 +459,15 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
         const batch = []
         for (let j = i; j < Math.min(i + batchSize, totalChunks); j++) {
           const start = j * CHUNK_SIZE
+          // 最后一个分片可以是任意大小（小于 5MB），其他分片必须是 5MB
+          const isLastChunk = j === totalChunks - 1
           const end = Math.min(start + CHUNK_SIZE, uploadFile.file.size)
           const chunk = uploadFile.file.slice(start, end)
+          
+          // 验证分片大小（除了最后一个分片，必须至少 5MB）
+          if (!isLastChunk && chunk.size < CHUNK_SIZE) {
+            throw new Error(`分片 ${j + 1} 大小不足：期望至少 ${CHUNK_SIZE} 字节，实际 ${chunk.size} 字节`)
+          }
 
           batch.push(
             (async () => {
