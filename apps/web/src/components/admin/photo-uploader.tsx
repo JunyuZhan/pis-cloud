@@ -9,7 +9,8 @@ import { cn, formatFileSize } from '@/lib/utils'
 // 启用分片上传以绕过 Vercel 的大小限制
 // 注意：使用 presigned URL 直接上传到 MinIO，绕过 Vercel 和 Cloudflare，不受 30 秒限制
 // S3/MinIO 要求：除了最后一个分片，所有分片必须至少 5MB
-const MULTIPART_THRESHOLD = 5 * 1024 * 1024 // 5MB 以上使用分片上传
+// 因此文件 >= 5MB 时使用分片上传，确保第一个分片至少 5MB
+const MULTIPART_THRESHOLD = 5 * 1024 * 1024 // >= 5MB 使用分片上传
 const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB 分片大小（符合 S3/MinIO 最小分片要求）
 const MAX_CONCURRENT_UPLOADS = 3 // 最大同时上传数量
 const MAX_RETRIES = 3 // 最大重试次数
@@ -545,7 +546,7 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
 
                     if (!partRes.ok) {
                       const errorText = await partRes.text()
-                      console.warn(`[Upload] Direct upload failed: HTTP ${partRes.status}, falling back to Worker API`)
+                      console.warn(`[Upload] Direct upload failed: HTTP ${partRes.status} ${errorText}, falling back to Worker API`)
                       useWorkerFallback = true
                     } else {
                       // 从响应头获取 ETag（S3/MinIO 标准）
@@ -1325,8 +1326,8 @@ export function PhotoUploader({ albumId, onComplete }: PhotoUploaderProps) {
       )
 
       // 2. 根据文件大小选择上传方式
-      // 大文件（>10MB）使用分片上传，提高成功率
-      if (uploadFile.file.size > MULTIPART_THRESHOLD) {
+      // 大文件（>= 5MB）使用分片上传，确保分片符合 S3/MinIO 最小 5MB 要求
+      if (uploadFile.file.size >= MULTIPART_THRESHOLD) {
         await uploadMultipart(uploadFile, photoId!, originalKey, respAlbumId)
       } else {
         // 小文件直接上传（避免分片上传的开销）

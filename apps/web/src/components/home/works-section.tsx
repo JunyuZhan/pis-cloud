@@ -12,24 +12,32 @@ interface WorksSectionProps {
 
 /**
  * 获取随机背景图片URL
- * 使用 Lorem Picsum API（免费，无需API key）
- * 可以替换为其他图片API，如 Unsplash Source: `https://source.unsplash.com/1920x1080/?photography,nature`
+ * 使用环境变量配置的图片API，避免硬编码外部域名
  */
 function getBackgroundImageUrl(): string {
-  // 使用 Lorem Picsum - 随机高质量照片
-  // 参数：宽度x高度，可以添加 ?random=数字 来获取不同的图片
   const width = 1920
   const height = 1080
   const randomSeed = Math.floor(Math.random() * 1000)
   
-  // 选项1: Lorem Picsum（推荐，稳定）
-  return `https://picsum.photos/${width}/${height}?random=${randomSeed}`
+  // 从环境变量获取图片API配置
+  const imageApiProvider = process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_PROVIDER || 'picsum'
+  const customImageApiUrl = process.env.NEXT_PUBLIC_BACKGROUND_IMAGE_API_URL
   
-  // 选项2: Unsplash Source（备选，无需API key）
-  // return `https://source.unsplash.com/${width}x${height}/?photography,art,nature&sig=${randomSeed}`
+  // 如果配置了自定义API URL，使用自定义URL
+  if (customImageApiUrl) {
+    return customImageApiUrl.replace('{width}', width.toString())
+                           .replace('{height}', height.toString())
+                           .replace('{random}', randomSeed.toString())
+  }
   
-  // 选项3: 使用特定主题的图片（如摄影、艺术、自然等）
-  // return `https://picsum.photos/id/${Math.floor(Math.random() * 1000)}/${width}/${height}`
+  // 根据配置选择图片API提供商
+  switch (imageApiProvider) {
+    case 'unsplash':
+      return `https://source.unsplash.com/${width}x${height}/?photography,art,nature&sig=${randomSeed}`
+    case 'picsum':
+    default:
+      return `https://picsum.photos/${width}/${height}?random=${randomSeed}`
+  }
 }
 
 export function WorksSection({ albums }: WorksSectionProps) {

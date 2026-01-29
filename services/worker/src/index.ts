@@ -39,7 +39,6 @@ if (!envLoaded) {
 import http from 'http';
 import crypto from 'crypto';
 import { Worker, Job, Queue } from 'bullmq';
-import { createClient } from '@supabase/supabase-js';
 import { connection, QUEUE_NAME, photoQueue } from './lib/redis.js';
 import { 
   downloadFile, 
@@ -62,20 +61,24 @@ import { PhotoProcessor } from './processor.js';
 import { PackageCreator } from './package-creator.js';
 import { getAlbumCache, destroyAlbumCache } from './lib/album-cache.js';
 import { purgePhotoCache } from './lib/cloudflare-purge.js';
+import { alertService } from './lib/alert.js';
+import { createSupabaseCompatClient, SupabaseCompatClient } from './lib/database/supabase-compat.js';
 
-// 检查必要的环境变量 (支持两种变量名)
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-if (!supabaseUrl || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('❌ Missing required environment variables: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY');
-  console.error('   Please configure these values in the root .env file');
+// 初始化数据库客户端
+// 支持两种模式：
+// 1. Supabase 模式：设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY
+// 2. PostgreSQL 模式：设置 DATABASE_TYPE=postgresql 和 DATABASE_* 环境变量
+let supabase: SupabaseCompatClient;
+try {
+  supabase = createSupabaseCompatClient();
+  const databaseType = process.env.DATABASE_TYPE || 'supabase';
+  console.log(`✅ Database client initialized (mode: ${databaseType})`);
+} catch (err: any) {
+  console.error('❌ Failed to initialize database client:', err.message);
+  console.error('   For Supabase: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  console.error('   For PostgreSQL: Set DATABASE_TYPE=postgresql and DATABASE_HOST, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD');
   process.exit(1);
 }
-
-// 初始化 Supabase 客户端 (Service Role 用于后端操作)
-const supabase = createClient(
-  supabaseUrl,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface PhotoJobData {
   photoId: string;
@@ -736,8 +739,31 @@ const worker = new Worker<PhotoJobData>(
   }
 );
 
-worker.on('failed', (job, err) => {
-  console.error(`❌ Job ${job?.id} failed:`, err.message);
+worker.on('failed', async (job, err) => {
+  const jobId = job?.id;
+  const errorMessage = err?.message || 'Unknown error';
+  console.error(`❌ Job ${jobId} failed:`, errorMessage);
+
+  // 发送告警（仅在非临时错误时）
+  // 临时错误：网络超时、连接重置、服务暂时不可用
+  // 非临时错误：文件损坏、格式不支持、配置错误等
+  const isTemporaryError =
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('ECONNRESET') ||
+    errorMessage.includes('ETIMEDOUT') ||
+    errorMessage.includes('ECONNREFUSED') ||
+    errorMessage.includes('rate limit') ||
+    errorMessage.includes('too many requests');
+
+  // 只在非临时错误且不是第一次失败时发送告警
+  // 第一次失败可能是偶发的，重试后成功就不需要告警
+  if (!isTemporaryError && job?.attemptsMade && job.attemptsMade >= 2) {
+    await alertService.photoProcessingFailed(
+      jobId || 'unknown',
+      job.data?.albumId || 'unknown',
+      errorMessage
+    );
+  }
 });
 
 console.log(`✅ Worker listening on queue: ${QUEUE_NAME}`);
@@ -801,7 +827,7 @@ const packageWorker = new Worker<PackageJobData>(
       // 4. 创建 ZIP 包
       console.time(`[Package ${job.id}] Create ZIP`);
       const zipBuffer = await PackageCreator.createPackage({
-        photos: photos.map(p => ({
+        photos: photos.map((p: { id: string; filename: string; original_key: string; preview_key: string }) => ({
           id: p.id,
           filename: p.filename,
           originalKey: p.original_key,
@@ -904,13 +930,13 @@ const server = http.createServer(async (req, res) => {
       health.status = 'degraded';
     }
 
-    // 检查 Supabase 连接
+    // 检查数据库连接
     try {
-      const { error } = await supabase.from('albums').select('id').limit(1);
-      if (error) throw error;
-      health.services.supabase = { status: 'ok' };
+      const dbHealth = await supabase.healthCheck();
+      if (!dbHealth.ok) throw new Error(dbHealth.error || 'Database health check failed');
+      health.services.database = { status: 'ok', type: process.env.DATABASE_TYPE || 'supabase' };
     } catch (err: any) {
-      health.services.supabase = { status: 'error', error: err.message };
+      health.services.database = { status: 'error', error: err.message };
       health.status = 'degraded';
     }
 
@@ -1665,7 +1691,7 @@ const server = http.createServer(async (req, res) => {
           .eq('album_id', albumId);
         
         const existingFilenames = new Set(
-          (existingPhotos || []).map(p => p.filename)
+          (existingPhotos || []).map((p: { filename: string }) => p.filename)
         );
 
         // 4. 处理新图片（批量并行处理，提高性能）
@@ -1768,6 +1794,92 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ 
         error: err.message || 'Internal server error',
         ...(CONFIG.IS_DEVELOPMENT && err.stack ? { stack: err.stack } : {})
+      }));
+    }
+    return;
+  }
+
+  // ============================================
+  // 数据一致性检查 API
+  // ============================================
+
+  // 执行一致性检查
+  if (url.pathname === '/api/worker/consistency/check' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req, CONFIG.MAX_BODY_SIZE);
+      const {
+        autoFix = false,
+        deleteOrphanedFiles = false,
+        deleteOrphanedRecords = false,
+        batchSize = 100,
+      } = body;
+
+      console.log('[Consistency] Starting check with options:', { autoFix, deleteOrphanedFiles, deleteOrphanedRecords, batchSize });
+
+      // 动态导入一致性检查模块
+      const { createConsistencyChecker } = await import('./lib/consistency.js');
+      const consistencySupabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const checker = createConsistencyChecker(
+        consistencySupabaseUrl,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        bucketName
+      );
+
+      const result = await checker.check({
+        autoFix,
+        deleteOrphanedFiles,
+        deleteOrphanedRecords,
+        batchSize,
+        sendAlerts: true,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        result,
+      }));
+    } catch (err: any) {
+      console.error('[Consistency] Check error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: err.message || 'Internal server error',
+      }));
+    }
+    return;
+  }
+
+  // 修复单个照片
+  if (url.pathname.match(/^\/api\/worker\/consistency\/repair\/[^/]+$/) && req.method === 'POST') {
+    try {
+      const photoId = url.pathname.split('/').pop();
+      if (!photoId || !isValidUUID(photoId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid photo ID' }));
+        return;
+      }
+
+      console.log(`[Consistency] Repairing photo: ${photoId}`);
+
+      const { createConsistencyChecker } = await import('./lib/consistency.js');
+      const repairSupabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const checker = createConsistencyChecker(
+        repairSupabaseUrl,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        bucketName
+      );
+
+      const result = await checker.repairPhoto(photoId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: result.success,
+        message: result.message,
+      }));
+    } catch (err: any) {
+      console.error('[Consistency] Repair error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: err.message || 'Internal server error',
       }));
     }
     return;
@@ -2034,7 +2146,7 @@ async function checkPendingPhotos(albumId?: string) {
             .is('deleted_at', null); // 排除已删除的照片
           
           const dbPhotoKeys = new Set(
-            (allPhotos || []).map(p => p.original_key)
+            (allPhotos || []).map((p: { original_key: string }) => p.original_key)
           );
           
           // 找出 MinIO 中存在但数据库中没有记录的文件

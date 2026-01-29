@@ -186,9 +186,11 @@ describe('POST /api/admin/photos/process', () => {
       const response = await POST(request)
       const data = await response.json()
 
-      // Worker 错误不应该阻断流程，仍然返回成功
-      expect(response.status).toBe(200)
+      // Worker 错误时返回 202 Accepted（请求已接受，但处理尚未完成）
+      expect(response.status).toBe(202)
       expect(data.success).toBe(true)
+      expect(data.warning).toBeDefined()
+      expect(data.warning.code).toBe('WORKER_UNAVAILABLE')
     })
 
     it('should handle worker API network error gracefully', async () => {
@@ -206,9 +208,11 @@ describe('POST /api/admin/photos/process', () => {
       const response = await POST(request)
       const data = await response.json()
 
-      // 网络错误不应该阻断流程，仍然返回成功
-      expect(response.status).toBe(200)
+      // 网络错误时返回 202 Accepted（请求已接受，但处理尚未完成）
+      expect(response.status).toBe(202)
       expect(data.success).toBe(true)
+      expect(data.warning).toBeDefined()
+      expect(data.warning.code).toBe('WORKER_UNAVAILABLE')
     })
 
     it('should pass cookie header to worker API', async () => {

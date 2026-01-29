@@ -48,10 +48,17 @@ WORKDIR /app
 # 安装 pnpm
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
-# 复制 Worker 项目文件
-COPY services/worker/package.json services/worker/pnpm-lock.yaml* ./
+# 复制 workspace 配置和 lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+# 复制 Worker 项目 package.json
+COPY services/worker/package.json ./services/worker/
+
+# 安装 Worker 依赖
+RUN pnpm install --filter @pis/worker... --no-frozen-lockfile
 
 # 安装构建依赖（用于 Sharp 源码编译）
+WORKDIR /app/services/worker
 RUN pnpm add node-addon-api node-gyp
 
 # 强制 Sharp 从源码编译使用系统 libvips
@@ -61,19 +68,25 @@ ENV npm_config_sharp_local_prebuilds=0
 # 强制重新安装 Sharp（从源码编译以支持 HEIC）
 RUN pnpm remove sharp && pnpm add sharp
 
-# 安装其他依赖
-RUN pnpm install --no-frozen-lockfile
-
 # 复制源码
-COPY services/worker/src ./src
-COPY services/worker/tsconfig.json ./
+WORKDIR /app
+COPY services/worker/src ./services/worker/src
+COPY services/worker/tsconfig.json ./services/worker/
 
 # 构建
+WORKDIR /app/services/worker
 RUN pnpm build
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "console.log('healthy')" || exit 1
+# 安装 curl 用于健康检查
+RUN apk add --no-cache curl
 
-# 运行
+# 清理构建依赖（减少镜像大小）
+RUN apk del .build-deps || true
+
+# 健康检查（检查 Worker HTTP API 是否正常）
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3001/health || exit 1
+
+# 设置工作目录并运行
+WORKDIR /app/services/worker
 CMD ["node", "dist/index.js"]

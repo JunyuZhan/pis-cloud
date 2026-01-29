@@ -10,13 +10,19 @@ out
 
 # Environment files
 .env
+.env.standalone
+.env.generated
+.deployment-info
 .env.*.local
 !.env.example
+!.env.standalone.example
 # Docker environment files (统一使用根目录的 .env)
 docker/.env
 # Worker environment files
 services/worker/.env
 # Additional sensitive files
+docker/nginx/ssl/*
+!docker/nginx/ssl/.gitkeep
 *.key
 *.pem
 *.p12
@@ -70,3 +76,4 @@ docs/ENGINEER_REFERENCE.md
 *.backup
 # 保留图标源文件，但忽略其他临时生成的图片
 # Gemini_Generated_Image*.png
+.kiro

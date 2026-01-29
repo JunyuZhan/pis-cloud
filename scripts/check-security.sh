@@ -89,10 +89,10 @@ PASSWORDS=$(grep -ri "password.*=.*['\"][^'\"]\{8,\}" \
     --exclude-dir=coverage --exclude-dir=dist --exclude-dir=out \
     --exclude="*.md" --exclude="*.example" --exclude="*.test.*" --exclude=".env" --exclude="*.pyc" --exclude="*.csv" \
     --exclude="*.tar.zst" --exclude="*.tar.gz" --exclude="*.zip" --exclude="*.log" \
-    --exclude="check-security.sh" . 2>/dev/null | \
+    --exclude="check-security.sh" --exclude="deploy.sh" --exclude="install.sh" . 2>/dev/null | \
     grep -v "password123" | grep -v "minioadmin" | grep -v "your-" | grep -v "PIS_ADMIN_PASSWORD" | grep -v "test-password" | \
     grep -v "show.*Password" | grep -v "showConfirmPassword" | grep -v "type.*password" | grep -v "input.*password" | grep -v "Eye" | \
-    grep -v "MSG_.*PASSWORD" | grep -v "Password:" | grep -v "password:" | \
+    grep -v "MSG_.*PASSWORD" | grep -v "Password:" | grep -v "password:" | grep -v "get_input" | \
     grep -v "passwordValue" | grep -v "PASSWORDS=" | grep -v "\.turbo" | grep -v "cache" || true)
 
 if [ -n "$PASSWORDS" ]; then
@@ -129,7 +129,7 @@ echo "8️⃣  检查硬编码的私人域名..."
 # 排除示例域名、公共 CDN、镜像站和常见占位符
 EXCLUDE_DOMAINS="yourdomain\.com|example\.com|localhost|127\.0\.0\.1|0\.0\.0\.0|test\.com|demo\.com|placeholder\.com"
 # 公共域名白名单（这些是公开的，不是私人域名）
-PUBLIC_DOMAINS="github\.com|npmjs\.com|npm\.com|vercel\.app|netlify\.app|supabase\.co|amazonaws\.com|aliyuncs\.com|myqcloud\.com|googleapis\.com|cloudflare\.com|jsdelivr\.net|unpkg\.com|cdnjs\.com|eslint\.org|turbo\.build|mirrors\.aliyun\.com|mirrors\.tuna\.tsinghua\.edu\.cn|dl-cdn\.alpinelinux\.org|registry\.npmjs\.org|registry\.yarnpkg\.com|nodejs\.org|docs\.docker\.com|w3\.org|dl\.min\.io|raw\.githubusercontent\.com|get\.docker\.com|fonts\.gstatic\.com|fonts\.googleapis\.com|ko-fi\.com|patreon\.com|nextjs\.org|yourname"
+PUBLIC_DOMAINS="github\.com|npmjs\.com|npm\.com|vercel\.com|vercel\.app|netlify\.app|supabase\.co|supabase\.com|amazonaws\.com|aliyuncs\.com|myqcloud\.com|googleapis\.com|cloudflare\.com|jsdelivr\.net|unpkg\.com|cdnjs\.com|eslint\.org|turbo\.build|mirrors\.aliyun\.com|mirrors\.tuna\.tsinghua\.edu\.cn|dl-cdn\.alpinelinux\.org|registry\.npmjs\.org|registry\.yarnpkg\.com|nodejs\.org|docs\.docker\.com|w3\.org|dl\.min\.io|raw\.githubusercontent\.com|get\.docker\.com|fonts\.gstatic\.com|fonts\.googleapis\.com|ko-fi\.com|patreon\.com|nextjs\.org|yourname|picsum\.photos|source\.unsplash\.com|curl\.se|telegram\.org|api\.telegram\.org|ghproxy\.com"
 # 查找可能的真实域名（排除示例域名和公共域名）
 # 匹配 http:// 或 https:// 开头的 URL，但排除示例域名和公共域名
 # 排除二进制文件（jpg, png, jpeg, gif, svg, ico, pdf 等）

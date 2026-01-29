@@ -22,48 +22,72 @@
 
 > **Fastest way to deploy PIS on your server**
 
-### Quick Deploy
+### Guided Deployment Script
+
+The new guided deployment script provides an interactive setup experience with automatic secret generation.
 
 **SSH into your server and run:**
 
 ```bash
-# Method 1: Download then execute (recommended, supports interactive input)
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
-bash /tmp/deploy.sh
+# Clone the repository
+git clone https://github.com/JunyuZhan/PIS.git
+cd pis
 
-# Method 2: Pipe directly (requires environment variables)
-export SUPABASE_URL="https://your-project.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="your-key"
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
+# Run guided deployment (interactive)
+bash docker/deploy.sh
 ```
 
-The script will automatically:
-- ✅ Install Docker, Docker Compose, Git
-- ✅ Download the latest code
-- ✅ Guide you through database and network selection
-- ✅ Start all services
+**Or deploy from your local machine:**
+
+```bash
+git clone https://github.com/JunyuZhan/PIS.git
+cd pis
+
+# Deploy to remote server
+bash docker/deploy.sh <server-ip> <ssh-user>
+# Example: bash docker/deploy.sh 192.168.1.100 root
+```
+
+### Deployment Modes
+
+The script will guide you to choose between two deployment modes:
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| **Hybrid** | Vercel (frontend) + Supabase (database) + Your server (storage/worker) | Quick setup, cloud frontend |
+| **Fully Standalone** | All services containerized (PostgreSQL + MinIO + Redis + Web + Worker + Nginx) | Complete self-hosting, data privacy |
 
 ### Deployment Flow
 
 ```
-Step 1: Install environment (Docker, Git)
-Step 2: Clone code
-Step 3: Choose database (Supabase/PostgreSQL/MySQL)
-Step 4: Choose network mode (Public/Internal)
-Step 5: Configure database credentials
-Step 6: Start services
-Step 7: Verify services
+Step 1: Choose deployment mode (Hybrid / Standalone)
+Step 2: Install environment (Docker, Git)
+Step 3: Configure database (Supabase URL / PostgreSQL credentials)
+Step 4: Configure storage (MinIO / Cloud storage)
+Step 5: Auto-generate security secrets
+Step 6: Build and start services
+Step 7: Configure SSL/TLS (Let's Encrypt)
+Step 8: Verify deployment
 ```
+
+### Auto-Generated Secrets
+
+The deployment script automatically generates secure random values for:
+- `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` (MinIO credentials)
+- `WORKER_API_KEY` (Worker API authentication)
+- `ALBUM_SESSION_SECRET` (JWT session signing)
+- `REDIS_PASSWORD` (Redis authentication)
+- `POSTGRES_PASSWORD` (PostgreSQL password in standalone mode)
 
 ### Database Options
 
 | Type | Recommended For | Features |
 |------|-----------------|----------|
-| **Supabase** | Production (Recommended) | Cloud-hosted, includes auth |
-| **PostgreSQL** | Self-hosted | Local Docker |
-| **MySQL** | Self-hosted | Local Docker |
+| **Supabase** | Hybrid deployment | Cloud-hosted, includes auth |
+| **PostgreSQL** | Standalone deployment | Self-hosted, local Docker |
+| **MySQL** | Standalone deployment | Self-hosted, local Docker |
 
-### Getting Supabase Credentials
+### Getting Supabase Credentials (Hybrid Mode)
 
 1. Visit https://supabase.com/dashboard
 2. Select project → **Settings** → **API**
@@ -72,67 +96,49 @@ Step 7: Verify services
 ### Server Requirements
 
 - **OS**: Ubuntu 20.04+ / Debian 11+ / CentOS 7+
-- **Specs**: 2 cores, 2GB RAM minimum, 4GB recommended
-- **Ports**: 19000, 19001, 3001 (public mode)
-
-### Alternative Deployment Methods
-
-#### Deploy from Local Machine
-
-If you want to deploy from your local computer to a remote server:
-
-```bash
-# Clone the project
-git clone https://github.com/junyuzhan/pis.git
-cd pis
-
-# Remote deploy (replace with your server IP and username)
-bash scripts/deploy.sh your-server-ip root
-```
-
-#### Using Environment Variables
-
-Set environment variables to skip manual input:
-
-```bash
-export SUPABASE_URL="https://your-project.supabase.co"
-export SUPABASE_SERVICE_ROLE_KEY="your-key"
-
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh | bash
-```
+- **Specs**:
+  - Hybrid: 1 core, 1GB RAM minimum
+  - Standalone: 2 cores, 2GB RAM minimum, 4GB recommended
+- **Ports**:
+  - Standalone: 80 (HTTP), 443 (HTTPS)
+  - Hybrid: 9000, 9001, 3001 (can be internal)
 
 ### Post-Deployment Configuration
 
-#### 1. Access MinIO Console
+#### Standalone Mode
 
+All services are accessible via your domain:
 ```
-http://your-server-ip:19001
+https://yourdomain.com          # Main application
+https://yourdomain.com/media    # Media files
 ```
 
-#### 2. Initialize Database Schema (Supabase)
+#### Hybrid Mode
 
-⚠️ **Important**: Execute database migrations **once** in Supabase Dashboard → SQL Editor. See project documentation for migration scripts.
+1. **Access MinIO Console** (if using MinIO):
+   ```
+   http://your-server-ip:9001
+   ```
 
-#### 3. Configure Frontend Environment Variables
+2. **Initialize Database Schema** (Supabase):
+   ⚠️ **Important**: Execute database migrations **once** in Supabase Dashboard → SQL Editor.
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Dashboard>
-NEXT_PUBLIC_MEDIA_URL=http://your-server-ip:19000/pis-photos
-NEXT_PUBLIC_WORKER_URL=http://your-server-ip:3001
-```
+3. **Deploy Frontend to Vercel**:
+   - Connect your GitHub repository
+   - Configure environment variables
+   - Deploy
 
 ### Common Commands
 
 ```bash
-# View logs
-cd /opt/pis/docker && docker-compose logs -f
+# Standalone mode - View logs
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml logs -f
 
-# Restart services
-cd /opt/pis/docker && docker-compose restart
+# Standalone mode - Restart services
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml restart
 
 # Update code
-cd /opt/pis && git pull && cd docker && docker-compose up -d --build
+cd /opt/pis && git pull && cd docker && docker-compose -f docker-compose.standalone.yml up -d --build
 ```
 
 ### Quick Troubleshooting
@@ -140,13 +146,13 @@ cd /opt/pis && git pull && cd docker && docker-compose up -d --build
 **Q: Deployment failed?**
 
 ```bash
-cd /opt/pis/docker && docker-compose logs
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml logs
 ```
 
 **Q: Port already in use?**
 
 ```bash
-ss -tuln | grep -E ":(19000|19001|3001)"
+ss -tuln | grep -E ":(80|443|9000|9001|3001)"
 ```
 
 > 💡 **Need more details?** Continue reading the full deployment guide below.

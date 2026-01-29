@@ -213,7 +213,7 @@ export class MinIOAdapter implements StorageAdapter {
         PartNumber: partNumber,
       });
       
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn: expirySeconds });
+      const url = await getSignedUrl(this.s3Client as any, command, { expiresIn: expirySeconds });
       
       // 如果配置了 publicUrl，替换为公网地址
       return this.toPublicUrl(url);

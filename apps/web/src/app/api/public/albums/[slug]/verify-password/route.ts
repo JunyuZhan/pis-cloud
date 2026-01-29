@@ -9,7 +9,7 @@ interface RouteParams {
 /**
  * 验证相册密码 API
  * POST /api/public/albums/[slug]/verify-password
- * 
+ *
  * 安全措施：
  * 1. 基于 IP 的速率限制（防止暴力破解）
  * 2. 基于相册的速率限制（防止针对特定相册的攻击）
@@ -159,10 +159,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ verified: true })
     }
 
-    // 验证密码
-    // 注意：当前使用明文比较（向后兼容）
-    // 生产环境建议使用 bcrypt 加密存储密码
-    if (album.password === password) {
+    // 验证密码（明文比较）
+    // 注意：相册密码是简单的访问控制，不需要复杂的哈希加密
+    const passwordVerified = album.password === password
+
+    if (passwordVerified) {
       return NextResponse.json({ verified: true })
     } else {
       return NextResponse.json(

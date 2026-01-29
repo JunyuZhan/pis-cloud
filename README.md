@@ -20,8 +20,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js 15" />
-  <img src="https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase" alt="Supabase" />
+  <img src="https://img.shields.io/badge/TypeScript-5.5-blue?style=flat-square&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/MinIO-Object%20Storage-C72E49?style=flat-square&logo=minio" alt="MinIO" />
   <img src="https://img.shields.io/badge/BullMQ-Redis-FF6B6B?style=flat-square&logo=redis" alt="BullMQ" />
   <img src="https://img.shields.io/badge/Sharp-Image%20Processing-99CC00?style=flat-square" alt="Sharp" />
@@ -72,181 +72,93 @@
 - Password protection and expiration dates
 - Album templates and view tracking
 
-### 💰 **Flexible Infrastructure**
+### 💰 **Flexible Deployment**
+- **Three Deployment Modes**:
+  - 🌐 **Hybrid**: Vercel + Supabase Cloud (easiest)
+  - 🏢 **Semi-Standalone**: Self-hosted + Supabase Auth (balanced)
+  - 🔒 **Fully Standalone**: 100% self-hosted, no third-party dependencies
 - **Storage**: MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
-- **Database**: Supabase (recommended), PostgreSQL, MySQL
+- **Database**: Supabase (cloud) or PostgreSQL (self-hosted)
+- **Authentication**: Supabase Auth or Custom JWT (fully standalone)
 - **CDN**: Cloudflare, Alibaba Cloud, Tencent Cloud
 - No vendor lock-in, easy to switch providers
 
 ### 🚀 **Production Ready**
-- One-click deployment with Docker Compose
+- **One-click deployment**: Guided script for both Hybrid and Standalone modes
+- **Auto-generated secrets**: API keys, JWT secrets, passwords
 - Queue-based auto-scaling
-- Health monitoring and CI/CD ready
+- Health monitoring and alert system (Telegram/Email/Log)
+- Data consistency checker (orphan detection & repair)
+- CI/CD ready
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Choose Your Deployment Mode
 
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
-- Docker & Docker Compose
-- Supabase account ([Free signup](https://supabase.com))
+| Mode | Best For | Third-Party Deps | Setup |
+|------|----------|-----------------|-------|
+| 🌐 **Hybrid** | Beginners | Supabase + Vercel | Easiest |
+| 🏢 **Semi-Standalone** | Intermediate | Supabase Auth only | Balanced |
+| 🔒 **Fully Standalone** | Advanced | None | Full control |
 
-### One-Click Setup (Recommended)
+### One-Click Deployment
 
 ```bash
-# Clone the repository
+# One command to install (copy and paste)
+curl -sSL https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | bash
+```
+
+Or manually:
+
+```bash
 git clone https://github.com/JunyuZhan/PIS.git
-cd pis
-
-# Install dependencies
-pnpm install
-
-# Start guided setup
-pnpm setup
-```
-
-The setup wizard will automatically:
-- ✅ Check system dependencies
-- ✅ Configure environment variables (interactive Supabase credentials)
-- ✅ Select storage type (MinIO/OSS/COS/S3)
-- ✅ Start Docker services (MinIO + Redis)
-- ✅ Display next steps
-
-> 💡 **Tip**: You can also manually configure storage and database types. See the [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) for detailed configuration instructions.
-
-### Manual Setup
-
-<details>
-<summary>Click to expand manual setup steps</summary>
-
-#### 1. Configure Supabase
-
-1. Create a [Supabase](https://supabase.com) project
-2. **Execute database schema**:
-   - Go to **SQL Editor** in Supabase Dashboard
-   - Execute the database migrations (see deployment documentation)
-   - ✅ Done!
-3. **Create admin account**:
-   - Go to **Authentication** → **Users** in Supabase Dashboard
-   - Click **Add user** → **Create new user**
-   - Fill in:
-     - **Email**: Your admin email (e.g., `admin@example.com`)
-     - **Password**: Set a strong password
-     - ✅ **Auto Confirm User** (check this box)
-   - Click **Create user**
-   - ✅ This account will be used to log in to `/admin/login`
-4. Copy API Keys from **Settings** → **API**
-
-#### 2. Configure Environment Variables
-
-**Unified Configuration** (Root `.env` file):
-> ✅ **Important**: PIS uses a **unified root directory configuration**. Both `apps/web` and `services/worker` read from the root `.env` file.
-
-```bash
-# Copy the example file
-cp .env.example .env
-
-# Edit .env and fill in your configuration
-```
-
-**Example `.env` file**:
-```bash
-# Database configuration
-DATABASE_TYPE=supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_URL=https://your-project.supabase.co
-
-# Storage configuration (default: MinIO)
-STORAGE_TYPE=minio
-NEXT_PUBLIC_MEDIA_URL=http://localhost:9000/pis-photos
-STORAGE_ENDPOINT=localhost
-STORAGE_PORT=9000
-STORAGE_USE_SSL=false
-STORAGE_ACCESS_KEY=minioadmin
-STORAGE_SECRET_KEY=minioadmin
-STORAGE_BUCKET=pis-photos
-
-# Worker service
-NEXT_PUBLIC_WORKER_URL=http://localhost:3001
-WORKER_API_KEY=your-secret-api-key
-
-# Redis configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# Application configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-> 💡 **Using cloud storage?** See the [Deployment Guide](docs/i18n/en/DEPLOYMENT.md) for Alibaba Cloud OSS, Tencent Cloud COS, or AWS S3 setup instructions
-
-#### 3. Start Services
-
-```bash
-# Start Docker services
-pnpm docker:up
-
-# Start development server
-pnpm dev
-```
-
-</details>
-
-### Access the Application
-
-| URL | Description |
-|-----|-------------|
-| http://localhost:3000 | Homepage |
-| http://localhost:3000/admin/login | Admin dashboard (use the admin account created in Supabase) |
-| http://localhost:9001 | MinIO Console (username: `minioadmin`, password: `minioadmin`) |
-
-> 💡 **First time login**: Use the email and password you created in Supabase **Authentication** → **Users** to log in to the admin dashboard.
-
----
-
-## 🌐 Production Deployment
-
-### One-Click Server Deployment (Recommended)
-
-**SSH into your server and run:**
-
-```bash
-# Download and run (recommended, supports interactive input)
-curl -sSL https://raw.githubusercontent.com/junyuzhan/pis/main/scripts/deploy.sh -o /tmp/deploy.sh
-bash /tmp/deploy.sh
+cd pis/docker
+bash deploy.sh
 ```
 
 The script will guide you through:
-- ✅ Install Docker, Docker Compose, and Git
-- ✅ Clone latest code from GitHub
-- ✅ Choose database (Supabase/PostgreSQL/MySQL)
-- ✅ Choose network mode (Public/Internal)
-- ✅ Configure and start all services
+- ✅ Choose deployment mode (Hybrid / Semi-Standalone / Fully Standalone)
+- ✅ Auto-generate security secrets
+- ✅ Configure storage (MinIO/OSS/COS/S3)
+- ✅ Start all services
+- ✅ Auto-create admin account (Fully Standalone mode)
 
-**Alternative: Deploy from local machine**
-
-```bash
-git clone https://github.com/junyuzhan/pis.git
-cd pis
-bash scripts/deploy.sh 192.168.1.100 root
-```
-
-> 📖 **Deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md) (includes one-click deployment quick start)
-
-### Manual Deployment
-
-1. **Configure Supabase** - Create project and execute database schema
-2. **Deploy Server** - Run Docker Compose on your server
-3. **Deploy Frontend** - Deploy to Vercel or your hosting
-
-> 📖 **Detailed deployment guide**: [docs/i18n/en/DEPLOYMENT.md](docs/i18n/en/DEPLOYMENT.md)
+> 📖 **Detailed guide**: [Deployment Documentation](docs/i18n/en/DEPLOYMENT.md)
 
 ---
+
+### Local Development
+
+```bash
+pnpm install
+pnpm setup
+pnpm dev
+```
+
+> 📖 **Development guide**: [Development Documentation](docs/DEVELOPMENT.md)
+
+---
+
+### Access the Application
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Homepage | http://localhost:3000 | - |
+| Admin Dashboard | http://localhost:3000/admin/login | Supabase user |
+| MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
+
+---
+
+## 📖 Documentation
+
+- **[Deployment Guide](docs/i18n/en/DEPLOYMENT.md)** - Detailed deployment instructions
+- **[Development Guide](docs/DEVELOPMENT.md)** - Development setup and guidelines
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System architecture overview
+- **[User Guide](docs/USER_GUIDE.md)** - Feature usage guide
+
+> 📚 **Full documentation**: [docs/README.md](docs/README.md)
 
 ---
 
@@ -254,6 +166,8 @@ bash scripts/deploy.sh 192.168.1.100 root
 
 **Frontend** (Next.js) → **Worker** (BullMQ + Sharp) → **Storage** (MinIO/OSS/COS/S3)  
 **Database** (Supabase/PostgreSQL/MySQL) + **Queue** (Redis) + **CDN** (Optional)
+
+> 📖 **Detailed architecture**: [Architecture Documentation](docs/ARCHITECTURE.md)
 
 ---
 
@@ -263,85 +177,49 @@ bash scripts/deploy.sh 192.168.1.100 root
 pnpm setup      # Guided setup
 pnpm dev        # Start development
 pnpm build      # Build for production
-pnpm docker:up  # Start Docker services (MinIO + Redis)
+pnpm docker:up  # Start Docker services
 pnpm lint       # Run linter
+pnpm test       # Run tests
 ```
-
----
-
-## 📁 Environment Variables
-
-Key variables: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`
-
-> 📖 **Full configuration guide**: See [.env.example](.env.example)
 
 ---
 
 ## 📄 License
 
-MIT License © 2026 junyuzhan
-
-See [LICENSE](LICENSE) file for details.
+MIT License © 2026 junyuzhan - See [LICENSE](LICENSE) for details
 
 ---
 
-## 👤 Author
+## 👤 Author & Contributing
 
-**junyuzhan**
-- Email: junyuzhan@outlook.com
-- GitHub: [@junyuzhan](https://github.com/junyuzhan)
+**junyuzhan** - [GitHub](https://github.com/junyuzhan) - junyuzhan@outlook.com
 
-## 🤝 Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-See [AUTHORS.md](AUTHORS.md) for the list of contributors.
-
----
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [AUTHORS.md](AUTHORS.md)
 
 ---
 
 ## 🙏 Acknowledgments
 
-- [Next.js](https://nextjs.org/) - React framework
-- [Supabase](https://supabase.com/) - Backend as a service
-- [MinIO](https://min.io/) - Object storage
-- [Sharp](https://sharp.pixelplumbing.com/) - Image processing
-- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
-- [BullMQ](https://docs.bullmq.io/) - Queue management
+Built with: [Next.js](https://nextjs.org/) • [Supabase](https://supabase.com/) • [MinIO](https://min.io/) • [Sharp](https://sharp.pixelplumbing.com/) • [Tailwind CSS](https://tailwindcss.com/) • [BullMQ](https://docs.bullmq.io/)
 
 ---
 
-## 🎨 New Features (Latest Release)
+## 🎨 Latest Features
 
-### Image Style Presets
-Apply professional color grading to entire albums with 13 carefully tuned presets:
-- **Portrait**: Fresh Portrait, Japanese Style, Realistic, Warm Portrait, Cool Portrait
-- **Landscape**: Natural Landscape, Urban Scenery, Sunset Landscape, Fresh Landscape
-- **General**: Standard, High Contrast, Soft
+- **Image Style Presets**: 13 professional color grading presets (portrait, landscape, general)
+- **Batch Download Control**: Admin-controlled batch download with presigned URLs
+- **Real-time Sync**: Live photo status updates via Supabase Realtime
 
-**Features:**
-- ✅ Album-level unified style application
-- ✅ Real-time preview with cover photo
-- ✅ Reprocess existing photos to apply new styles
-- ✅ Single photo reprocessing support
-- ✅ Automatic application to new uploads
-
-### Enhanced Batch Download
-- ✅ Admin-controlled batch download (disabled by default)
-- ✅ Secure presigned URL generation
-- ✅ One-click download for selected photos
-
-> 📖 **Learn more**: See [Quick Start Guide](./docs/QUICK_START.md) and [User Guide](./docs/USER_GUIDE.md)
+> 📖 **Learn more**: [Quick Start Guide](docs/QUICK_START.md) • [User Guide](docs/USER_GUIDE.md)
 
 ---
 
 ## 📚 Documentation
 
-- **[Quick Start Guide](./docs/QUICK_START.md)** - Get started with new features in 3 steps
-- **[User Guide](./docs/USER_GUIDE.md)** - Complete guide for image style presets and batch download
-- **[Implementation Status](./docs/IMPLEMENTATION_STATUS.md)** - Feature implementation tracking
-- **[Mobile Optimization](./docs/MOBILE_OPTIMIZATION.md)** - Mobile UX improvements
+- **[Quick Start Guide](docs/QUICK_START.md)** - Get started with new features in 3 steps
+- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for image style presets and batch download
+- **[Implementation Status](docs/IMPLEMENTATION_STATUS.md)** - Feature implementation tracking
+- **[Mobile Optimization](docs/MOBILE_OPTIMIZATION.md)** - Mobile UX improvements
 
 > 📖 **Full documentation**: See [docs/README.md](docs/README.md) for complete documentation index.
 

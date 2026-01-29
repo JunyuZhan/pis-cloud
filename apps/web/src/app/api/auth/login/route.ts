@@ -47,61 +47,61 @@ export async function POST(request: NextRequest) {
     // 如果配置了 Turnstile，验证 token
     const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY
     if (turnstileSecretKey) {
-      // 如果没有 token，记录警告但允许继续（降级策略）
-      // 这样可以避免因为 Turnstile 加载失败或网络问题导致无法登录
       if (!turnstileToken) {
-        console.warn('Turnstile configured but no token provided, allowing login with fallback strategy')
-        // 继续登录流程，不强制要求 Turnstile token
-        // 这样可以避免因为 Turnstile 服务问题导致管理员无法登录
-      } else {
-        // 有 token，进行验证
-        try {
-          const verifyResponse = await fetch(
-            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                secret: turnstileSecretKey,
-                response: turnstileToken,
-                remoteip: ip !== 'unknown' ? ip : undefined,
-              }),
-            }
-          )
+        console.warn('Turnstile configured but no token provided')
+        return NextResponse.json(
+          { error: { code: 'CAPTCHA_REQUIRED', message: '请完成人机验证' } },
+          { status: 400 }
+        )
+      }
 
-          const verifyData = await verifyResponse.json()
-
-          if (!verifyData.success) {
-            console.error('Turnstile verification failed:', verifyData)
-            // 记录失败的验证尝试
-            console.log(JSON.stringify({
-              type: 'turnstile_verification',
-              success: false,
-              ip,
-              reason: verifyData['error-codes'] || 'unknown',
-              timestamp: new Date().toISOString(),
-            }))
-            // 验证失败时，采用降级策略，允许登录
-            // 这样可以避免因为 Turnstile 配置问题导致管理员无法登录
-            console.warn('Turnstile verification failed, allowing login with fallback strategy')
-          } else {
-            // 记录成功的验证
-            console.log(JSON.stringify({
-              type: 'turnstile_verification',
-              success: true,
-              ip,
-              timestamp: new Date().toISOString(),
-            }))
+      // 验证 token
+      try {
+        const verifyResponse = await fetch(
+          'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              secret: turnstileSecretKey,
+              response: turnstileToken,
+              remoteip: ip !== 'unknown' ? ip : undefined,
+            }),
           }
-        } catch (error) {
-          console.error('Turnstile verification error:', error)
-          // 如果 Turnstile 服务不可用，选择降级策略（适合私有系统）
-          // 对于私有系统，如果 Turnstile 服务暂时不可用，仍然允许登录
-          // 这样可以避免因为第三方服务问题导致管理员无法登录
-          console.warn('Turnstile service unavailable, allowing login (fallback strategy)')
+        )
+
+        const verifyData = await verifyResponse.json()
+
+        if (!verifyData.success) {
+          console.error('Turnstile verification failed:', verifyData)
+          console.log(JSON.stringify({
+            type: 'turnstile_verification',
+            success: false,
+            ip,
+            reason: verifyData['error-codes'] || 'unknown',
+            timestamp: new Date().toISOString(),
+          }))
+          return NextResponse.json(
+            { error: { code: 'CAPTCHA_FAILED', message: '人机验证失败，请重试' } },
+            { status: 400 }
+          )
         }
+
+        // 记录成功的验证
+        console.log(JSON.stringify({
+          type: 'turnstile_verification',
+          success: true,
+          ip,
+          timestamp: new Date().toISOString(),
+        }))
+      } catch (error) {
+        console.error('Turnstile verification error:', error)
+        return NextResponse.json(
+          { error: { code: 'CAPTCHA_ERROR', message: '验证服务暂时不可用，请稍后重试' } },
+          { status: 503 }
+        )
       }
     }
 

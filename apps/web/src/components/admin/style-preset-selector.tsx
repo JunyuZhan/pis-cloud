@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Image from 'next/image'
 import { Check } from 'lucide-react'
 import { getStylePresetCSSFilter } from '@/lib/style-preset-utils'
 
@@ -163,10 +164,13 @@ export function StylePresetSelector({
                 tabIndex={0}
                 aria-label="长按查看原图"
               >
-                <img
+                <Image
                   src={previewImage}
                   alt="原图"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 50vw, 25vw"
+                  unoptimized
                 />
                 {showOriginal && (
                   <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
@@ -178,14 +182,17 @@ export function StylePresetSelector({
             <div>
               <div className="text-xs text-text-muted mb-2">调色后</div>
               <div className="relative aspect-video bg-surface rounded-lg overflow-hidden border border-border">
-                <img
+                <Image
                   src={previewImage}
                   alt="调色后"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 50vw, 25vw"
                   style={{
                     filter: currentFilter,
                     transition: 'filter 0.2s ease-out',
                   }}
+                  unoptimized
                 />
                 {value && (
                   <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">

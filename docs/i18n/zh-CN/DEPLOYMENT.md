@@ -1,19 +1,161 @@
 # PIS 部署指南
 
-> 作者: junyuzhan (junyuzhan@outlook.com)  
+> 作者: junyuzhan (junyuzhan@outlook.com)
 > 许可证: MIT
 
 ## 目录
 
-1. [架构概览](#架构概览)
-2. [前置要求](#前置要求)
-3. [Supabase 配置](#supabase-配置)
-4. [本地开发环境](#本地开发环境)
-5. [生产环境部署](#生产环境部署)
-6. [环境变量配置](#环境变量配置)
-7. [验证与测试](#验证与测试)
-8. [维护与运维](#维护与运维)
-9. [故障排除](#故障排除)
+1. [快速开始（一键部署）](#快速开始一键部署) - 最快的部署方式
+2. [架构概览](#架构概览)
+3. [前置要求](#前置要求)
+4. [Supabase 配置](#supabase-配置)
+5. [本地开发环境](#本地开发环境)
+6. [生产环境部署](#生产环境部署)
+7. [环境变量配置](#环境变量配置)
+8. [验证与测试](#验证与测试)
+9. [维护与运维](#维护与运维)
+10. [故障排除](#故障排除)
+
+---
+
+## 快速开始（一键部署）
+
+> **在服务器上部署 PIS 的最快方式**
+
+### 引导式部署脚本
+
+新的引导式部署脚本提供交互式设置体验，并自动生成所有安全密钥。
+
+**SSH 登录服务器后运行：**
+
+```bash
+# 克隆仓库
+git clone https://github.com/JunyuZhan/PIS.git
+cd pis
+
+# 运行引导式部署（交互式）
+bash docker/deploy.sh
+```
+
+**或从本地机器部署：**
+
+```bash
+git clone https://github.com/JunyuZhan/PIS.git
+cd pis
+
+# 部署到远程服务器
+bash docker/deploy.sh <服务器IP> <SSH用户>
+# 示例: bash docker/deploy.sh 192.168.1.100 root
+```
+
+### 部署模式
+
+脚本将引导您选择两种部署模式之一：
+
+| 模式 | 描述 | 适用场景 |
+|------|------|----------|
+| **混合模式** | Vercel（前端）+ Supabase（数据库）+ 您的服务器（存储/Worker） | 快速搭建，云端前端 |
+| **完全独立** | 全部服务容器化（PostgreSQL + MinIO + Redis + Web + Worker + Nginx） | 完全自托管，数据隐私 |
+
+### 部署流程
+
+```
+步骤 1: 选择部署模式（混合 / 独立）
+步骤 2: 安装环境（Docker、Git）
+步骤 3: 配置数据库（Supabase URL / PostgreSQL 凭证）
+步骤 4: 配置存储（MinIO / 云存储）
+步骤 5: 自动生成安全密钥
+步骤 6: 构建并启动服务
+步骤 7: 配置 SSL/TLS（Let's Encrypt）
+步骤 8: 验证部署
+```
+
+### 自动生成的密钥
+
+部署脚本会自动生成以下安全随机值：
+- `STORAGE_ACCESS_KEY`、`STORAGE_SECRET_KEY`（MinIO 凭证）
+- `WORKER_API_KEY`（Worker API 认证）
+- `ALBUM_SESSION_SECRET`（JWT 会话签名）
+- `REDIS_PASSWORD`（Redis 认证）
+- `POSTGRES_PASSWORD`（独立模式的 PostgreSQL 密码）
+
+### 数据库选项
+
+| 类型 | 推荐用于 | 特性 |
+|------|---------|------|
+| **Supabase** | 混合部署 | 云端托管，包含认证 |
+| **PostgreSQL** | 独立部署 | 自托管，本地 Docker |
+| **MySQL** | 独立部署 | 自托管，本地 Docker |
+
+### 获取 Supabase 凭证（混合模式）
+
+1. 访问 https://supabase.com/dashboard
+2. 选择项目 → **Settings** → **API**
+3. 复制 **Project URL** 和 **service_role key**
+
+### 服务器要求
+
+- **系统**: Ubuntu 20.04+ / Debian 11+ / CentOS 7+
+- **配置**:
+  - 混合模式: 1 核 1GB 内存最低
+  - 独立模式: 2 核 2GB 内存最低，推荐 4GB
+- **端口**:
+  - 独立模式: 80 (HTTP)、443 (HTTPS)
+  - 混合模式: 9000、9001、3001（可内网访问）
+
+### 部署后配置
+
+#### 独立模式
+
+所有服务通过您的域名访问：
+```
+https://yourdomain.com          # 主应用
+https://yourdomain.com/media    # 媒体文件
+```
+
+#### 混合模式
+
+1. **访问 MinIO 控制台**（如果使用 MinIO）：
+   ```
+   http://your-server-ip:9001
+   ```
+
+2. **初始化数据库架构**（Supabase）：
+   ⚠️ **重要**：在 Supabase Dashboard → SQL Editor 中执行数据库迁移。
+
+3. **部署前端到 Vercel**：
+   - 连接 GitHub 仓库
+   - 配置环境变量
+   - 部署
+
+### 常用命令
+
+```bash
+# 独立模式 - 查看日志
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml logs -f
+
+# 独立模式 - 重启服务
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml restart
+
+# 更新代码
+cd /opt/pis && git pull && cd docker && docker-compose -f docker-compose.standalone.yml up -d --build
+```
+
+### 快速故障排除
+
+**问：部署失败？**
+
+```bash
+cd /opt/pis/docker && docker-compose -f docker-compose.standalone.yml logs
+```
+
+**问：端口已被占用？**
+
+```bash
+ss -tuln | grep -E ":(80|443|9000|9001|3001)"
+```
+
+> 💡 **需要更多细节？** 继续阅读下面的完整部署指南。
 
 ---
 
