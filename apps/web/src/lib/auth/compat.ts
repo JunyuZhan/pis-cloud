@@ -266,14 +266,166 @@ class CustomAuthClient {
   }
 }
 
+// ==================== PostgreSQL 查询构建器 ====================
+
+import { Pool } from 'pg'
+
+let pgPool: Pool | null = null
+
+function getPool(): Pool {
+  if (!pgPool) {
+    pgPool = new Pool({
+      host: process.env.DATABASE_HOST || 'postgres',
+      port: parseInt(process.env.DATABASE_PORT || '5432'),
+      database: process.env.DATABASE_NAME || process.env.POSTGRES_DB || 'pis',
+      user: process.env.DATABASE_USER || process.env.POSTGRES_USER || 'pis',
+      password: process.env.DATABASE_PASSWORD || process.env.POSTGRES_PASSWORD || '',
+      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 10,
+    })
+  }
+  return pgPool
+}
+
+/**
+ * PostgreSQL 查询构建器（模拟 Supabase 查询 API）
+ */
+class PostgresQueryBuilder {
+  private tableName: string
+  private selectColumns: string = '*'
+  private conditions: { column: string; operator: string; value: unknown }[] = []
+  private orderByClause: { column: string; ascending: boolean } | null = null
+  private limitValue: number | null = null
+  private isSingle: boolean = false
+  private isMaybeSingle: boolean = false
+
+  constructor(tableName: string) {
+    this.tableName = tableName
+  }
+
+  select(columns: string = '*') {
+    this.selectColumns = columns
+    return this
+  }
+
+  eq(column: string, value: unknown) {
+    this.conditions.push({ column, operator: '=', value })
+    return this
+  }
+
+  neq(column: string, value: unknown) {
+    this.conditions.push({ column, operator: '!=', value })
+    return this
+  }
+
+  is(column: string, value: unknown) {
+    if (value === null) {
+      this.conditions.push({ column, operator: 'IS NULL', value: null })
+    } else {
+      this.conditions.push({ column, operator: 'IS', value })
+    }
+    return this
+  }
+
+  not(column: string, operator: string, value: unknown) {
+    if (operator === 'is' && value === null) {
+      this.conditions.push({ column, operator: 'IS NOT NULL', value: null })
+    } else {
+      this.conditions.push({ column, operator: `NOT ${operator}`, value })
+    }
+    return this
+  }
+
+  in(column: string, values: unknown[]) {
+    this.conditions.push({ column, operator: 'IN', value: values })
+    return this
+  }
+
+  order(column: string, options?: { ascending?: boolean }) {
+    this.orderByClause = { column, ascending: options?.ascending ?? true }
+    return this
+  }
+
+  limit(count: number) {
+    this.limitValue = count
+    return this
+  }
+
+  single() {
+    this.isSingle = true
+    this.limitValue = 1
+    return this
+  }
+
+  maybeSingle() {
+    this.isMaybeSingle = true
+    this.limitValue = 1
+    return this
+  }
+
+  async then<T>(resolve: (result: { data: T | null; error: { message: string } | null }) => void) {
+    try {
+      const pool = getPool()
+      
+      let sql = `SELECT ${this.selectColumns} FROM ${this.tableName}`
+      const params: unknown[] = []
+      
+      if (this.conditions.length > 0) {
+        const whereClauses = this.conditions.map((cond, idx) => {
+          if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
+            return `"${cond.column}" ${cond.operator}`
+          }
+          if (cond.operator === 'IN') {
+            const values = cond.value as unknown[]
+            const placeholders = values.map((_, i) => `$${params.length + i + 1}`).join(', ')
+            params.push(...values)
+            return `"${cond.column}" IN (${placeholders})`
+          }
+          params.push(cond.value)
+          return `"${cond.column}" ${cond.operator} $${params.length}`
+        })
+        sql += ` WHERE ${whereClauses.join(' AND ')}`
+      }
+      
+      if (this.orderByClause) {
+        sql += ` ORDER BY "${this.orderByClause.column}" ${this.orderByClause.ascending ? 'ASC' : 'DESC'}`
+      }
+      
+      if (this.limitValue !== null) {
+        sql += ` LIMIT ${this.limitValue}`
+      }
+
+      const result = await pool.query(sql, params)
+      
+      if (this.isSingle) {
+        if (result.rows.length === 0) {
+          resolve({ data: null, error: { message: 'No rows returned' } })
+        } else {
+          resolve({ data: result.rows[0] as T, error: null })
+        }
+      } else if (this.isMaybeSingle) {
+        resolve({ data: (result.rows[0] || null) as T, error: null })
+      } else {
+        resolve({ data: result.rows as T, error: null })
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Database query failed'
+      console.error('PostgreSQL query error:', message)
+      resolve({ data: null, error: { message } })
+    }
+  }
+}
+
 // ==================== 兼容客户端工厂 ====================
 
 /**
  * 创建兼容的 Auth 客户端（服务端）
+ * 同时提供 auth 和 from() 方法
  */
 export function createCompatAuthClient() {
   return {
     auth: new CustomAuthClient(),
+    from: (table: string) => new PostgresQueryBuilder(table),
   }
 }
 
@@ -283,6 +435,7 @@ export function createCompatAuthClient() {
 export function createCompatAuthClientFromRequest(_request: NextRequest, _response?: NextResponse) {
   return {
     auth: new CustomAuthClient(),
+    from: (table: string) => new PostgresQueryBuilder(table),
   }
 }
 
