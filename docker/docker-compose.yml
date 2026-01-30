@@ -109,9 +109,9 @@ services:
     env_file:
       - ../.env
     environment:
-      # Supabase Cloud（从 .env 文件读取）
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      # Supabase Cloud（从 .env 文件读取，env_file 会自动注入，这里只设置必要的覆盖）
+      # 注意：env_file 会读取所有变量，environment 只用于覆盖或设置容器内特定的值
+      - DATABASE_TYPE=${DATABASE_TYPE:-supabase}
       # MinIO (Docker 内部网络，使用服务名)
       # 注意：敏感信息（ACCESS_KEY, SECRET_KEY）必须从 .env 文件读取，不提供默认值
       - MINIO_ENDPOINT_HOST=${MINIO_ENDPOINT_HOST:-minio}
