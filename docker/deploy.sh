@@ -386,7 +386,7 @@ configure_security() {
 
 # 配置告警（可选）
 configure_alerts() {
-    print_step "8/9" "配置告警服务 (可选)"
+    print_step "8/9" "配置告警服务（可选）"
 
     echo ""
     echo -e "${YELLOW}是否需要配置告警通知？${NC}"
@@ -397,14 +397,14 @@ configure_alerts() {
     if get_confirm "配置告警" "n"; then
         echo ""
         echo -e "${CYAN}请选择告警方式:${NC}"
-        echo "  1. Telegram (推荐)"
+        echo "  1. Telegram（推荐）"
         echo "  2. 邮件"
         echo "  3. 仅日志"
         echo ""
 
         while true; do
             local alert_choice
-            read -p "$(echo -e ${GREEN}请选择 [1/2/3]${NC}: ")" alert_choice
+            read -p "$(echo -e "${GREEN}请选择 [1/2/3]${NC}: ")" alert_choice
 
             case "$alert_choice" in
                 1)
@@ -564,7 +564,7 @@ EOF
         echo "  b. 配置构建:"
         echo "     - Root Directory: apps/web"
         echo "     - Build Command: pnpm build"
-        echo "  c. 添加环境变量 (在 Vercel Dashboard):"
+        echo "  c. 添加环境变量（在 Vercel Dashboard）:"
         echo "     - NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL"
         echo "     - NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
         echo "     - SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY"
@@ -768,20 +768,20 @@ EOF
             echo ""
             echo -e "${YELLOW}下一步操作:${NC}"
             echo "  1. 访问 $APP_URL/admin/login 登录"
-            echo "  2. （可选）配置 SSL 证书 (使用 Let's Encrypt)"
+            echo "  2. （可选）配置 SSL 证书（使用 Let's Encrypt）"
         else
             echo -e "${YELLOW}⚠️  管理员账号:${NC}"
             echo "  请在 Supabase Dashboard 中查看"
             echo ""
             echo -e "${YELLOW}下一步操作:${NC}"
             echo "  1. 访问 $APP_URL/admin/login 登录"
-            echo "  2. （可选）配置 SSL 证书 (使用 Let's Encrypt)"
+            echo "  2. （可选）配置 SSL 证书（使用 Let's Encrypt）"
         fi
         echo ""
         echo -e "${YELLOW}查看日志:${NC}"
         echo "  cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml logs -f"
         echo ""
-        echo -e "${YELLOW}获取 Let's Encrypt 证书 (可选):${NC}"
+        echo -e "${YELLOW}获取 Let's Encrypt 证书（可选）:${NC}"
         echo "  # 1. 停止 nginx"
         echo "  $COMPOSE_CMD -f docker-compose.standalone.yml stop nginx"
         echo "  # 2. 获取证书"
@@ -875,7 +875,7 @@ main() {
     echo -e "${YELLOW}部署前请确保:${NC}"
     echo "  • 已安装 Docker 和 Docker Compose"
     echo "  • 服务器端口 80 和 443 可用"
-    echo "  • 域名已解析到服务器 (如果使用域名)"
+    echo "  • 域名已解析到服务器（如果使用域名）"
     echo ""
 
     if ! get_confirm "是否继续？" "y"; then
