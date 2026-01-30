@@ -353,13 +353,19 @@ deploy_local() {
         success "$MSG_DOCKER_INSTALLED_SUCCESS"
     fi
     
-    if docker compose version &> /dev/null || command -v docker-compose &> /dev/null; then
+    # 检测并设置 Docker Compose 命令
+    if docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+        success "$MSG_COMPOSE_INSTALLED"
+    elif command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
         success "$MSG_COMPOSE_INSTALLED"
     else
         info "$MSG_COMPOSE_INSTALLING"
         COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
         curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         chmod +x /usr/local/bin/docker-compose
+        COMPOSE_CMD="docker-compose"
         success "$MSG_COMPOSE_INSTALLED_SUCCESS"
     fi
     
@@ -639,7 +645,7 @@ EOF
         cp docker-compose.yml.active docker-compose.yml
     fi
     
-    docker-compose down 2>/dev/null || true
+    $COMPOSE_CMD down 2>/dev/null || true
     
     info "$MSG_BUILDING_WORKER"
     
@@ -704,7 +710,7 @@ with open('$DOCKER_DAEMON_JSON', 'w') as f:
         if [ "$DNS_OK" = true ]; then
             info "$MSG_BUILD_STRATEGY_2"
             cd ${DEPLOY_DIR}/docker
-            if docker-compose build worker 2>&1 | tee -a /tmp/docker-build.log; then
+            if $COMPOSE_CMD build worker 2>&1 | tee -a /tmp/docker-build.log; then
                 BUILD_SUCCESS=true
                 success "$MSG_BUILD_SUCCESS_COMPOSE"
                 # docker-compose 构建后不需要更新配置
@@ -794,7 +800,7 @@ PYEOF
     cd ${DEPLOY_DIR}/docker
     
     info "$MSG_STARTING_SERVICES"
-    docker-compose up -d
+    $COMPOSE_CMD up -d
     
     echo ""
     info "$MSG_WAITING"
@@ -806,7 +812,7 @@ PYEOF
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     echo ""
-    docker-compose ps
+    $COMPOSE_CMD ps
     echo ""
     
     echo "$MSG_HEALTH_CHECK"
@@ -838,8 +844,8 @@ PYEOF
     echo ""
     
     echo "📝 ${MSG_COMMON_COMMANDS}"
-    echo "   ${MSG_VIEW_LOGS} cd ${DEPLOY_DIR}/docker && docker-compose logs -f"
-    echo "   ${MSG_RESTART} cd ${DEPLOY_DIR}/docker && docker-compose restart"
+    echo "   ${MSG_VIEW_LOGS} cd ${DEPLOY_DIR}/docker && $COMPOSE_CMD logs -f"
+    echo "   ${MSG_RESTART} cd ${DEPLOY_DIR}/docker && $COMPOSE_CMD restart"
     echo ""
     
     # 数据库架构初始化提示
