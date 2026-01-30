@@ -361,7 +361,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const requestUrl = new URL(request.url)
         const protocol = requestUrl.protocol
         const host = requestUrl.host
-        const proxyUrl = `${protocol}//${host}/api/worker/clear-album-cache`
+        const proxyUrl = `http://localhost:3000/api/worker/clear-album-cache`
         
         const headers: HeadersInit = {
           'Content-Type': 'application/json',

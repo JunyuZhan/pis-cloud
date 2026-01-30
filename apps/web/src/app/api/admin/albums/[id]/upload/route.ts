@@ -312,11 +312,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       // 优先使用 Next.js 代理路由，避免直接连接 Worker 的问题
       // 代理路由会自动处理 Worker URL 配置和认证
-      // 直接使用请求的 URL 构建代理 URL，确保协议和主机正确
-      const requestUrl = new URL(request.url)
-      const protocol = requestUrl.protocol
-      const host = requestUrl.host
-      const presignUrl = `${protocol}//${host}/api/worker/presign`
+      // 注意：内部调用使用 http://localhost:3000，避免 HTTPS 证书问题
+      const presignUrl = `http://localhost:3000/api/worker/presign`
       
       let presignResponse: Response
       try {

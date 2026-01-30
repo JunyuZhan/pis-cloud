@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const requestUrl = new URL(request.url)
     const protocol = requestUrl.protocol
     const host = requestUrl.host
-    const proxyUrl = `${protocol}//${host}/api/worker/scan`
+    const proxyUrl = `http://localhost:3000/api/worker/scan`
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const requestUrl = new URL(request.url)
         const protocol = requestUrl.protocol
         const host = requestUrl.host
-        const proxyUrl = `${protocol}//${host}/api/worker/cleanup-file`
+        const proxyUrl = `http://localhost:3000/api/worker/cleanup-file`
         
         const headers: HeadersInit = {
           'Content-Type': 'application/json',

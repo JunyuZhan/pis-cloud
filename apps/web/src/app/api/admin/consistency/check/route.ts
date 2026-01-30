@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const requestUrl = new URL(request.url)
     const protocol = requestUrl.protocol
     const host = requestUrl.host
-    const workerUrl = `${protocol}//${host}/api/worker/consistency/check`
+    const workerUrl = `http://localhost:3000/api/worker/consistency/check`
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

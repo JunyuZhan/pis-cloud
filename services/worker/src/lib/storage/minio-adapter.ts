@@ -42,32 +42,10 @@ export class MinIOAdapter implements StorageAdapter {
     });
 
     // 用于生成 presigned URL 的客户端
-    // 如果配置了 publicUrl，使用公网地址生成签名，避免签名不匹配问题
-    // 注意：presignClient 需要使用与 publicUrl 相同的协议和端口来生成签名
-    if (this.publicUrl) {
-      try {
-        const publicUrlObj = new URL(this.publicUrl);
-        // 使用公网 URL 的协议和端口生成签名，确保签名匹配
-        const publicPort = publicUrlObj.port ? parseInt(publicUrlObj.port) : (publicUrlObj.protocol === 'https:' ? 443 : 80);
-        const publicUseSSL = publicUrlObj.protocol === 'https:';
-        
-        this.presignClient = new Minio.Client({
-          endPoint: publicUrlObj.hostname,
-          port: publicPort,
-          useSSL: publicUseSSL, // 使用与 publicUrl 相同的协议
-          accessKey: this.accessKey,
-          secretKey: this.secretKey,
-          region: this.region,
-        });
-        console.log(`[MinIO] Created presign client with public URL: ${publicUrlObj.protocol}//${publicUrlObj.hostname}:${publicPort} (SSL: ${publicUseSSL})`);
-      } catch (e) {
-        console.warn('[MinIO] Failed to create presign client with public URL, falling back to internal client:', e);
-        this.presignClient = this.client;
-      }
-    } else {
-      // 如果没有配置 publicUrl，使用内网客户端
-      this.presignClient = this.client;
-    }
+    // 始终使用内部 MinIO 客户端生成签名，然后替换 URL 中的主机部分
+    // 这样可以避免连接公开 URL 的问题（公开 URL 可能是 Nginx 反向代理）
+    this.presignClient = this.client;
+    console.log(`[MinIO] Using internal client for presigned URLs. Public URL: ${this.publicUrl || 'not configured'}`);
 
     // AWS S3 客户端用于分片上传（MinIO 兼容 S3）
     const s3Endpoint = this.useSSL 
@@ -325,25 +303,30 @@ export class MinIOAdapter implements StorageAdapter {
   private toPublicUrl(url: string): string {
     if (!this.publicUrl) return url;
     
-    const publicUrlObj = new URL(this.publicUrl);
-    const publicProtocol = publicUrlObj.protocol; // http: 或 https:
-    const publicHost = publicUrlObj.port ? `${publicUrlObj.protocol}//${publicUrlObj.hostname}:${publicUrlObj.port}` : `${publicUrlObj.protocol}//${publicUrlObj.hostname}`;
-    
-    // 匹配 URL 中的协议和主机部分
-    const match = url.match(/https?:\/\/([^\/]+)/);
-    if (match) {
-      const currentHost = match[0];
-      // 如果当前 URL 已经是公网地址，只需要确保协议匹配（HTTP -> HTTPS）
-      if (currentHost.includes(publicUrlObj.hostname)) {
-        // 如果 publicUrl 是 HTTPS，但生成的 URL 是 HTTP，转换为 HTTPS
-        if (publicProtocol === 'https:' && url.startsWith('http://')) {
-          return url.replace('http://', 'https://');
-        }
-        return url;
+    try {
+      const publicUrlObj = new URL(this.publicUrl);
+      const urlObj = new URL(url);
+      
+      // 替换协议和主机
+      urlObj.protocol = publicUrlObj.protocol;
+      urlObj.hostname = publicUrlObj.hostname;
+      urlObj.port = publicUrlObj.port || '';
+      
+      // 替换路径中的 bucket 名称为 publicUrl 的路径
+      // 例如: /pis-photos/raw/... -> /media/raw/...
+      const bucketPath = `/${this.bucket}/`;
+      const publicPath = publicUrlObj.pathname.endsWith('/') 
+        ? publicUrlObj.pathname 
+        : `${publicUrlObj.pathname}/`;
+      
+      if (urlObj.pathname.startsWith(bucketPath)) {
+        urlObj.pathname = urlObj.pathname.replace(bucketPath, publicPath);
       }
-      // 否则替换内网地址为公网地址（使用 publicUrl 的协议）
-      return url.replace(currentHost, publicHost);
+      
+      return urlObj.toString();
+    } catch (e) {
+      console.warn('[MinIO] Failed to convert to public URL:', e);
+      return url;
     }
-    return url;
   }
 }

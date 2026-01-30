@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const requestUrl = new URL(request.url)
     const protocol = requestUrl.protocol
     const host = requestUrl.host
-    const proxyUrl = `${protocol}//${host}/api/worker/process`
+    const proxyUrl = `http://localhost:3000/api/worker/process`
 
     let workerAvailable = true
     let workerError: string | null = null

@@ -27,10 +27,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     // 使用代理路由调用 Worker API
     // 代理路由会自动处理 Worker URL 配置和认证
-    const requestUrl = new URL(request.url)
-    const protocol = requestUrl.protocol
-    const host = requestUrl.host
-    const proxyUrl = `${protocol}//${host}/api/worker/check-pending`
+    // 注意：内部调用使用 http://localhost:3000，避免 HTTPS 证书问题
+    const proxyUrl = `http://localhost:3000/api/worker/check-pending`
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

@@ -298,6 +298,11 @@ class PostgresQueryBuilder {
   private limitValue: number | null = null
   private isSingle: boolean = false
   private isMaybeSingle: boolean = false
+  private insertData: Record<string, unknown> | null = null
+  private updateData: Record<string, unknown> | null = null
+  private isDelete: boolean = false
+  private returnSelect: boolean = false
+  private offsetValue: number | null = null
 
   constructor(tableName: string) {
     this.tableName = tableName
@@ -305,6 +310,22 @@ class PostgresQueryBuilder {
 
   select(columns: string = '*') {
     this.selectColumns = columns
+    this.returnSelect = true
+    return this
+  }
+
+  insert(data: Record<string, unknown>) {
+    this.insertData = data
+    return this
+  }
+
+  update(data: Record<string, unknown>) {
+    this.updateData = data
+    return this
+  }
+
+  delete() {
+    this.isDelete = true
     return this
   }
 
@@ -351,6 +372,12 @@ class PostgresQueryBuilder {
     return this
   }
 
+  range(from: number, to: number) {
+    this.offsetValue = from
+    this.limitValue = to - from + 1
+    return this
+  }
+
   single() {
     this.isSingle = true
     this.limitValue = 1
@@ -363,15 +390,95 @@ class PostgresQueryBuilder {
     return this
   }
 
-  async then<T>(resolve: (result: { data: T | null; error: { message: string } | null }) => void) {
+  async then<T>(resolve: (result: { data: T | null; error: { message: string; code?: string } | null; count?: number }) => void) {
     try {
       const pool = getPool()
-      
-      let sql = `SELECT ${this.selectColumns} FROM ${this.tableName}`
       const params: unknown[] = []
+      let sql: string
+      
+      // INSERT 操作
+      if (this.insertData) {
+        const columns = Object.keys(this.insertData)
+        const values = Object.values(this.insertData)
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
+        params.push(...values)
+        
+        sql = `INSERT INTO ${this.tableName} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`
+        if (this.returnSelect) {
+          sql += ` RETURNING ${this.selectColumns}`
+        }
+        
+        const result = await pool.query(sql, params)
+        if (this.isSingle || this.returnSelect) {
+          resolve({ data: result.rows[0] as T, error: null })
+        } else {
+          resolve({ data: result.rows as T, error: null })
+        }
+        return
+      }
+      
+      // UPDATE 操作
+      if (this.updateData) {
+        const setClauses = Object.entries(this.updateData).map(([col], i) => {
+          params.push(this.updateData![col])
+          return `"${col}" = $${i + 1}`
+        })
+        
+        sql = `UPDATE ${this.tableName} SET ${setClauses.join(', ')}`
+        
+        if (this.conditions.length > 0) {
+          const whereClauses = this.conditions.map((cond) => {
+            if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
+              return `"${cond.column}" ${cond.operator}`
+            }
+            params.push(cond.value)
+            return `"${cond.column}" ${cond.operator} $${params.length}`
+          })
+          sql += ` WHERE ${whereClauses.join(' AND ')}`
+        }
+        
+        if (this.returnSelect) {
+          sql += ` RETURNING ${this.selectColumns}`
+        }
+        
+        const result = await pool.query(sql, params)
+        if (this.isSingle) {
+          resolve({ data: result.rows[0] as T, error: null })
+        } else {
+          resolve({ data: result.rows as T, error: null })
+        }
+        return
+      }
+      
+      // DELETE 操作
+      if (this.isDelete) {
+        sql = `DELETE FROM ${this.tableName}`
+        
+        if (this.conditions.length > 0) {
+          const whereClauses = this.conditions.map((cond) => {
+            if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
+              return `"${cond.column}" ${cond.operator}`
+            }
+            params.push(cond.value)
+            return `"${cond.column}" ${cond.operator} $${params.length}`
+          })
+          sql += ` WHERE ${whereClauses.join(' AND ')}`
+        }
+        
+        if (this.returnSelect) {
+          sql += ` RETURNING ${this.selectColumns}`
+        }
+        
+        const result = await pool.query(sql, params)
+        resolve({ data: result.rows as T, error: null })
+        return
+      }
+      
+      // SELECT 操作
+      sql = `SELECT ${this.selectColumns} FROM ${this.tableName}`
       
       if (this.conditions.length > 0) {
-        const whereClauses = this.conditions.map((cond, idx) => {
+        const whereClauses = this.conditions.map((cond) => {
           if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
             return `"${cond.column}" ${cond.operator}`
           }
@@ -394,6 +501,10 @@ class PostgresQueryBuilder {
       if (this.limitValue !== null) {
         sql += ` LIMIT ${this.limitValue}`
       }
+      
+      if (this.offsetValue !== null) {
+        sql += ` OFFSET ${this.offsetValue}`
+      }
 
       const result = await pool.query(sql, params)
       
@@ -406,12 +517,13 @@ class PostgresQueryBuilder {
       } else if (this.isMaybeSingle) {
         resolve({ data: (result.rows[0] || null) as T, error: null })
       } else {
-        resolve({ data: result.rows as T, error: null })
+        resolve({ data: result.rows as T, error: null, count: result.rowCount ?? 0 })
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Database query failed'
+      const pgError = err as { code?: string }
       console.error('PostgreSQL query error:', message)
-      resolve({ data: null, error: { message } })
+      resolve({ data: null, error: { message, code: pgError.code } })
     }
   }
 }
