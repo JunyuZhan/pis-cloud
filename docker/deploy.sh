@@ -117,10 +117,10 @@ check_docker() {
     fi
 
     if docker compose version &> /dev/null; then
-        print_success "Docker Compose 已安装 (compose 插件)"
+        print_success "Docker Compose 已安装（compose 插件）"
         COMPOSE_CMD="docker compose"
     else
-        print_success "Docker Compose 已安装 (standalone)"
+        print_success "Docker Compose 已安装（standalone）"
         COMPOSE_CMD="docker-compose"
     fi
 }
@@ -793,6 +793,7 @@ EOF
         echo "  $COMPOSE_CMD -f docker-compose.standalone.yml restart nginx"
         echo ""
     fi
+
     # 保存重要信息
     cat > .deployment-info << EOF
 # PIS 部署信息
