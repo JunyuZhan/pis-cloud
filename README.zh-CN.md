@@ -99,11 +99,13 @@
 
 ```bash
 # 一键安装（复制粘贴到终端执行）
-curl -sSL https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | tr -d '\r' | bash
 
 # 国内用户（使用代理加速）
-curl -sSL https://ghproxy.com/https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | bash
+curl -sSL https://ghproxy.com/https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | tr -d '\r' | bash
 ```
+
+> 💡 **提示**: `tr -d '\r'` 命令可确保跨系统兼容性，移除 Windows 行尾。脚本本身也包含自动行尾清理机制作为备用方案。
 
 或者手动安装：
 
