@@ -121,7 +121,7 @@ check_requirements() {
 
 # 选择安装目录
 choose_install_dir() {
-    local default_dir="$HOME/pis"
+    local default_dir="/opt/pis"
     
     echo -e "${CYAN}请选择安装目录${NC}"
     echo -e "默认: ${YELLOW}$default_dir${NC}"
