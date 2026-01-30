@@ -26,6 +26,32 @@ bash scripts/deploy.sh <服务器IP> [用户名]
 bash scripts/setup.sh
 ```
 
+**功能：**
+- 本地开发环境设置
+- 生产环境部署配置
+- Docker 服务管理
+- 数据库架构初始化
+- 系统状态检查
+
+#### `start-internal-services.sh`
+只启动内网容器服务（MinIO、Redis、数据库等），不启动 Worker 和 Web 服务。
+
+**用法：**
+```bash
+bash scripts/start-internal-services.sh
+```
+
+**功能：**
+- 自动检测并启动基础服务（MinIO、Redis）
+- 根据配置自动选择数据库（PostgreSQL/MySQL）
+- 仅启动内网服务，不暴露公网端口
+- 显示服务访问信息
+
+**适用场景：**
+- 本地开发时只需要存储和数据库服务
+- 测试环境只需要基础服务
+- 不想启动完整的应用栈
+
 #### `verify-deployment.sh`
 部署验证脚本，端到端验证部署是否成功。
 
