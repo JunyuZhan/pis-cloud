@@ -793,7 +793,6 @@ EOF
         echo "  $COMPOSE_CMD -f docker-compose.standalone.yml restart nginx"
         echo ""
     fi
-
     # 保存重要信息
     cat > .deployment-info << EOF
 # PIS 部署信息
