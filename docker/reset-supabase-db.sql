@@ -11,42 +11,9 @@
 SET session_replication_role = 'replica';
 
 -- ============================================
--- 删除所有触发器（先删除触发器，再删除表）
+-- 删除所有表（按依赖顺序，CASCADE 会自动删除关联的触发器和约束）
 -- ============================================
--- 注意：使用 CASCADE 会自动删除关联的触发器，但为了安全，先显式删除
-
-DO $$
-BEGIN
-    -- 删除触发器（如果表存在）
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'albums') THEN
-        DROP TRIGGER IF EXISTS albums_updated_at ON albums;
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'photos') THEN
-        DROP TRIGGER IF EXISTS photos_updated_at ON photos;
-        DROP TRIGGER IF EXISTS trigger_update_selected_count ON photos;
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') THEN
-        DROP TRIGGER IF EXISTS users_updated_at ON users;
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'album_templates') THEN
-        DROP TRIGGER IF EXISTS album_templates_updated_at ON album_templates;
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'package_downloads') THEN
-        DROP TRIGGER IF EXISTS package_downloads_updated_at ON package_downloads;
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'photo_groups') THEN
-        DROP TRIGGER IF EXISTS photo_groups_updated_at ON photo_groups;
-    END IF;
-END $$;
-
--- ============================================
--- 删除所有表（按依赖顺序，CASCADE 会自动删除触发器）
--- ============================================
+-- 注意：使用 CASCADE 会自动删除表上的所有触发器，无需单独删除
 
 -- 删除关联表（先删除）
 DROP TABLE IF EXISTS photo_group_assignments CASCADE;
