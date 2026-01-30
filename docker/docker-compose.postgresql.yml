@@ -25,7 +25,7 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - pis_postgresql_data:/var/lib/postgresql/data
+      - pis_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
       - pis-network
@@ -143,8 +143,8 @@ services:
       - pis-network
 
 volumes:
-  pis_postgresql_data:
-    name: pis_postgresql_data
+  pis_postgres_data:
+    name: pis_postgres_data
   pis_minio_data:
     name: pis_minio_data
   pis_redis_data:
