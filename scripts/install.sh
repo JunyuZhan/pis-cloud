@@ -126,7 +126,14 @@ choose_install_dir() {
     echo -e "${CYAN}请选择安装目录${NC}"
     echo -e "默认: ${YELLOW}$default_dir${NC}"
     echo ""
-    read -p "安装目录 (按 Enter 使用默认): " install_dir
+    
+    # 如果在交互式终端中运行，询问用户
+    if is_interactive; then
+        read -p "安装目录 (按 Enter 使用默认): " install_dir
+    else
+        install_dir=""
+        print_info "使用默认安装目录: $default_dir"
+    fi
     
     if [ -z "$install_dir" ]; then
         install_dir="$default_dir"
@@ -138,10 +145,14 @@ choose_install_dir() {
     # 检查目录是否已存在
     if [ -d "$install_dir" ]; then
         print_warning "目录 $install_dir 已存在"
-        read -p "是否覆盖？(y/N): " overwrite
-        if [ "$overwrite" != "y" ] && [ "$overwrite" != "Y" ]; then
-            print_info "安装已取消"
-            exit 0
+        if is_interactive; then
+            read -p "是否覆盖？(y/N): " overwrite
+            if [ "$overwrite" != "y" ] && [ "$overwrite" != "Y" ]; then
+                print_info "安装已取消"
+                exit 0
+            fi
+        else
+            print_warning "非交互模式，自动覆盖已存在的目录"
         fi
         rm -rf "$install_dir"
     fi
@@ -188,6 +199,11 @@ run_deploy() {
     bash deploy.sh
 }
 
+# 检查是否在交互式终端中运行
+is_interactive() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
 # 主函数
 main() {
     print_header
@@ -200,10 +216,15 @@ main() {
     echo "  3. 运行部署向导"
     echo ""
     
-    read -p "是否继续？(Y/n): " confirm
-    if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
-        print_info "安装已取消"
-        exit 0
+    # 如果在交互式终端中运行，询问用户确认
+    if is_interactive; then
+        read -p "是否继续？(Y/n): " confirm
+        if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
+            print_info "安装已取消"
+            exit 0
+        fi
+    else
+        print_info "非交互模式，自动继续..."
     fi
     echo ""
 
