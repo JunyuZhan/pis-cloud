@@ -65,16 +65,19 @@ check_env_file() {
         warn "未找到 MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY"
         warn "MinIO 服务可能无法正常启动"
         echo ""
-        echo "请在 .env 文件中添加以下配置："
-        echo "  MINIO_ACCESS_KEY=minioadmin"
-        echo "  MINIO_SECRET_KEY=minioadmin"
+        echo "请在 .env 文件中添加以下配置之一："
         echo ""
-        echo "或者使用新的配置格式："
-        echo "  STORAGE_ACCESS_KEY=minioadmin"
-        echo "  STORAGE_SECRET_KEY=minioadmin"
+        echo "  方式 1（旧格式）："
+        echo "    MINIO_ACCESS_KEY=minioadmin"
+        echo "    MINIO_SECRET_KEY=minioadmin"
+        echo ""
+        echo "  方式 2（新格式）："
+        echo "    STORAGE_ACCESS_KEY=minioadmin"
+        echo "    STORAGE_SECRET_KEY=minioadmin"
         echo ""
         warn "继续启动服务，但 MinIO 可能无法正常工作"
-        sleep 2
+        echo ""
+        read -p "按回车键继续..." dummy
     fi
 }
 
@@ -193,23 +196,64 @@ show_service_info() {
     
     if [ -f "$env_file" ]; then
         # 读取 MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY
-        minio_user=$(grep -E "^MINIO_ACCESS_KEY=|^STORAGE_ACCESS_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # 优先读取 MINIO_ACCESS_KEY，如果没有则读取 STORAGE_ACCESS_KEY
+        minio_user=$(grep -E "^MINIO_ACCESS_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -z "$minio_user" ]; then
+            minio_user=$(grep -E "^STORAGE_ACCESS_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
         
         # 读取 MINIO_SECRET_KEY 或 STORAGE_SECRET_KEY
-        minio_pass=$(grep -E "^MINIO_SECRET_KEY=|^STORAGE_SECRET_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # 优先读取 MINIO_SECRET_KEY，如果没有则读取 STORAGE_SECRET_KEY
+        minio_pass=$(grep -E "^MINIO_SECRET_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -z "$minio_pass" ]; then
+            minio_pass=$(grep -E "^STORAGE_SECRET_KEY=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
+        
+        # 如果读取到的值包含变量引用（如 ${STORAGE_ACCESS_KEY}），尝试解析
+        if [[ "$minio_user" =~ \$\{.*\} ]]; then
+            # 提取变量名并重新读取
+            local var_name=$(echo "$minio_user" | sed 's/\${\(.*\)}/\1/')
+            minio_user=$(grep -E "^${var_name}=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
+        if [[ "$minio_pass" =~ \$\{.*\} ]]; then
+            local var_name=$(echo "$minio_pass" | sed 's/\${\(.*\)}/\1/')
+            minio_pass=$(grep -E "^${var_name}=" "$env_file" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
     fi
     
     echo -e "${GREEN}MinIO 控制台:${NC}"
     echo "  URL: http://localhost:19001"
-    if [ -n "$minio_user" ]; then
-        echo "  用户名: $minio_user"
-    else
-        echo "  用户名: 从 .env 文件查看 (MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY)"
+    
+    # 如果从 .env 文件读取失败，尝试从运行中的容器读取
+    if [ -z "$minio_user" ] || [ -z "$minio_pass" ]; then
+        if docker ps --format '{{.Names}}' | grep -q "^pis-minio$"; then
+            info "尝试从运行中的容器读取 MinIO 凭据..."
+            local container_user=$(docker exec pis-minio printenv MINIO_ROOT_USER 2>/dev/null || echo "")
+            local container_pass=$(docker exec pis-minio printenv MINIO_ROOT_PASSWORD 2>/dev/null || echo "")
+            if [ -n "$container_user" ]; then
+                minio_user="$container_user"
+            fi
+            if [ -n "$container_pass" ]; then
+                minio_pass="$container_pass"
+            fi
+        fi
     fi
-    if [ -n "$minio_pass" ]; then
+    
+    if [ -n "$minio_user" ] && [ -n "$minio_pass" ]; then
+        echo "  用户名: $minio_user"
+        echo "  密码: $minio_pass"
+    elif [ -n "$minio_user" ]; then
+        echo "  用户名: $minio_user"
+        echo "  密码: 从 .env 文件查看 (MINIO_SECRET_KEY 或 STORAGE_SECRET_KEY)"
+    elif [ -n "$minio_pass" ]; then
+        echo "  用户名: 从 .env 文件查看 (MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY)"
         echo "  密码: $minio_pass"
     else
+        echo "  用户名: 从 .env 文件查看 (MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY)"
         echo "  密码: 从 .env 文件查看 (MINIO_SECRET_KEY 或 STORAGE_SECRET_KEY)"
+        echo ""
+        warn "提示: 如果 MinIO 服务已启动，凭据可能已在容器中配置"
+        warn "      请检查 .env 文件或查看容器环境变量"
     fi
     echo ""
     
