@@ -155,9 +155,7 @@ services:
       - DATABASE_NAME=${POSTGRES_DB:-pis}
       - DATABASE_USER=${POSTGRES_USER:-pis}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-      # Supabase 配置（DATABASE_TYPE=supabase 时使用，或留空使用 PostgreSQL）
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      # 注意：Supabase 配置从 .env 文件自动加载（如果使用 Supabase 模式）
       # MinIO
       - MINIO_ENDPOINT_HOST=minio
       - MINIO_ENDPOINT_PORT=9000

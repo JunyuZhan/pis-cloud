@@ -105,30 +105,30 @@ services:
     env_file:
       - ../.env
     environment:
-      # PostgreSQL 配置
-      DATABASE_TYPE: ${DATABASE_TYPE:-postgresql}
-      DATABASE_HOST: ${DATABASE_HOST:-postgresql}
-      DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_NAME: ${DATABASE_NAME:-pis}
-      DATABASE_USER: ${DATABASE_USER:-pis_user}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DATABASE_SSL: ${DATABASE_SSL:-false}
-      # MinIO 配置
-      MINIO_ENDPOINT_HOST: minio
-      MINIO_ENDPOINT_PORT: 9000
-      MINIO_USE_SSL: false
-      # 注意：敏感信息必须从 .env 文件读取，不提供默认值
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      MINIO_BUCKET: ${MINIO_BUCKET:-pis-photos}
-      # Redis 配置
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      # Worker HTTP API 端口
-      HTTP_PORT: ${HTTP_PORT:-3001}
-      # 存储公网 URL（用于生成 presigned URL，从环境变量读取）
-      STORAGE_PUBLIC_URL: ${STORAGE_PUBLIC_URL}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
+      # 注意：env_file 会自动加载 .env 文件中的所有变量
+      # 这里只设置需要在容器内覆盖的值（如 Docker 服务名和数据库类型）
+      
+      # PostgreSQL 配置（覆盖 .env 中的值，使用 Docker 服务名）
+      - DATABASE_TYPE=postgresql
+      - DATABASE_HOST=postgresql
+      - DATABASE_PORT=5432
+      
+      # MinIO (Docker 内部网络，使用服务名)
+      - MINIO_ENDPOINT_HOST=minio
+      - MINIO_ENDPOINT_PORT=9000
+      - MINIO_USE_SSL=false
+      - STORAGE_ENDPOINT=minio
+      - STORAGE_PORT=9000
+      - STORAGE_USE_SSL=false
+      
+      # Redis (Docker 内部网络，使用服务名)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # 其他配置
+      - HTTP_PORT=${HTTP_PORT:-3001}
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
       postgresql:
         condition: service_healthy
