@@ -109,43 +109,25 @@ services:
     env_file:
       - ../.env
     environment:
-      # Supabase Cloud（从 .env 文件读取，env_file 会自动注入，这里只设置必要的覆盖）
-      # 注意：env_file 会读取所有变量，environment 只用于覆盖或设置容器内特定的值
-      - DATABASE_TYPE=${DATABASE_TYPE:-supabase}
-      # MinIO (Docker 内部网络，使用服务名)
-      # 注意：敏感信息（ACCESS_KEY, SECRET_KEY）必须从 .env 文件读取，不提供默认值
-      - MINIO_ENDPOINT_HOST=${MINIO_ENDPOINT_HOST:-minio}
-      - MINIO_ENDPOINT_PORT=${MINIO_ENDPOINT_PORT:-9000}
+      # 注意：env_file 会自动加载 .env 文件中的所有变量
+      # 这里只设置需要在容器内覆盖的值（如 Docker 服务名）
+      
+      # MinIO (Docker 内部网络，使用服务名覆盖 .env 中的 localhost)
+      - MINIO_ENDPOINT_HOST=minio
+      - MINIO_ENDPOINT_PORT=9000
       - MINIO_USE_SSL=false
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_BUCKET=${MINIO_BUCKET:-pis-photos}
-      # Storage 配置（Worker 代码优先使用这些变量）
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY}}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY}}
-      - STORAGE_TYPE=${STORAGE_TYPE:-minio}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-${MINIO_ENDPOINT_HOST}}
-      - STORAGE_PORT=${STORAGE_PORT:-${MINIO_ENDPOINT_PORT}}
-      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
-      - STORAGE_BUCKET=${STORAGE_BUCKET:-${MINIO_BUCKET}}
-      # Redis (Docker 内部网络，使用服务名)
-      # 注意：强制使用 Docker 服务名 'redis'，忽略 .env 文件中的 localhost 配置
+      - STORAGE_ENDPOINT=minio
+      - STORAGE_PORT=9000
+      - STORAGE_USE_SSL=false
+      
+      # Redis (Docker 内部网络，使用服务名覆盖 .env 中的 localhost)
       - REDIS_HOST=redis
-      - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      # 安全配置
+      - REDIS_PORT=6379
+      
+      # 其他配置（如果 .env 中没有，使用默认值）
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      # Worker HTTP API 端口
       - HTTP_PORT=${HTTP_PORT:-3001}
-      # Worker API 认证密钥
-      - WORKER_API_KEY=${WORKER_API_KEY:-}
-      # 存储公网 URL（用于生成 presigned URL，从环境变量读取）
-      - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
-      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
-      # Cloudflare CDN 缓存清除（可选）
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
-      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
     depends_on:
       minio:
         condition: service_healthy
