@@ -9,6 +9,15 @@
 # curl -sSL https://ghproxy.com/https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | bash
 # ============================================
 
+# 自动清理 Windows 行尾（CRLF -> LF）
+if command -v tr >/dev/null 2>&1; then
+    # 如果脚本包含 CR 字符，重新执行清理后的版本
+    if grep -q $'\r' "$0" 2>/dev/null; then
+        tr -d '\r' < "$0" | bash -s "$@"
+        exit $?
+    fi
+fi
+
 set -e
 
 # 颜色定义
