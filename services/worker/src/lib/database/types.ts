@@ -1,20 +1,13 @@
 /**
- * 数据库抽象层类型定义
- * 支持多种数据库：Supabase/PostgreSQL、MySQL 等
+ * Supabase 数据库适配器类型定义
+ * PIS 使用 Supabase 作为唯一数据库后端
  */
 
 export interface DatabaseConfig {
-  type: 'supabase' | 'postgresql' | 'mysql';
+  type: 'supabase';
   // Supabase 配置
   supabaseUrl?: string;
   supabaseKey?: string;
-  // PostgreSQL/MySQL 配置
-  host?: string;
-  port?: number;
-  database?: string;
-  user?: string;
-  password?: string;
-  ssl?: boolean;
 }
 
 export interface QueryResult<T = any> {

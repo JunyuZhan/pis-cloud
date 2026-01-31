@@ -2,104 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * 检查是否使用自定义认证模式
+ * Supabase session 更新中间件
+ * PIS 使用 Supabase 作为唯一认证后端
  */
-function isCustomAuthMode(): boolean {
-  return process.env.AUTH_MODE === 'custom' || process.env.DATABASE_TYPE === 'postgresql'
-}
-
-/**
- * 自定义认证模式的 session 更新
- */
-async function updateCustomSession(request: NextRequest): Promise<NextResponse> {
-  const response = NextResponse.next({ request })
-  
-  // 检查认证 cookie
-  const authToken = request.cookies.get('pis-auth-token')?.value
-  const refreshToken = request.cookies.get('pis-refresh-token')?.value
-  
-  let isAuthenticated = false
-
-  if (authToken) {
-    // 验证 access token
-    try {
-      const { jwtVerify } = await import('jose')
-      const secret = new TextEncoder().encode(
-        process.env.AUTH_JWT_SECRET || process.env.ALBUM_SESSION_SECRET || 'fallback-secret'
-      )
-      await jwtVerify(authToken, secret, {
-        issuer: 'pis-auth',
-        audience: 'pis-app',
-      })
-      isAuthenticated = true
-    } catch {
-      // Token 无效或过期
-      if (refreshToken) {
-        // 尝试使用 refresh token
-        try {
-          const { jwtVerify, SignJWT } = await import('jose')
-          const secret = new TextEncoder().encode(
-            process.env.AUTH_JWT_SECRET || process.env.ALBUM_SESSION_SECRET || 'fallback-secret'
-          )
-          const { payload } = await jwtVerify(refreshToken, secret, {
-            issuer: 'pis-auth',
-            audience: 'pis-app',
-          })
-          
-          // 创建新的 access token
-          const newAccessToken = await new SignJWT({ email: payload.email, type: 'access' })
-            .setProtectedHeader({ alg: 'HS256' })
-            .setSubject(payload.sub as string)
-            .setIssuer('pis-auth')
-            .setAudience('pis-app')
-            .setIssuedAt()
-            .setExpirationTime('1h')
-            .sign(secret)
-          
-          response.cookies.set('pis-auth-token', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60,
-          })
-          
-          isAuthenticated = true
-        } catch {
-          // Refresh token 也无效
-        }
-      }
-    }
-  }
-
-  // 管理后台访问控制
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (request.nextUrl.pathname === '/admin/login') {
-      if (isAuthenticated) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/admin'
-        return NextResponse.redirect(url)
-      }
-      return response
-    }
-
-    if (!isAuthenticated) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/admin/login'
-      return NextResponse.redirect(url)
-    }
-  }
-
-  return response
-}
-
 export async function updateSession(request: NextRequest) {
-  // 自定义认证模式
-  if (isCustomAuthMode()) {
-    return updateCustomSession(request)
-  }
-
-  // Supabase 模式
   let supabaseResponse = NextResponse.next({
     request,
   })

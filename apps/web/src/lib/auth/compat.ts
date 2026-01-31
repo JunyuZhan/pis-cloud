@@ -1,22 +1,17 @@
 /**
  * Supabase Auth 兼容层
  * 
- * 提供与 Supabase Auth API 相似的接口
- * 使现有代码无需大量修改即可在自定义认证模式下工作
+ * 注意：此文件保留用于向后兼容，但 PIS 现在只使用 Supabase 认证
+ * 自定义认证模式相关代码已移除
  */
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getCurrentUser,
   getUserFromRequest,
-  createSession,
   destroySession,
-  verifyPassword,
-  hashPassword,
-  getAuthDatabase,
   AuthUser,
 } from './index'
-import { initPostgresAuth } from './database'
 
 // ==================== 兼容类型 ====================
 
@@ -43,21 +38,13 @@ interface AuthError {
 // ==================== Auth 兼容对象 ====================
 
 class CustomAuthClient {
-  private initialized = false
-
-  private async ensureInitialized() {
-    if (!this.initialized) {
-      await initPostgresAuth()
-      this.initialized = true
-    }
-  }
-
   /**
    * 获取当前用户
+   * Note: This is a compatibility layer for Supabase Auth API
+   * PIS now uses Supabase only, but this file is kept for backward compatibility
    */
   async getUser(): Promise<{ data: { user: SupabaseUser | null }; error: AuthError | null }> {
     try {
-      await this.ensureInitialized()
       const user = await getCurrentUser()
       
       if (!user) {
@@ -87,7 +74,6 @@ class CustomAuthClient {
    */
   async getSession(): Promise<{ data: { session: SupabaseSession | null }; error: AuthError | null }> {
     try {
-      await this.ensureInitialized()
       const user = await getCurrentUser()
       
       if (!user) {
@@ -123,57 +109,10 @@ class CustomAuthClient {
     email: string
     password: string
   }): Promise<{ data: { user: SupabaseUser | null; session: SupabaseSession | null }; error: AuthError | null }> {
-    try {
-      await this.ensureInitialized()
-      const db = getAuthDatabase()
-      
-      const user = await db.findUserByEmail(credentials.email)
-      if (!user) {
-        return {
-          data: { user: null, session: null },
-          error: { message: 'Invalid login credentials', status: 401 },
-        }
-      }
-
-      const validPassword = await verifyPassword(credentials.password, user.password_hash)
-      if (!validPassword) {
-        return {
-          data: { user: null, session: null },
-          error: { message: 'Invalid login credentials', status: 401 },
-        }
-      }
-
-      const authUser: AuthUser = {
-        id: user.id,
-        email: user.email,
-      }
-      
-      const session = await createSession(authUser)
-
-      return {
-        data: {
-          user: {
-            id: authUser.id,
-            email: authUser.email,
-          },
-          session: {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-            user: {
-              id: authUser.id,
-              email: authUser.email,
-            },
-          },
-        },
-        error: null,
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return {
-        data: { user: null, session: null },
-        error: { message },
-      }
+    // This method is deprecated - PIS now uses Supabase Auth directly
+    return {
+      data: { user: null, session: null },
+      error: { message: 'Custom auth is deprecated. Please use Supabase Auth.', status: 501 },
     }
   }
 
@@ -197,54 +136,10 @@ class CustomAuthClient {
     email: string
     password: string
   }): Promise<{ data: { user: SupabaseUser | null; session: SupabaseSession | null }; error: AuthError | null }> {
-    try {
-      await this.ensureInitialized()
-      const db = getAuthDatabase()
-      
-      // 检查用户是否已存在
-      const existingUser = await db.findUserByEmail(credentials.email)
-      if (existingUser) {
-        return {
-          data: { user: null, session: null },
-          error: { message: 'User already exists', status: 400 },
-        }
-      }
-
-      // 创建新用户
-      const passwordHash = await hashPassword(credentials.password)
-      const newUser = await db.createUser(credentials.email, passwordHash)
-
-      const authUser: AuthUser = {
-        id: newUser.id,
-        email: newUser.email,
-      }
-
-      const session = await createSession(authUser)
-
-      return {
-        data: {
-          user: {
-            id: authUser.id,
-            email: authUser.email,
-          },
-          session: {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-            user: {
-              id: authUser.id,
-              email: authUser.email,
-            },
-          },
-        },
-        error: null,
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      return {
-        data: { user: null, session: null },
-        error: { message },
-      }
+    // This method is deprecated - PIS now uses Supabase Auth directly
+    return {
+      data: { user: null, session: null },
+      error: { message: 'Custom auth is deprecated. Please use Supabase Auth.', status: 501 },
     }
   }
 
@@ -266,288 +161,33 @@ class CustomAuthClient {
   }
 }
 
-// ==================== PostgreSQL 查询构建器 ====================
-
-import { Pool } from 'pg'
-
-let pgPool: Pool | null = null
-
-function getPool(): Pool {
-  if (!pgPool) {
-    pgPool = new Pool({
-      host: process.env.DATABASE_HOST || 'postgres',
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
-      database: process.env.DATABASE_NAME || process.env.POSTGRES_DB || 'pis',
-      user: process.env.DATABASE_USER || process.env.POSTGRES_USER || 'pis',
-      password: process.env.DATABASE_PASSWORD || process.env.POSTGRES_PASSWORD || '',
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      max: 10,
-    })
-  }
-  return pgPool
-}
-
-/**
- * PostgreSQL 查询构建器（模拟 Supabase 查询 API）
- */
-class PostgresQueryBuilder {
-  private tableName: string
-  private selectColumns: string = '*'
-  private conditions: { column: string; operator: string; value: unknown }[] = []
-  private orderByClause: { column: string; ascending: boolean } | null = null
-  private limitValue: number | null = null
-  private isSingle: boolean = false
-  private isMaybeSingle: boolean = false
-  private insertData: Record<string, unknown> | null = null
-  private updateData: Record<string, unknown> | null = null
-  private isDelete: boolean = false
-  private returnSelect: boolean = false
-  private offsetValue: number | null = null
-
-  constructor(tableName: string) {
-    this.tableName = tableName
-  }
-
-  select(columns: string = '*') {
-    this.selectColumns = columns
-    this.returnSelect = true
-    return this
-  }
-
-  insert(data: Record<string, unknown>) {
-    this.insertData = data
-    return this
-  }
-
-  update(data: Record<string, unknown>) {
-    this.updateData = data
-    return this
-  }
-
-  delete() {
-    this.isDelete = true
-    return this
-  }
-
-  eq(column: string, value: unknown) {
-    this.conditions.push({ column, operator: '=', value })
-    return this
-  }
-
-  neq(column: string, value: unknown) {
-    this.conditions.push({ column, operator: '!=', value })
-    return this
-  }
-
-  is(column: string, value: unknown) {
-    if (value === null) {
-      this.conditions.push({ column, operator: 'IS NULL', value: null })
-    } else {
-      this.conditions.push({ column, operator: 'IS', value })
-    }
-    return this
-  }
-
-  not(column: string, operator: string, value: unknown) {
-    if (operator === 'is' && value === null) {
-      this.conditions.push({ column, operator: 'IS NOT NULL', value: null })
-    } else {
-      this.conditions.push({ column, operator: `NOT ${operator}`, value })
-    }
-    return this
-  }
-
-  in(column: string, values: unknown[]) {
-    this.conditions.push({ column, operator: 'IN', value: values })
-    return this
-  }
-
-  order(column: string, options?: { ascending?: boolean }) {
-    this.orderByClause = { column, ascending: options?.ascending ?? true }
-    return this
-  }
-
-  limit(count: number) {
-    this.limitValue = count
-    return this
-  }
-
-  range(from: number, to: number) {
-    this.offsetValue = from
-    this.limitValue = to - from + 1
-    return this
-  }
-
-  single() {
-    this.isSingle = true
-    this.limitValue = 1
-    return this
-  }
-
-  maybeSingle() {
-    this.isMaybeSingle = true
-    this.limitValue = 1
-    return this
-  }
-
-  async then<T>(resolve: (result: { data: T | null; error: { message: string; code?: string } | null; count?: number }) => void) {
-    try {
-      const pool = getPool()
-      const params: unknown[] = []
-      let sql: string
-      
-      // INSERT 操作
-      if (this.insertData) {
-        const columns = Object.keys(this.insertData)
-        const values = Object.values(this.insertData)
-        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
-        params.push(...values)
-        
-        sql = `INSERT INTO ${this.tableName} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`
-        if (this.returnSelect) {
-          sql += ` RETURNING ${this.selectColumns}`
-        }
-        
-        const result = await pool.query(sql, params)
-        if (this.isSingle || this.returnSelect) {
-          resolve({ data: result.rows[0] as T, error: null })
-        } else {
-          resolve({ data: result.rows as T, error: null })
-        }
-        return
-      }
-      
-      // UPDATE 操作
-      if (this.updateData) {
-        const setClauses = Object.entries(this.updateData).map(([col], i) => {
-          params.push(this.updateData![col])
-          return `"${col}" = $${i + 1}`
-        })
-        
-        sql = `UPDATE ${this.tableName} SET ${setClauses.join(', ')}`
-        
-        if (this.conditions.length > 0) {
-          const whereClauses = this.conditions.map((cond) => {
-            if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
-              return `"${cond.column}" ${cond.operator}`
-            }
-            params.push(cond.value)
-            return `"${cond.column}" ${cond.operator} $${params.length}`
-          })
-          sql += ` WHERE ${whereClauses.join(' AND ')}`
-        }
-        
-        if (this.returnSelect) {
-          sql += ` RETURNING ${this.selectColumns}`
-        }
-        
-        const result = await pool.query(sql, params)
-        if (this.isSingle) {
-          resolve({ data: result.rows[0] as T, error: null })
-        } else {
-          resolve({ data: result.rows as T, error: null })
-        }
-        return
-      }
-      
-      // DELETE 操作
-      if (this.isDelete) {
-        sql = `DELETE FROM ${this.tableName}`
-        
-        if (this.conditions.length > 0) {
-          const whereClauses = this.conditions.map((cond) => {
-            if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
-              return `"${cond.column}" ${cond.operator}`
-            }
-            params.push(cond.value)
-            return `"${cond.column}" ${cond.operator} $${params.length}`
-          })
-          sql += ` WHERE ${whereClauses.join(' AND ')}`
-        }
-        
-        if (this.returnSelect) {
-          sql += ` RETURNING ${this.selectColumns}`
-        }
-        
-        const result = await pool.query(sql, params)
-        resolve({ data: result.rows as T, error: null })
-        return
-      }
-      
-      // SELECT 操作
-      sql = `SELECT ${this.selectColumns} FROM ${this.tableName}`
-      
-      if (this.conditions.length > 0) {
-        const whereClauses = this.conditions.map((cond) => {
-          if (cond.operator === 'IS NULL' || cond.operator === 'IS NOT NULL') {
-            return `"${cond.column}" ${cond.operator}`
-          }
-          if (cond.operator === 'IN') {
-            const values = cond.value as unknown[]
-            const placeholders = values.map((_, i) => `$${params.length + i + 1}`).join(', ')
-            params.push(...values)
-            return `"${cond.column}" IN (${placeholders})`
-          }
-          params.push(cond.value)
-          return `"${cond.column}" ${cond.operator} $${params.length}`
-        })
-        sql += ` WHERE ${whereClauses.join(' AND ')}`
-      }
-      
-      if (this.orderByClause) {
-        sql += ` ORDER BY "${this.orderByClause.column}" ${this.orderByClause.ascending ? 'ASC' : 'DESC'}`
-      }
-      
-      if (this.limitValue !== null) {
-        sql += ` LIMIT ${this.limitValue}`
-      }
-      
-      if (this.offsetValue !== null) {
-        sql += ` OFFSET ${this.offsetValue}`
-      }
-
-      const result = await pool.query(sql, params)
-      
-      if (this.isSingle) {
-        if (result.rows.length === 0) {
-          resolve({ data: null, error: { message: 'No rows returned' } })
-        } else {
-          resolve({ data: result.rows[0] as T, error: null })
-        }
-      } else if (this.isMaybeSingle) {
-        resolve({ data: (result.rows[0] || null) as T, error: null })
-      } else {
-        resolve({ data: result.rows as T, error: null, count: result.rowCount ?? 0 })
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Database query failed'
-      const pgError = err as { code?: string }
-      console.error('PostgreSQL query error:', message)
-      resolve({ data: null, error: { message, code: pgError.code } })
-    }
-  }
-}
-
 // ==================== 兼容客户端工厂 ====================
+// Note: These functions are kept for backward compatibility but are not used in Supabase-only mode
+// PIS now uses Supabase directly, so these compatibility functions are deprecated
 
 /**
  * 创建兼容的 Auth 客户端（服务端）
- * 同时提供 auth 和 from() 方法
+ * @deprecated Not used - PIS now uses Supabase directly
  */
 export function createCompatAuthClient() {
   return {
     auth: new CustomAuthClient(),
-    from: (table: string) => new PostgresQueryBuilder(table),
+    from: () => {
+      throw new Error('Database queries should use Supabase client directly. This compatibility layer is deprecated.')
+    },
   }
 }
 
 /**
  * 从请求创建兼容的 Auth 客户端
+ * @deprecated Not used - PIS now uses Supabase directly
  */
 export function createCompatAuthClientFromRequest(_request: NextRequest, _response?: NextResponse) {
   return {
     auth: new CustomAuthClient(),
-    from: (table: string) => new PostgresQueryBuilder(table),
+    from: () => {
+      throw new Error('Database queries should use Supabase client directly. This compatibility layer is deprecated.')
+    },
   }
 }
 
@@ -555,12 +195,10 @@ export function createCompatAuthClientFromRequest(_request: NextRequest, _respon
 
 /**
  * 自定义认证 Middleware（替代 Supabase middleware）
+ * Note: This is kept for backward compatibility but is not used in Supabase-only mode
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next({ request })
-  
-  // 初始化数据库连接
-  await initPostgresAuth()
   
   const user = await getUserFromRequest(request)
 

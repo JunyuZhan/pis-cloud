@@ -125,62 +125,21 @@ check_docker() {
     fi
 }
 
-# 选择部署方式
-choose_deployment_mode() {
-    print_step "2/9" "选择部署方式"
+# 配置部署模式（固定为 Vercel + Supabase）
+configure_deployment_mode() {
+    print_step "2/9" "部署架构配置"
 
     echo ""
-    echo -e "${BOLD}请选择部署方式：${NC}"
+    echo -e "${BOLD}部署架构：Vercel + Supabase + 自建 Worker${NC}"
     echo ""
-    echo -e "  ${CYAN}1.${NC} ${GREEN}混合部署${NC}（推荐新手）"
-    echo "     - 前端: Vercel（自动部署）"
-    echo "     - 数据库: Supabase Cloud"
-    echo "     - 存储/Worker: 你的服务器"
-    echo "     - 优点: 配置简单，快速上线"
-    echo "     - 缺点: 依赖第三方服务"
+    echo "  - 前端: Vercel（自动部署）"
+    echo "  - 数据库: Supabase Cloud"
+    echo "  - 存储/Worker: 你的服务器"
     echo ""
-    echo -e "  ${CYAN}2.${NC} ${YELLOW}半自托管${NC}（推荐中级）"
-    echo "     - 数据库: 本地 PostgreSQL"
-    echo "     - 认证: Supabase Auth（免费）"
-    echo "     - 存储/Worker: 你的服务器"
-    echo "     - 优点: 数据自控，认证省心"
-    echo "     - 缺点: 需要注册 Supabase"
-    echo ""
-    echo -e "  ${CYAN}3.${NC} ${BLUE}完全自托管${NC}（推荐进阶）"
-    echo "     - 所有服务: 你的服务器"
-    echo "     - 认证: 自定义 JWT 认证"
-    echo "     - 优点: 数据完全自控，无第三方依赖"
-    echo "     - 缺点: 需要手动创建管理员"
-    echo ""
-
-    while true; do
-        local choice
-        read -p "$(echo -e ${GREEN}请选择 [1/2/3]${NC}: ")" choice
-
-        case "$choice" in
-            1)
-                DEPLOYMENT_MODE="hybrid"
-                AUTH_MODE="supabase"
-                print_success "选择: 混合部署"
-                return
-                ;;
-            2)
-                DEPLOYMENT_MODE="standalone"
-                AUTH_MODE="supabase"
-                print_success "选择: 半自托管"
-                return
-                ;;
-            3)
-                DEPLOYMENT_MODE="standalone"
-                AUTH_MODE="custom"
-                print_success "选择: 完全自托管"
-                return
-                ;;
-            *)
-                print_error "无效选择，请输入 1、2 或 3"
-                ;;
-        esac
-    done
+    
+    DEPLOYMENT_MODE="hybrid"
+    AUTH_MODE="supabase"
+    print_success "架构: Vercel + Supabase"
 }
 
 # 获取域名配置
@@ -247,91 +206,7 @@ configure_supabase() {
     get_confirm "已创建管理员账号，继续" "y"
 }
 
-# 配置 PostgreSQL（自托管）
-configure_postgres() {
-    print_step "4b/9" "配置 PostgreSQL"
-
-    echo ""
-    echo -e "${CYAN}PostgreSQL 将运行在 Docker 容器中${NC}"
-    echo ""
-
-    POSTGRES_PASSWORD=$(get_input "数据库密码 (留空自动生成)" "")
-    if [ -z "$POSTGRES_PASSWORD" ]; then
-        POSTGRES_PASSWORD=$(generate_secret)
-        print_success "已生成数据库密码"
-    fi
-
-    POSTGRES_DB="pis"
-    POSTGRES_USER="pis"
-
-    print_success "PostgreSQL 已配置"
-
-    # 根据认证模式配置
-    if [ "$AUTH_MODE" = "supabase" ]; then
-        # 半自托管模式：需要 Supabase Auth
-        echo ""
-        echo -e "${YELLOW}========================================${NC}"
-        echo -e "${YELLOW}  前端认证需要 Supabase（免费）${NC}"
-        echo -e "${YELLOW}========================================${NC}"
-        echo ""
-        echo -e "${CYAN}请按照以下步骤配置 Supabase:${NC}"
-        echo ""
-        echo "  1. 访问 https://supabase.com 并登录"
-        echo "  2. 点击 New Project 创建项目"
-        echo "  3. 创建完成后，进入 Settings → API"
-        echo ""
-
-        SUPABASE_URL=$(get_input "Project URL (如 https://xxx.supabase.co)" "")
-        SUPABASE_ANON_KEY=$(get_input "anon public key" "")
-        SUPABASE_SERVICE_KEY=$(get_input "service_role key" "")
-
-        if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
-            print_warning "Supabase 配置不完整，前端将无法登录"
-            print_warning "请稍后编辑 .env 文件添加 Supabase 配置"
-        else
-            print_success "Supabase 已配置"
-        fi
-
-        echo ""
-        echo -e "${YELLOW}接下来请在 Supabase 中创建管理员账号:${NC}"
-        echo "  1. 进入 Authentication → Users"
-        echo "  2. 点击 Add user → Create new user"
-        echo "  3. 输入管理员邮箱和密码"
-        echo "  4. ✅ 勾选 Auto Confirm User"
-        echo "  5. 点击 Create user"
-        echo ""
-        get_confirm "已创建管理员账号（或稍后创建），继续" "y"
-    else
-        # 完全自托管模式：自定义认证
-        echo ""
-        echo -e "${GREEN}========================================${NC}"
-        echo -e "${GREEN}  完全自托管模式（无需 Supabase）${NC}"
-        echo -e "${GREEN}========================================${NC}"
-        echo ""
-        echo -e "${CYAN}请配置管理员账号:${NC}"
-        echo ""
-
-        ADMIN_EMAIL=$(get_input "管理员邮箱" "admin@example.com")
-        ADMIN_PASSWORD=$(get_input "管理员密码 (留空自动生成)" "")
-        if [ -z "$ADMIN_PASSWORD" ]; then
-            ADMIN_PASSWORD=$(generate_short_secret)
-            echo -e "${GREEN}已生成管理员密码: ${BOLD}$ADMIN_PASSWORD${NC}"
-            echo -e "${RED}⚠️  请务必记录此密码！${NC}"
-        fi
-
-        print_success "管理员账号已配置"
-        
-        # 清空 Supabase 变量
-        SUPABASE_URL=""
-        SUPABASE_ANON_KEY=""
-        SUPABASE_SERVICE_KEY=""
-    fi
-}
-
-# 生成短密码（用于管理员初始密码）
-generate_short_secret() {
-    openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12
-}
+# PostgreSQL 配置已移除 - PIS 现在只使用 Supabase
 
 # 配置 MinIO
 configure_minio() {
@@ -443,42 +318,7 @@ configure_alerts() {
     ALERT_ENABLED="true"
 }
 
-# 创建管理员账号（完全自托管模式）
-create_admin_account() {
-    # 等待 Web 服务就绪
-    echo "等待 Web 服务就绪..."
-    local retries=60
-    local web_url="http://localhost:3000"
-    
-    while [ $retries -gt 0 ]; do
-        if curl -s "$web_url/health" > /dev/null 2>&1; then
-            break
-        fi
-        sleep 2
-        retries=$((retries - 1))
-    done
-
-    if [ $retries -eq 0 ]; then
-        print_warning "Web 服务启动超时，请手动创建管理员账号"
-        return 1
-    fi
-
-    # 调用初始化 API 创建管理员账号
-    local response
-    response=$(curl -s -X POST "$web_url/api/auth/init" \
-        -H "Content-Type: application/json" \
-        -H "x-init-key: $ALBUM_SESSION_SECRET" \
-        -d "{\"email\": \"$ADMIN_EMAIL\", \"password\": \"$ADMIN_PASSWORD\"}")
-
-    if echo "$response" | grep -q '"success":true'; then
-        print_success "管理员账号已创建"
-    elif echo "$response" | grep -q 'already exist'; then
-        print_warning "管理员账号已存在"
-    else
-        print_warning "管理员账号创建失败: $response"
-        print_warning "请访问 $APP_URL/admin/login 手动注册"
-    fi
-}
+# 管理员账号创建已移除 - PIS 使用 Supabase 认证，管理员在 Supabase Dashboard 中创建
 
 # 生成配置文件
 generate_config() {
@@ -489,11 +329,10 @@ generate_config() {
     echo ""
     echo -e "${CYAN}正在生成配置文件...${NC}"
 
-    if [ "$DEPLOYMENT_MODE" = "hybrid" ]; then
-        # 混合部署配置
-        cat > "$env_file" << EOF
+    # Vercel + Supabase 架构配置
+    cat > "$env_file" << EOF
 # ============================================
-# PIS 配置文件 (混合部署)
+# PIS 配置文件 (Vercel + Supabase + 自建 Worker)
 # 自动生成于: $(date)
 # ============================================
 
@@ -578,221 +417,10 @@ EOF
         echo ""
         echo "在 Vercel 中添加你的域名，按提示配置 DNS。"
         echo ""
-        echo -e "${YELLOW}⚠️  重要: 记得将 $DOMAIN 的 A 记录指向你的服务器 IP${NC}"
+        echo -e "${YELLOW}⚠️  重要: 记得将 worker.$DOMAIN 的 A 记录指向你的服务器 IP${NC}"
         echo "   media.$DOMAIN 的 A 记录也指向你的服务器 IP"
         echo ""
         echo -e "${CYAN}========================================${NC}"
-
-    else
-        # 自托管部署配置
-        if [ "$AUTH_MODE" = "custom" ]; then
-            # 完全自托管模式
-            cat > "$env_file" << EOF
-# ============================================
-# PIS 配置文件 (完全自托管 - 自定义认证)
-# 自动生成于: $(date)
-# ============================================
-
-# ==================== 域名配置 ====================
-DOMAIN=$DOMAIN
-NEXT_PUBLIC_APP_URL=$APP_URL
-NEXT_PUBLIC_MEDIA_URL=$MEDIA_URL
-NEXT_PUBLIC_WORKER_URL=$WORKER_URL
-
-# ==================== 认证模式 ====================
-# custom = 自定义 JWT 认证（完全自托管）
-AUTH_MODE=custom
-NEXT_PUBLIC_AUTH_MODE=custom
-
-# ==================== 数据库配置 ====================
-DATABASE_TYPE=postgresql
-POSTGRES_DB=$POSTGRES_DB
-POSTGRES_USER=$POSTGRES_USER
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-
-# ==================== 管理员账号 ====================
-ADMIN_EMAIL=$ADMIN_EMAIL
-ADMIN_PASSWORD=$ADMIN_PASSWORD
-
-# ==================== MinIO 配置 ====================
-MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY
-MINIO_SECRET_KEY=$MINIO_SECRET_KEY
-MINIO_BUCKET=$MINIO_BUCKET
-STORAGE_PUBLIC_URL=$MEDIA_URL
-MINIO_PUBLIC_URL=$MEDIA_URL
-
-# ==================== Worker 配置 ====================
-WORKER_API_KEY=$WORKER_API_KEY
-
-# ==================== 安全配置 ====================
-ALBUM_SESSION_SECRET=$ALBUM_SESSION_SECRET
-AUTH_JWT_SECRET=$ALBUM_SESSION_SECRET
-
-# ==================== 告警配置 ====================
-ALERT_ENABLED=$ALERT_ENABLED
-ALERT_TYPE=$ALERT_TYPE
-EOF
-        else
-            # 半自托管模式（Supabase Auth）
-            cat > "$env_file" << EOF
-# ============================================
-# PIS 配置文件 (半自托管 - Supabase 认证)
-# 自动生成于: $(date)
-# ============================================
-
-# ==================== 域名配置 ====================
-DOMAIN=$DOMAIN
-NEXT_PUBLIC_APP_URL=$APP_URL
-NEXT_PUBLIC_MEDIA_URL=$MEDIA_URL
-NEXT_PUBLIC_WORKER_URL=$WORKER_URL
-
-# ==================== 数据库配置 ====================
-DATABASE_TYPE=postgresql
-POSTGRES_DB=$POSTGRES_DB
-POSTGRES_USER=$POSTGRES_USER
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-
-# ==================== Supabase 配置（前端认证）====================
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
-SUPABASE_URL=$SUPABASE_URL
-
-# ==================== MinIO 配置 ====================
-MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY
-MINIO_SECRET_KEY=$MINIO_SECRET_KEY
-MINIO_BUCKET=$MINIO_BUCKET
-STORAGE_PUBLIC_URL=$MEDIA_URL
-MINIO_PUBLIC_URL=$MEDIA_URL
-
-# ==================== Worker 配置 ====================
-WORKER_API_KEY=$WORKER_API_KEY
-
-# ==================== 安全配置 ====================
-ALBUM_SESSION_SECRET=$ALBUM_SESSION_SECRET
-
-# ==================== 告警配置 ====================
-ALERT_ENABLED=$ALERT_ENABLED
-ALERT_TYPE=$ALERT_TYPE
-EOF
-        fi
-
-        if [ "$ALERT_TYPE" = "telegram" ]; then
-            cat >> "$env_file" << EOF
-TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
-TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
-EOF
-        elif [ "$ALERT_TYPE" = "email" ]; then
-            cat >> "$env_file" << EOF
-ALERT_SMTP_HOST=$ALERT_SMTP_HOST
-ALERT_SMTP_PORT=$ALERT_SMTP_PORT
-ALERT_SMTP_USER=$ALERT_SMTP_USER
-ALERT_SMTP_PASS=$ALERT_SMTP_PASS
-ALERT_FROM_EMAIL=$ALERT_FROM_EMAIL
-ALERT_TO_EMAIL=$ALERT_TO_EMAIL
-EOF
-        fi
-
-        # 复制为 .env（docker-compose 读取 ../.env）
-        cp "$env_file" ../.env
-        print_success "配置已保存到 .env"
-
-        echo ""
-        echo -e "${CYAN}========================================${NC}"
-        echo -e "${CYAN}  开始部署${NC}"
-        echo -e "${CYAN}========================================${NC}"
-        # 生成自签名 SSL 证书（首次部署使用，后续可替换为 Let's Encrypt）
-        echo ""
-        echo -e "${YELLOW}正在生成自签名 SSL 证书...${NC}"
-        if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
-            mkdir -p nginx/ssl
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout nginx/ssl/key.pem \
-                -out nginx/ssl/cert.pem \
-                -subj "/CN=${DOMAIN:-localhost}" \
-                2>/dev/null
-            print_success "已生成自签名 SSL 证书（有效期 365 天）"
-            print_warning "生产环境建议使用 Let's Encrypt 替换自签名证书"
-        else
-            print_success "SSL 证书已存在，跳过生成"
-        fi
-
-        echo ""
-        echo -e "${YELLOW}正在构建 Docker 镜像...${NC}"
-        $COMPOSE_CMD -f docker-compose.standalone.yml build
-
-        echo ""
-        echo -e "${YELLOW}正在启动服务...${NC}"
-        $COMPOSE_CMD -f docker-compose.standalone.yml up -d
-
-        # 等待数据库初始化
-        echo ""
-        echo -e "${YELLOW}等待服务启动...${NC}"
-        sleep 5
-
-        # 如果是完全自托管模式，创建管理员账号
-        if [ "$AUTH_MODE" = "custom" ] && [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASSWORD" ]; then
-            echo ""
-            echo -e "${YELLOW}正在创建管理员账号...${NC}"
-            create_admin_account
-        fi
-
-        echo ""
-        echo -e "${GREEN}========================================${NC}"
-        echo -e "${GREEN}  部署完成！${NC}"
-        echo -e "${GREEN}========================================${NC}"
-        echo ""
-        echo -e "${GREEN}访问地址:${NC}"
-        echo "  主站: $APP_URL"
-        echo "  管理后台: $APP_URL/admin/login"
-        echo ""
-        echo -e "${GREEN}MinIO 控制台:${NC}"
-        echo "  http://localhost:9001"
-        echo "  用户名: $MINIO_ACCESS_KEY"
-        echo "  密码: $MINIO_SECRET_KEY"
-        echo ""
-        echo -e "${GREEN}数据库连接:${NC}"
-        echo "  主机: localhost"
-        echo "  端口: 5432"
-        echo "  数据库: $POSTGRES_DB"
-        echo "  用户名: $POSTGRES_USER"
-        echo "  密码: $POSTGRES_PASSWORD"
-        echo ""
-
-        if [ "$AUTH_MODE" = "custom" ]; then
-            echo -e "${GREEN}管理员账号:${NC}"
-            echo "  邮箱: $ADMIN_EMAIL"
-            echo "  密码: $ADMIN_PASSWORD"
-            echo ""
-            echo -e "${YELLOW}⚠️  请妥善保管管理员密码！${NC}"
-            echo ""
-            echo -e "${YELLOW}下一步操作:${NC}"
-            echo "  1. 访问 $APP_URL/admin/login 登录"
-            echo "  2. （可选）配置 SSL 证书（使用 Let's Encrypt）"
-        else
-            echo -e "${YELLOW}⚠️  管理员账号:${NC}"
-            echo "  请在 Supabase Dashboard 中查看"
-            echo ""
-            echo -e "${YELLOW}下一步操作:${NC}"
-            echo "  1. 访问 $APP_URL/admin/login 登录"
-            echo "  2. （可选）配置 SSL 证书（使用 Let's Encrypt）"
-        fi
-        echo ""
-        echo -e "${YELLOW}查看日志:${NC}"
-        echo "  cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml logs -f"
-        echo ""
-        echo -e "${YELLOW}获取 Let's Encrypt 证书（可选）:${NC}"
-        echo "  # 1. 停止 nginx"
-        echo "  $COMPOSE_CMD -f docker-compose.standalone.yml stop nginx"
-        echo "  # 2. 获取证书"
-        echo "  certbot certonly --standalone -d $DOMAIN"
-        echo "  # 3. 复制证书"
-        echo "  cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem nginx/ssl/cert.pem"
-        echo "  cp /etc/letsencrypt/live/$DOMAIN/privkey.pem nginx/ssl/key.pem"
-        echo "  # 4. 重启 nginx"
-        echo "  $COMPOSE_CMD -f docker-compose.standalone.yml restart nginx"
-        echo ""
-    fi
 
     # 保存重要信息
     cat > .deployment-info << EOF
@@ -800,7 +428,7 @@ EOF
 # 生成时间: $(date)
 # ⚠️  警告: 此文件包含敏感信息，请妥善保管，不要泄露或提交到 Git
 
-部署方式: $DEPLOYMENT_MODE
+部署架构: Vercel + Supabase + 自建 Worker
 域名: $DOMAIN
 
 # 重要密钥（请妥善保管）
@@ -809,20 +437,11 @@ Worker API Key: $WORKER_API_KEY
 MinIO 访问密钥: $MINIO_ACCESS_KEY
 MinIO 密钥: $MINIO_SECRET_KEY
 
-EOF
-    if [ "$DEPLOYMENT_MODE" = "hybrid" ]; then
-        cat >> .deployment-info << EOF
+# Supabase 配置
 Supabase URL: $SUPABASE_URL
 Supabase Anon Key: $SUPABASE_ANON_KEY
 Supabase Service Key: $SUPABASE_SERVICE_KEY
 EOF
-    else
-        cat >> .deployment-info << EOF
-PostgreSQL 密码: $POSTGRES_PASSWORD
-PostgreSQL 数据库: $POSTGRES_DB
-PostgreSQL 用户名: $POSTGRES_USER
-EOF
-    fi
 
     print_success "部署信息已保存到 .deployment-info"
     print_warning "⚠️  请妥善保管 .deployment-info 文件，不要将其提交到 Git 或分享给他人"
@@ -839,26 +458,14 @@ show_completion_info() {
     echo -e "${GREEN}✓ 服务已启动${NC}"
     echo ""
     echo -e "${YELLOW}配置文件位置:${NC}"
-    if [ "$DEPLOYMENT_MODE" = "hybrid" ]; then
-        echo "  - .env"
-        echo "  - .deployment-info"
-    else
-        echo "  - .env.standalone"
-        echo "  - .deployment-info"
-    fi
+    echo "  - .env"
+    echo "  - .deployment-info"
     echo ""
     echo -e "${YELLOW}常用命令:${NC}"
-    if [ "$DEPLOYMENT_MODE" = "hybrid" ]; then
-        echo "  查看状态: cd $DOCKER_DIR && $COMPOSE_CMD ps"
-        echo "  查看日志: cd $DOCKER_DIR && $COMPOSE_CMD logs -f"
-        echo "  重启服务: cd $DOCKER_DIR && $COMPOSE_CMD restart"
-        echo "  停止服务: cd $DOCKER_DIR && $COMPOSE_CMD down"
-    else
-        echo "  查看状态: cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml ps"
-        echo "  查看日志: cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml logs -f"
-        echo "  重启服务: cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml restart"
-        echo "  停止服务: cd $DOCKER_DIR && $COMPOSE_CMD -f docker-compose.standalone.yml down"
-    fi
+    echo "  查看状态: cd $DOCKER_DIR && $COMPOSE_CMD ps"
+    echo "  查看日志: cd $DOCKER_DIR && $COMPOSE_CMD logs -f"
+    echo "  重启服务: cd $DOCKER_DIR && $COMPOSE_CMD restart"
+    echo "  停止服务: cd $DOCKER_DIR && $COMPOSE_CMD down"
     echo ""
     echo -e "${CYAN}如需重新配置，请运行: bash docker/deploy.sh${NC}"
 }
@@ -885,15 +492,9 @@ main() {
 
     # 执行部署步骤
     check_docker
-    choose_deployment_mode
+    configure_deployment_mode
     configure_domain
-
-    if [ "$DEPLOYMENT_MODE" = "hybrid" ]; then
-        configure_supabase
-    else
-        configure_postgres
-    fi
-
+    configure_supabase
     configure_minio
     configure_worker
     configure_security

@@ -112,9 +112,6 @@ load_language() {
         MSG_CLONE_SUCCESS="代码克隆完成"
         MSG_DB_SUPABASE="Supabase 云数据库"
         MSG_DB_SUPABASE_REC="(推荐)"
-        MSG_DB_POSTGRESQL="PostgreSQL (本地 Docker)"
-        MSG_DB_MYSQL="MySQL (本地 Docker)"
-        MSG_SELECT_DB="请选择 [1-3，默认: 1]:"
         MSG_NET_LOCAL="内网模式 - Worker 仅本地访问"
         MSG_NET_PUBLIC="公网模式 (推荐) - Worker 可公网访问"
         MSG_SELECT_NET="请选择 [1-2，默认: 2]:"
@@ -138,13 +135,9 @@ load_language() {
         MSG_UPDATE_CODE="更新代码:"
         MSG_DB_INIT="⚠️  重要：数据库架构初始化"
         MSG_DB_INIT_DESC="部署完成后，需要执行数据库架构初始化："
-        MSG_DB_INIT_SUPABASE="Supabase: 在 Dashboard → SQL Editor 中执行 database/full_schema.sql"
-        MSG_DB_INIT_POSTGRESQL="PostgreSQL: psql \$DATABASE_URL < database/full_schema.sql"
-        MSG_DB_INIT_MYSQL="MySQL: 需要先转换为 MySQL 语法，然后执行"
-        MSG_DB_INIT_NOTE="注意: full_schema.sql 仅适用于全新数据库，只需执行一次"
+        MSG_DB_INIT_SUPABASE="Supabase: 在 Dashboard → SQL Editor 中执行 docker/init-supabase-db.sql"
+        MSG_DB_INIT_NOTE="注意: init-supabase-db.sql 仅适用于全新数据库，只需执行一次"
         MSG_TITLE="📸 PIS - 一键部署系统"
-        MSG_POSTGRESQL_PASSWORD="PostgreSQL 密码:"
-        MSG_MYSQL_PASSWORD="MySQL 密码:"
         MSG_CONFIG_CREATED="配置文件已创建:"
         MSG_USERNAME="用户名:"
         MSG_PASSWORD="密码:"
@@ -208,9 +201,6 @@ load_language() {
         MSG_CLONE_SUCCESS="Code cloned successfully"
         MSG_DB_SUPABASE="Supabase Cloud Database"
         MSG_DB_SUPABASE_REC="(Recommended)"
-        MSG_DB_POSTGRESQL="PostgreSQL (Local Docker)"
-        MSG_DB_MYSQL="MySQL (Local Docker)"
-        MSG_SELECT_DB="Select [1-3, default: 1]:"
         MSG_NET_LOCAL="Internal mode - Worker local access only"
         MSG_NET_PUBLIC="Public mode (Recommended) - Worker public access"
         MSG_SELECT_NET="Select [1-2, default: 2]:"
@@ -234,13 +224,9 @@ load_language() {
         MSG_UPDATE_CODE="Update code:"
         MSG_DB_INIT="⚠️  Important: Database Schema Initialization"
         MSG_DB_INIT_DESC="After deployment, you need to initialize the database schema:"
-        MSG_DB_INIT_SUPABASE="Supabase: Execute database/full_schema.sql in Dashboard → SQL Editor"
-        MSG_DB_INIT_POSTGRESQL="PostgreSQL: psql \$DATABASE_URL < database/full_schema.sql"
-        MSG_DB_INIT_MYSQL="MySQL: Convert to MySQL syntax first, then execute"
+        MSG_DB_INIT_SUPABASE="Supabase: Execute docker/init-supabase-db.sql in Dashboard → SQL Editor"
         MSG_DB_INIT_NOTE="Note: full_schema.sql is for new databases only, execute once"
         MSG_TITLE="📸 PIS - One-Click Deployment System"
-        MSG_POSTGRESQL_PASSWORD="PostgreSQL password:"
-        MSG_MYSQL_PASSWORD="MySQL password:"
         MSG_CONFIG_CREATED="Configuration file created:"
         MSG_USERNAME="Username:"
         MSG_PASSWORD="Password:"
@@ -408,26 +394,13 @@ deploy_local() {
     
     cd ${DEPLOY_DIR}
     
-    # ===== 选择数据库 =====
+    # ===== 数据库配置 =====
     echo ""
     echo -e "${BOLD}${MSG_STEP_3}${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "  1) ${MSG_DB_SUPABASE} ${GREEN}${MSG_DB_SUPABASE_REC}${NC}"
-    echo "  2) ${MSG_DB_POSTGRESQL}"
-    echo "  3) ${MSG_DB_MYSQL}"
-    echo ""
-    
-    if [ "$INTERACTIVE" = true ]; then
-        read -p "$MSG_SELECT_DB " DB_CHOICE
-    else
-        DB_CHOICE=${DATABASE_TYPE:-1}
-        [ "$DB_CHOICE" = "supabase" ] && DB_CHOICE=1
-        [ "$DB_CHOICE" = "postgresql" ] && DB_CHOICE=2
-        [ "$DB_CHOICE" = "mysql" ] && DB_CHOICE=3
-        echo "Using environment variable or default: $DB_CHOICE"
-    fi
-    DB_CHOICE=${DB_CHOICE:-1}
+    echo "  使用 ${MSG_DB_SUPABASE} ${GREEN}${MSG_DB_SUPABASE_REC}${NC}"
+    DB_CHOICE=1
     
     # ===== 选择网络模式 =====
     echo ""
@@ -531,100 +504,6 @@ EOF
             
             # 使用 Supabase docker-compose
             cp docker/docker-compose.yml docker/docker-compose.yml.active
-            ;;
-            
-        2)
-            # PostgreSQL
-            DB_PASSWORD=$(generate_password 16)
-            
-            cat > ${DEPLOY_DIR}/.env << EOF
-# PIS 配置 - PostgreSQL
-# 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
-
-DATABASE_TYPE=postgresql
-DATABASE_HOST=postgresql
-DATABASE_PORT=5432
-DATABASE_NAME=pis
-DATABASE_USER=pis_user
-DATABASE_PASSWORD=${DB_PASSWORD}
-DATABASE_SSL=false
-
-# ==================== 存储配置 ====================
-STORAGE_TYPE=minio
-
-# ==================== MinIO 存储配置 ====================
-MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-MINIO_ENDPOINT_HOST=minio
-MINIO_ENDPOINT_PORT=9000
-MINIO_USE_SSL=false
-MINIO_BUCKET=pis-photos
-# 兼容新配置格式
-STORAGE_ENDPOINT=minio
-STORAGE_PORT=9000
-STORAGE_USE_SSL=false
-STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
-STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
-STORAGE_BUCKET=pis-photos
-
-# ==================== Redis ====================
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# ==================== Worker 服务 ====================
-HTTP_PORT=3001
-WORKER_BIND_HOST=${WORKER_BIND}
-EOF
-            
-            cp docker/docker-compose.postgresql.yml docker/docker-compose.yml.active
-            info "${MSG_POSTGRESQL_PASSWORD} ${DB_PASSWORD}"
-            ;;
-            
-        3)
-            # MySQL
-            DB_PASSWORD=$(generate_password 16)
-            
-            cat > ${DEPLOY_DIR}/.env << EOF
-# PIS 配置 - MySQL
-# 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
-
-DATABASE_TYPE=mysql
-DATABASE_HOST=mysql
-DATABASE_PORT=3306
-DATABASE_NAME=pis
-DATABASE_USER=pis_user
-DATABASE_PASSWORD=${DB_PASSWORD}
-DATABASE_SSL=false
-
-# ==================== 存储配置 ====================
-STORAGE_TYPE=minio
-
-# ==================== MinIO 存储配置 ====================
-MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-MINIO_ENDPOINT_HOST=minio
-MINIO_ENDPOINT_PORT=9000
-MINIO_USE_SSL=false
-MINIO_BUCKET=pis-photos
-# 兼容新配置格式
-STORAGE_ENDPOINT=minio
-STORAGE_PORT=9000
-STORAGE_USE_SSL=false
-STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
-STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
-STORAGE_BUCKET=pis-photos
-
-# ==================== Redis ====================
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# ==================== Worker 服务 ====================
-HTTP_PORT=3001
-WORKER_BIND_HOST=${WORKER_BIND}
-EOF
-            
-            cp docker/docker-compose.mysql.yml docker/docker-compose.yml.active
-            info "${MSG_MYSQL_PASSWORD} ${DB_PASSWORD}"
             ;;
     esac
     
@@ -855,21 +734,11 @@ PYEOF
     echo ""
     echo "${MSG_DB_INIT_DESC}"
     echo ""
-    case $DB_CHOICE in
-        1)
-            echo "  📋 ${MSG_DB_INIT_SUPABASE}"
-            ;;
-        2)
-            echo "  📋 ${MSG_DB_INIT_POSTGRESQL}"
-            ;;
-        3)
-            echo "  📋 ${MSG_DB_INIT_MYSQL}"
-            ;;
-    esac
+    echo "  📋 ${MSG_DB_INIT_SUPABASE}"
     echo ""
     echo "  ${MSG_DB_INIT_NOTE}"
     echo ""
-    echo "  架构文件位置: ${DEPLOY_DIR}/database/full_schema.sql"
+    echo "  架构文件位置: ${DEPLOY_DIR}/docker/init-supabase-db.sql"
     echo ""
 }
 

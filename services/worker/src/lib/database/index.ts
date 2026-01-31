@@ -1,11 +1,9 @@
 /**
- * 数据库抽象层工厂
- * 根据配置自动选择数据库适配器
+ * Supabase 数据库适配器工厂
+ * PIS 使用 Supabase 作为唯一数据库后端
  */
 import type { DatabaseAdapter, DatabaseConfig } from './types.js';
 import { SupabaseAdapter } from './supabase-adapter.js';
-import { PostgreSQLAdapter } from './postgresql-adapter.js';
-import { MySQLAdapter } from './mysql-adapter.js';
 
 let databaseAdapter: DatabaseAdapter | null = null;
 
@@ -13,41 +11,11 @@ let databaseAdapter: DatabaseAdapter | null = null;
  * 从环境变量创建数据库配置
  */
 function getDatabaseConfigFromEnv(): DatabaseConfig {
-  const type = (process.env.DATABASE_TYPE || 'supabase') as DatabaseConfig['type'];
-
-  if (type === 'supabase') {
-    return {
-      type: 'supabase',
-      // 支持两种变量名 (兼容 monorepo 统一配置)
-      supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.DATABASE_URL,
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_KEY,
-    };
-  }
-
-  // PostgreSQL 或 MySQL 配置
-  const url = process.env.DATABASE_URL || '';
-  const urlMatch = url.match(/^(postgresql|mysql):\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-
-  if (urlMatch) {
-    return {
-      type: type === 'postgresql' ? 'postgresql' : 'mysql',
-      host: urlMatch[4],
-      port: parseInt(urlMatch[5]),
-      database: urlMatch[6],
-      user: urlMatch[2],
-      password: urlMatch[3],
-      ssl: process.env.DATABASE_SSL === 'true',
-    };
-  }
-
   return {
-    type,
-    host: process.env.DATABASE_HOST,
-    port: process.env.DATABASE_PORT ? parseInt(process.env.DATABASE_PORT) : undefined,
-    database: process.env.DATABASE_NAME,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-    ssl: process.env.DATABASE_SSL === 'true',
+    type: 'supabase',
+    // 支持两种变量名 (兼容 monorepo 统一配置)
+    supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.DATABASE_URL,
+    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_KEY,
   };
 }
 
@@ -56,17 +24,12 @@ function getDatabaseConfigFromEnv(): DatabaseConfig {
  */
 export function createDatabaseAdapter(config?: DatabaseConfig): DatabaseAdapter {
   const finalConfig = config || getDatabaseConfigFromEnv();
-
-  switch (finalConfig.type) {
-    case 'supabase':
-      return new SupabaseAdapter(finalConfig);
-    case 'postgresql':
-      return new PostgreSQLAdapter(finalConfig);
-    case 'mysql':
-      return new MySQLAdapter(finalConfig);
-    default:
-      throw new Error(`Unsupported database type: ${finalConfig.type}`);
+  
+  if (finalConfig.type !== 'supabase') {
+    throw new Error('PIS only supports Supabase database. Please configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
+  
+  return new SupabaseAdapter(finalConfig);
 }
 
 /**
@@ -84,10 +47,8 @@ export function getDatabaseAdapter(): DatabaseAdapter {
  */
 export * from './types.js';
 export { SupabaseAdapter } from './supabase-adapter.js';
-export { PostgreSQLAdapter } from './postgresql-adapter.js';
-export { MySQLAdapter } from './mysql-adapter.js';
 
-// 向后兼容：导出 Supabase 客户端（如果使用 Supabase）
+// 导出 Supabase 客户端
 export function getSupabaseClient() {
   const adapter = getDatabaseAdapter();
   if (adapter instanceof SupabaseAdapter) {

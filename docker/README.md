@@ -1,12 +1,14 @@
 # PIS Docker 部署指南
 
-## 部署方式对比
+## 部署架构
 
-| 方式 | 存储/Worker | 数据库 | 认证 | 第三方依赖 | 复杂度 |
-|------|------------|--------|------|-----------|--------|
-| **混合部署** | 自托管 | Supabase | Supabase | ✅ 需要 | ⭐ 简单 |
-| **半自托管** | 自托管 | PostgreSQL | Supabase | ✅ 需要 | ⭐⭐ 中等 |
-| **完全自托管** | 自托管 | PostgreSQL | 自定义 JWT | ❌ 无需 | ⭐⭐ 中等 |
+**Vercel + Supabase + 自建 Worker**
+
+| 组件 | 位置 | 说明 |
+|------|------|------|
+| **前端** | Vercel | Next.js 应用（自动部署） |
+| **数据库** | Supabase Cloud | PostgreSQL 数据库和认证 |
+| **存储/Worker** | 自建服务器 | MinIO + Redis + Worker 服务 |
 
 ## 快速开始（一键部署）
 
@@ -29,76 +31,47 @@ bash deploy.sh
 ```
 
 脚本会引导你完成：
-- 选择部署方式（三选一）
+- 配置 Supabase（数据库和认证）
 - 配置域名
-- 配置数据库（自动生成密码）
 - 配置存储（自动生成密钥）
-- 自动生成 SSL 证书
-- 自动创建管理员账号（完全自托管模式）
+- 配置 Worker 服务
 
 ## 手动部署
 
-### 1. 混合部署（前端 Vercel + 后端自托管）
+### 1. 配置 Supabase
+
+在 Supabase Dashboard 中：
+- 创建项目
+- 获取 Project URL 和 API Keys
+- 在 SQL Editor 中执行 `docker/init-supabase-db.sql` 初始化数据库
+
+### 2. 配置环境变量
 
 ```bash
 # 复制并编辑配置文件
 cp ../.env.example ../.env
 nano ../.env
 
-# 启动后端服务
+# 必须配置:
+#   SUPABASE_URL=https://your-project.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+#   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 3. 启动服务
+
+```bash
+# 启动 Worker 和存储服务
+cd docker
 docker compose up -d
 ```
 
-### 2. 半自托管（PostgreSQL + Supabase 认证）
+### 4. 部署前端到 Vercel
 
-```bash
-# 复制并编辑配置文件
-cp ../.env.standalone.example ../.env
-# 设置 Supabase 密钥和 PostgreSQL 密码
-nano ../.env
-
-# 生成 SSL 证书
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout nginx/ssl/key.pem \
-    -out nginx/ssl/cert.pem \
-    -subj "/CN=localhost"
-
-# 启动所有服务
-docker compose -f docker-compose.standalone.yml up -d
-```
-
-### 3. 完全自托管（无第三方依赖）
-
-```bash
-# 复制配置文件
-cp ../.env.standalone.example ../.env
-
-# 编辑配置（注意设置 AUTH_MODE=custom）
-nano ../.env
-# 必须设置:
-#   AUTH_MODE=custom
-#   NEXT_PUBLIC_AUTH_MODE=custom
-#   DATABASE_TYPE=postgresql
-#   POSTGRES_PASSWORD=<your-password>
-#   ALBUM_SESSION_SECRET=<random-secret>
-
-# 生成 SSL 证书
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout nginx/ssl/key.pem \
-    -out nginx/ssl/cert.pem \
-    -subj "/CN=localhost"
-
-# 启动所有服务
-docker compose -f docker-compose.standalone.yml up -d
-
-# 等待服务启动后，创建管理员账号
-curl -X POST http://localhost:3000/api/auth/init \
-    -H "Content-Type: application/json" \
-    -H "x-init-key: <your-ALBUM_SESSION_SECRET>" \
-    -d '{"email": "admin@example.com", "password": "your-password"}'
-```
+- 导入 GitHub 仓库到 Vercel
+- 配置环境变量（从 .env 文件）
+- 部署
 
 ## 常用命令
 
@@ -126,12 +99,11 @@ docker compose up -d --build
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| web | 3000 | Next.js 前端 |
-| worker | 3001 | 图片处理服务 |
-| minio | 9000/9001 | 对象存储 |
-| redis | 6379 | 任务队列 |
-| postgres | 5432 | 数据库（自托管） |
-| nginx | 80/443 | 反向代理（自托管） |
+| worker | 3001 | 图片处理服务（自托管） |
+| minio | 9000/9001 | 对象存储（自托管） |
+| redis | 16379 | 任务队列（自托管） |
+| web | Vercel | Next.js 前端（云端） |
+| database | Supabase | PostgreSQL 数据库（云端） |
 
 ## 故障排查
 
@@ -147,10 +119,9 @@ docker compose ps -a
 
 ### 数据库连接失败
 
-```bash
-# 检查 PostgreSQL 是否正常
-docker compose exec postgres pg_isready -U pis
-```
+检查 Supabase 配置：
+- 确认 `SUPABASE_URL` 和 `SUPABASE_SERVICE_ROLE_KEY` 正确
+- 在 Supabase Dashboard 中检查项目状态
 
 ### MinIO 无法访问
 
@@ -159,44 +130,42 @@ docker compose exec postgres pg_isready -U pis
 curl http://localhost:9000/minio/health/live
 ```
 
-## 获取 Let's Encrypt 证书
+## Worker 服务配置
 
-```bash
-# 1. 停止 nginx
-docker compose -f docker-compose.standalone.yml stop nginx
+Worker 服务需要配置 Nginx 反向代理才能从 Vercel 访问：
 
-# 2. 安装 certbot（如果未安装）
-apt install certbot
-
-# 3. 获取证书
-certbot certonly --standalone -d your-domain.com
-
-# 4. 复制证书
-cp /etc/letsencrypt/live/your-domain.com/fullchain.pem nginx/ssl/cert.pem
-cp /etc/letsencrypt/live/your-domain.com/privkey.pem nginx/ssl/key.pem
-
-# 5. 重启 nginx
-docker compose -f docker-compose.standalone.yml start nginx
+```nginx
+# /etc/nginx/sites-available/worker
+server {
+    listen 80;
+    server_name worker.yourdomain.com;
+    
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
 ```
+
+然后配置 SSL 证书（使用 Let's Encrypt 或 Cloudflare）。
 
 ## 备份与恢复
 
 ### 备份数据
 
 ```bash
-# 备份数据库
-docker compose exec postgres pg_dump -U pis pis > backup.sql
-
-# 备份 MinIO 数据
+# 备份 MinIO 数据（存储的图片文件）
 docker run --rm -v pis_minio_data:/data -v $(pwd):/backup alpine tar czf /backup/minio-backup.tar.gz /data
+
+# 数据库备份：在 Supabase Dashboard -> Database -> Backups 中操作
 ```
 
 ### 恢复数据
 
 ```bash
-# 恢复数据库
-docker compose exec -T postgres psql -U pis pis < backup.sql
-
 # 恢复 MinIO 数据
 docker run --rm -v pis_minio_data:/data -v $(pwd):/backup alpine tar xzf /backup/minio-backup.tar.gz -C /
+
+# 数据库恢复：在 Supabase Dashboard -> Database -> Backups 中操作
 ```

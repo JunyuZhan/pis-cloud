@@ -411,73 +411,17 @@ run_migrations() {
     step "数据库架构初始化"
     
     echo "⚠️  重要提示："
-    echo "  - 数据库架构文件: database/full_schema.sql"
-    echo "  - 仅适用于全新的数据库（首次安装）"
+    echo "  - 数据库架构文件: docker/init-supabase-db.sql"
+    echo "  - 仅适用于全新的 Supabase 数据库（首次安装）"
     echo "  - 只需执行一次即可完成所有数据库初始化"
     echo "  - 不要在已有数据的数据库上重复执行"
     echo ""
     
-    # 检查当前配置的数据库类型
-    local env_file=".env"
-    local db_type="supabase"
-    
-    if [ -f "$env_file" ]; then
-        if grep -q "^DATABASE_TYPE=" "$env_file"; then
-            db_type=$(grep "^DATABASE_TYPE=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-        fi
-    fi
-    
-    echo "检测到的数据库类型: ${db_type:-supabase}"
-    echo ""
-    
-    case "${db_type:-supabase}" in
-        supabase)
-            echo "📋 Supabase 执行步骤:"
-            echo "  1. 打开 Supabase Dashboard -> SQL Editor"
-            echo "  2. 复制 database/full_schema.sql 的全部内容"
-            echo "  3. 粘贴并点击 Run 执行"
-            echo "  4. ✅ 完成！"
-            ;;
-        postgresql)
-            echo "📋 PostgreSQL 执行步骤:"
-            echo "  1. 确保 PostgreSQL 服务已启动"
-            echo "  2. 创建数据库（如果尚未创建）:"
-            echo "     createdb pis"
-            echo "  3. 执行架构脚本:"
-            echo "     psql -h localhost -U postgres -d pis -f database/full_schema.sql"
-            echo ""
-            echo "  或者使用 DATABASE_URL:"
-            echo "     psql \$DATABASE_URL < database/full_schema.sql"
-            echo ""
-            echo "  ⚠️  注意: PostgreSQL 需要自行实现用户认证和实时功能"
-            ;;
-        mysql)
-            echo "📋 MySQL 执行步骤:"
-            echo "  1. 确保 MySQL 服务已启动"
-            echo "  2. 创建数据库（如果尚未创建）:"
-            echo "     mysql -u root -p -e 'CREATE DATABASE IF NOT EXISTS pis;'"
-            echo "  3. 执行架构脚本（需要先转换为 MySQL 语法）:"
-            echo "     mysql -u root -p pis < database/full_schema.sql"
-            echo ""
-            echo "  ⚠️  注意:"
-            echo "  - full_schema.sql 是 PostgreSQL 语法，需要转换为 MySQL 语法"
-            echo "  - MySQL 适配器尚未完全实现（需要贡献代码）"
-            echo "  - 需要自行实现用户认证和实时功能"
-            ;;
-        *)
-            echo "📋 通用执行步骤:"
-            echo "  根据你的数据库类型选择执行方式："
-            echo ""
-            echo "  Supabase:"
-            echo "    在 Supabase Dashboard -> SQL Editor 中执行 full_schema.sql"
-            echo ""
-            echo "  PostgreSQL:"
-            echo "    psql \$DATABASE_URL < database/full_schema.sql"
-            echo ""
-            echo "  MySQL:"
-            echo "    需要先转换为 MySQL 语法，然后执行"
-            ;;
-    esac
+    echo "📋 Supabase 执行步骤:"
+    echo "  1. 打开 Supabase Dashboard -> SQL Editor"
+    echo "  2. 复制 docker/init-supabase-db.sql 的全部内容"
+    echo "  3. 粘贴并点击 Run 执行"
+    echo "  4. ✅ 完成！"
     echo ""
 }
 

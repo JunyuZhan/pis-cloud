@@ -21,7 +21,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js 15" />
   <img src="https://img.shields.io/badge/TypeScript-5.5-blue?style=flat-square&logo=typescript" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/MinIO-Object%20Storage-C72E49?style=flat-square&logo=minio" alt="MinIO" />
   <img src="https://img.shields.io/badge/BullMQ-Redis-FF6B6B?style=flat-square&logo=redis" alt="BullMQ" />
   <img src="https://img.shields.io/badge/Sharp-Image%20Processing-99CC00?style=flat-square" alt="Sharp" />
@@ -73,19 +73,16 @@
 - Album templates and view tracking
 
 ### 💰 **Flexible Deployment**
-- **Three Deployment Modes**:
-  - 🌐 **Hybrid**: Vercel + Supabase Cloud (easiest)
-  - 🏢 **Semi-Standalone**: Self-hosted + Supabase Auth (balanced)
-  - 🔒 **Fully Standalone**: 100% self-hosted, no third-party dependencies
+- **Architecture**: Vercel (frontend) + Supabase (database & auth) + Self-hosted (storage & worker)
 - **Storage**: MinIO, Alibaba Cloud OSS, Tencent Cloud COS, AWS S3
-- **Database**: Supabase (cloud) or PostgreSQL (self-hosted)
-- **Authentication**: Supabase Auth or Custom JWT (fully standalone)
+- **Database**: Supabase Cloud
+- **Authentication**: Supabase Auth
 - **CDN**: Cloudflare, Alibaba Cloud, Tencent Cloud
-- No vendor lock-in, easy to switch providers
+- Simple setup, production-ready
 
 ### 🚀 **Production Ready**
-- **One-click deployment**: Guided script for both Hybrid and Standalone modes
-- **Auto-generated secrets**: API keys, JWT secrets, passwords
+- **One-click deployment**: Guided script for Vercel + Supabase setup
+- **Auto-generated secrets**: API keys, passwords
 - Queue-based auto-scaling
 - Health monitoring and alert system (Telegram/Email/Log)
 - Data consistency checker (orphan detection & repair)
@@ -95,13 +92,13 @@
 
 ## 🚀 Quick Start
 
-### Choose Your Deployment Mode
+### Deployment Architecture
 
-| Mode | Best For | Third-Party Deps | Setup |
-|------|----------|-----------------|-------|
-| 🌐 **Hybrid** | Beginners | Supabase + Vercel | Easiest |
-| 🏢 **Semi-Standalone** | Intermediate | Supabase Auth only | Balanced |
-| 🔒 **Fully Standalone** | Advanced | None | Full control |
+**Vercel + Supabase + Self-hosted Worker**
+
+- **Frontend**: Deploy to Vercel (automatic)
+- **Database**: Supabase Cloud (free tier available)
+- **Worker & Storage**: Self-hosted on your server
 
 ### One-Click Deployment
 
@@ -121,11 +118,10 @@ bash deploy.sh
 ```
 
 The script will guide you through:
-- ✅ Choose deployment mode (Hybrid / Semi-Standalone / Fully Standalone)
+- ✅ Configure Supabase (database & authentication)
 - ✅ Auto-generate security secrets
 - ✅ Configure storage (MinIO/OSS/COS/S3)
-- ✅ Start all services
-- ✅ Auto-create admin account (Fully Standalone mode)
+- ✅ Start Worker and storage services
 
 > 📖 **Detailed guide**: [Deployment Documentation](docs/i18n/en/DEPLOYMENT.md)
 
@@ -166,8 +162,8 @@ pnpm dev
 
 ## 🏗️ Architecture
 
-**Frontend** (Next.js) → **Worker** (BullMQ + Sharp) → **Storage** (MinIO/OSS/COS/S3)  
-**Database** (Supabase/PostgreSQL/MySQL) + **Queue** (Redis) + **CDN** (Optional)
+**Frontend** (Next.js on Vercel) → **Worker** (BullMQ + Sharp) → **Storage** (MinIO/OSS/COS/S3)  
+**Database** (Supabase Cloud) + **Queue** (Redis) + **CDN** (Optional)
 
 > 📖 **Detailed architecture**: [Architecture Documentation](docs/ARCHITECTURE.md)
 

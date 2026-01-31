@@ -27,8 +27,7 @@
    ```
 
 4. **重新初始化数据库**
-   - 执行 `docker/init-db.sql` 重新创建表结构
-   - 或者执行完整的 `database/full_schema.sql`（如果存在）
+   - 执行 `docker/init-supabase-db.sql` 重新创建表结构
 
 ## 方法二：使用 Supabase CLI
 
@@ -68,7 +67,7 @@ DROP FUNCTION IF EXISTS increment_album_view_count(UUID) CASCADE;
 DROP FUNCTION IF EXISTS update_album_selected_count() CASCADE;
 ```
 
-然后执行 `docker/init-db.sql` 重新创建表结构。
+然后执行 `docker/init-supabase-db.sql` 重新创建表结构。
 
 ## 方法四：通过 Supabase Dashboard
 
@@ -81,16 +80,11 @@ DROP FUNCTION IF EXISTS update_album_selected_count() CASCADE;
 
 重置后，需要重新创建表结构：
 
-### 选项 1：使用 init-db.sql（推荐）
+### 使用 init-supabase-db.sql（推荐）
 
 ```sql
--- 在 Supabase SQL Editor 中执行 docker/init-db.sql
-```
-
-### 选项 2：使用 full_schema.sql（如果存在）
-
-```sql
--- 在 Supabase SQL Editor 中执行 database/full_schema.sql
+-- 在 Supabase SQL Editor 中执行 docker/init-supabase-db.sql
+-- 此脚本会创建所有必需的表、函数和触发器
 ```
 
 ## 验证重置
@@ -123,6 +117,5 @@ ORDER BY table_name;
 
 ## 相关文件
 
-- `docker/reset-supabase-db.sql` - 重置脚本
-- `docker/init-db.sql` - 初始化脚本
-- `database/full_schema.sql` - 完整架构脚本（如果存在）
+- `docker/reset-supabase-db.sql` - 重置脚本（删除所有表和数据）
+- `docker/init-supabase-db.sql` - 初始化脚本（创建所有表、函数和触发器）

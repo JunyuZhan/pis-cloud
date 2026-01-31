@@ -21,7 +21,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js 15" />
   <img src="https://img.shields.io/badge/TypeScript-5.5-blue?style=flat-square&logo=typescript" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Database-Supabase-3ECF8E?style=flat-square&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/MinIO-Object%20Storage-C72E49?style=flat-square&logo=minio" alt="MinIO" />
   <img src="https://img.shields.io/badge/BullMQ-Redis-FF6B6B?style=flat-square&logo=redis" alt="BullMQ" />
   <img src="https://img.shields.io/badge/Sharp-图片处理-99CC00?style=flat-square" alt="Sharp" />
@@ -73,27 +73,24 @@
 - 相册模板和访问统计
 
 ### 💰 **灵活部署**
-- **三种部署模式**:
-  - 🌐 **混合模式**: Vercel + Supabase Cloud（最简单）
-  - 🏢 **半自托管**: 自建服务器 + Supabase 认证（平衡）
-  - 🔒 **完全自托管**: 100% 自建，无第三方依赖
+- **架构**: Vercel（前端）+ Supabase（数据库和认证）+ 自建服务器（存储和 Worker）
 - **存储**: MinIO、阿里云 OSS、腾讯云 COS、AWS S3
-- **数据库**: Supabase（云端）或 PostgreSQL（自托管）
-- **认证**: Supabase Auth 或 自定义 JWT（完全自托管）
+- **数据库**: Supabase 云端
+- **认证**: Supabase Auth
 - **CDN**: Cloudflare、阿里云、腾讯云
-- 无厂商锁定，轻松切换
+- 配置简单，生产就绪
 
 ---
 
 ## 🚀 快速开始
 
-### 选择部署模式
+### 部署架构
 
-| 模式 | 适用场景 | 第三方依赖 | 难度 |
-|------|----------|-----------|------|
-| 🌐 **混合模式** | 新手 | Supabase + Vercel | 最简单 |
-| 🏢 **半自托管** | 中级 | 仅 Supabase Auth | 平衡 |
-| 🔒 **完全自托管** | 进阶 | 无 | 完全掌控 |
+**Vercel + Supabase + 自建 Worker**
+
+- **前端**: 部署到 Vercel（自动）
+- **数据库**: Supabase 云端（有免费额度）
+- **Worker 和存储**: 自建服务器
 
 ### 一键部署
 
@@ -244,15 +241,10 @@ bash docker/deploy.sh
 ```
 
 脚本会引导你完成：
-- ✅ 选择部署模式（三选一）：
-  - **混合模式**：Vercel（前端）+ Supabase（数据库和认证）
-  - **半自托管**：自建服务器 + Supabase Auth（仅用于认证）
-  - **完全自托管**：100% 自建，无第三方依赖，使用自定义 JWT 认证
-- ✅ 自动生成所有安全密钥（API 密钥、JWT 密钥、密码）
-- ✅ 配置数据库和存储设置
-- ✅ 构建并启动所有服务
-- ✅ 自动创建管理员账号（完全自托管模式）
-- ✅ 配置 SSL/TLS 证书
+- ✅ 配置 Supabase（数据库和认证）
+- ✅ 自动生成安全密钥（API 密钥、密码）
+- ✅ 配置存储（MinIO/OSS/COS/S3）
+- ✅ 启动 Worker 和存储服务
 
 **远程服务器部署：**
 
@@ -266,9 +258,9 @@ bash docker/deploy.sh <服务器IP> <SSH用户>
 
 ### 选项 2：手动部署
 
-1. **配置数据库** - 创建 Supabase 项目或设置 PostgreSQL
+1. **配置数据库** - 创建 Supabase 项目
 2. **配置存储** - 设置 MinIO 或云存储（OSS/COS/S3）
-3. **部署前端** - 部署到 Vercel 或你的托管服务
+3. **部署前端** - 部署到 Vercel
 4. **部署 Worker** - 在服务器上运行 Docker Compose
 
 > 📖 **详细部署指南**: [docs/i18n/zh-CN/DEPLOYMENT.md](docs/i18n/zh-CN/DEPLOYMENT.md)
@@ -279,8 +271,8 @@ bash docker/deploy.sh <服务器IP> <SSH用户>
 
 ## 🏗️ 系统架构
 
-**前端** (Next.js) → **Worker** (BullMQ + Sharp) → **存储** (MinIO/OSS/COS/S3)  
-**数据库** (Supabase/PostgreSQL/MySQL) + **队列** (Redis) + **CDN** (可选)
+**前端** (Next.js on Vercel) → **Worker** (BullMQ + Sharp) → **存储** (MinIO/OSS/COS/S3)  
+**数据库** (Supabase 云端) + **队列** (Redis) + **CDN** (可选)
 
 ---
 
@@ -298,13 +290,12 @@ pnpm lint       # 运行代码检查
 
 ## 📁 环境变量
 
-关键变量: `DATABASE_TYPE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`, `WORKER_API_KEY`, `ALBUM_SESSION_SECRET`
+关键变量: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_TYPE`, `STORAGE_ENDPOINT`, `NEXT_PUBLIC_APP_URL`, `WORKER_API_KEY`, `ALBUM_SESSION_SECRET`
 
 **自动生成密钥**: 部署脚本会自动为以下变量生成安全的随机值：
 - `STORAGE_ACCESS_KEY`、`STORAGE_SECRET_KEY`（MinIO 凭证）
 - `WORKER_API_KEY`（Worker API 认证）
 - `ALBUM_SESSION_SECRET`（JWT 会话签名）
-- `REDIS_PASSWORD`（Redis 认证）
 
 > 📖 **完整配置指南**: 查看 [.env.example](.env.example) 了解所有可用选项
 

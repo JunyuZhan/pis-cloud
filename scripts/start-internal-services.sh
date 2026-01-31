@@ -3,8 +3,11 @@
 # ============================================
 # PIS 内网服务启动脚本
 # 
-# 用途：只启动内网容器（MinIO、Redis等基础服务）
-# 不启动 Worker 和 Web 服务
+# 用途：启动 Vercel + Supabase 架构所需的内网服务
+# - MinIO: 对象存储
+# - Redis: 任务队列
+# 
+# 注意：Web 服务部署在 Vercel，数据库使用 Supabase（云端）
 # ============================================
 
 set -e
@@ -89,17 +92,8 @@ detect_compose_file() {
     if [ -f "docker-compose.yml" ]; then
         COMPOSE_FILE="docker-compose.yml"
         success "使用: docker-compose.yml"
-    elif [ -f "docker-compose.postgresql.yml" ]; then
-        COMPOSE_FILE="docker-compose.postgresql.yml"
-        warn "使用: docker-compose.postgresql.yml"
-    elif [ -f "docker-compose.mysql.yml" ]; then
-        COMPOSE_FILE="docker-compose.mysql.yml"
-        warn "使用: docker-compose.mysql.yml"
-    elif [ -f "docker-compose.standalone.yml" ]; then
-        COMPOSE_FILE="docker-compose.standalone.yml"
-        warn "使用: docker-compose.standalone.yml"
     else
-        error "未找到 docker-compose 配置文件"
+        error "未找到 docker-compose.yml 配置文件"
         exit 1
     fi
 }
@@ -110,29 +104,9 @@ start_internal_services() {
     
     cd "$DOCKER_DIR"
     
-    # 根据不同的 compose 文件，启动不同的服务
-    case "$COMPOSE_FILE" in
-        docker-compose.yml)
-            # Supabase 版本：只启动 MinIO 和 Redis
-            info "启动 MinIO 和 Redis..."
-            $COMPOSE_CMD -f "$COMPOSE_FILE" up -d minio redis minio-init
-            ;;
-        docker-compose.postgresql.yml)
-            # PostgreSQL 版本：启动 PostgreSQL、MinIO 和 Redis
-            info "启动 PostgreSQL、MinIO 和 Redis..."
-            $COMPOSE_CMD -f "$COMPOSE_FILE" up -d postgresql minio redis minio-init
-            ;;
-        docker-compose.mysql.yml)
-            # MySQL 版本：启动 MySQL、MinIO 和 Redis
-            info "启动 MySQL、MinIO 和 Redis..."
-            $COMPOSE_CMD -f "$COMPOSE_FILE" up -d mysql minio redis minio-init
-            ;;
-        docker-compose.standalone.yml)
-            # Standalone 版本：启动 PostgreSQL、MinIO 和 Redis（不启动 Web 和 Worker）
-            info "启动 PostgreSQL、MinIO 和 Redis..."
-            $COMPOSE_CMD -f "$COMPOSE_FILE" up -d postgres minio redis minio-init
-            ;;
-    esac
+    # Vercel + Supabase 架构：只启动 MinIO 和 Redis
+    info "启动 MinIO 和 Redis..."
+    $COMPOSE_CMD -f "$COMPOSE_FILE" up -d minio redis minio-init
     
     success "内网服务已启动"
 }
@@ -165,23 +139,7 @@ check_services() {
         echo -e "${RED}✗${NC}"
     fi
     
-    # 检查数据库（如果存在）
-    if [ "$COMPOSE_FILE" = "docker-compose.postgresql.yml" ] || [ "$COMPOSE_FILE" = "docker-compose.standalone.yml" ]; then
-        echo -n "  PostgreSQL: "
-        if docker exec pis-postgresql pg_isready -U pis_user -d pis > /dev/null 2>&1 || \
-           docker exec pis-postgres pg_isready -U pis -d pis > /dev/null 2>&1; then
-            echo -e "${GREEN}✓${NC}"
-        else
-            echo -e "${YELLOW}⧗${NC} (启动中...)"
-        fi
-    elif [ "$COMPOSE_FILE" = "docker-compose.mysql.yml" ]; then
-        echo -n "  MySQL: "
-        if docker exec pis-mysql mysqladmin ping -h localhost > /dev/null 2>&1; then
-            echo -e "${GREEN}✓${NC}"
-        else
-            echo -e "${YELLOW}⧗${NC} (启动中...)"
-        fi
-    fi
+    # 注意：数据库使用 Supabase（云端），不在此检查
 }
 
 # 显示服务信息
@@ -265,20 +223,10 @@ show_service_info() {
     echo "  端口: 16379 (仅本地)"
     echo ""
     
-    if [ "$COMPOSE_FILE" = "docker-compose.postgresql.yml" ] || [ "$COMPOSE_FILE" = "docker-compose.standalone.yml" ]; then
-        echo -e "${GREEN}PostgreSQL:${NC}"
-        echo "  端口: 15432 (PostgreSQL) 或 5432 (Standalone) - 仅本地"
-        echo ""
-    elif [ "$COMPOSE_FILE" = "docker-compose.mysql.yml" ]; then
-        echo -e "${GREEN}MySQL:${NC}"
-        echo "  端口: 13306 - 仅本地"
-        echo ""
-    fi
-    
     echo -e "${YELLOW}提示:${NC}"
     echo "  - 这些服务仅在内网访问（127.0.0.1）"
-    echo "  - Worker 和 Web 服务未启动"
-    echo "  - 如需启动完整服务，请使用: cd docker && docker-compose up -d"
+    echo "  - Web 服务部署在 Vercel，数据库使用 Supabase（云端）"
+    echo "  - Worker 服务可通过 docker compose up -d worker 启动"
     echo ""
 }
 

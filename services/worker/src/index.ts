@@ -64,19 +64,15 @@ import { purgePhotoCache } from './lib/cloudflare-purge.js';
 import { alertService } from './lib/alert.js';
 import { createSupabaseCompatClient, SupabaseCompatClient } from './lib/database/supabase-compat.js';
 
-// 初始化数据库客户端
-// 支持两种模式：
-// 1. Supabase 模式：设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY
-// 2. PostgreSQL 模式：设置 DATABASE_TYPE=postgresql 和 DATABASE_* 环境变量
+// 初始化 Supabase 数据库客户端
+// PIS 使用 Supabase 作为唯一数据库后端
 let supabase: SupabaseCompatClient;
 try {
   supabase = createSupabaseCompatClient();
-  const databaseType = process.env.DATABASE_TYPE || 'supabase';
-  console.log(`✅ Database client initialized (mode: ${databaseType})`);
+  console.log(`✅ Database client initialized (mode: supabase)`);
 } catch (err: any) {
   console.error('❌ Failed to initialize database client:', err.message);
-  console.error('   For Supabase: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
-  console.error('   For PostgreSQL: Set DATABASE_TYPE=postgresql and DATABASE_HOST, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD');
+  console.error('   Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
 
@@ -298,7 +294,7 @@ const worker = new Worker<PhotoJobData>(
     try {
       // 0. 使用条件更新（状态机锁）避免竞态条件
       // 注意：这不是标准的乐观锁（需要版本号字段），而是基于状态的条件更新
-      // PostgreSQL/Supabase 的 UPDATE ... WHERE 是原子操作，可以安全地防止竞态条件
+      // Supabase 的 UPDATE ... WHERE 是原子操作，可以安全地防止竞态条件
       // 同时排除已删除的照片（deleted_at IS NULL）
       const { data: updatedPhoto, error: updateError } = await supabase
         .from('photos')
@@ -934,7 +930,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const dbHealth = await supabase.healthCheck();
       if (!dbHealth.ok) throw new Error(dbHealth.error || 'Database health check failed');
-      health.services.database = { status: 'ok', type: process.env.DATABASE_TYPE || 'supabase' };
+      health.services.database = { status: 'ok', type: 'supabase' };
     } catch (err: any) {
       health.services.database = { status: 'error', error: err.message };
       health.status = 'degraded';

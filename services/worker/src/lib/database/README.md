@@ -1,11 +1,14 @@
-# 数据库适配器测试
+# Supabase 数据库适配器
 
 ## 概述
 
-本目录包含数据库适配器的单元测试，测试覆盖了：
-- PostgreSQL 适配器
-- MySQL 适配器
-- 适配器工厂
+PIS 使用 Supabase 作为唯一数据库后端。本目录包含 Supabase 数据库适配器的实现和测试。
+
+## 架构
+
+- **SupabaseAdapter**: Supabase 数据库适配器实现
+- **supabase-compat**: Supabase 兼容层，提供统一的数据库操作接口
+- **types**: 数据库适配器类型定义
 
 ## 运行测试
 
@@ -36,7 +39,7 @@ pnpm test:coverage
 
 ## 测试结构
 
-### PostgreSQL 适配器测试 (`postgresql-adapter.test.ts`)
+### Supabase 适配器测试 (`supabase-adapter.test.ts`)
 
 测试覆盖：
 - ✅ 构造函数和配置验证
@@ -46,54 +49,24 @@ pnpm test:coverage
 - ✅ `update` - 更新记录
 - ✅ `delete` - 删除记录
 - ✅ `count` - 计数查询
-- ✅ `close` - 关闭连接池
-- ✅ 错误处理
-
-### MySQL 适配器测试 (`mysql-adapter.test.ts`)
-
-测试覆盖：
-- ✅ 构造函数和配置验证
-- ✅ `findOne` - 单条记录查询
-- ✅ `findMany` - 多条记录查询（包括分页、排序、字段选择）
-- ✅ `insert` - 插入记录（单条和批量）
-- ✅ `update` - 更新记录
-- ✅ `delete` - 删除记录
-- ✅ `count` - 计数查询
-- ✅ `close` - 关闭连接池
 - ✅ 错误处理
 
 ### 适配器工厂测试 (`index.test.ts`)
 
 测试覆盖：
-- ✅ 从配置创建适配器
+- ✅ 从配置创建 Supabase 适配器
 - ✅ 从环境变量创建适配器
-- ✅ 支持不同的配置方式（URL 和分离变量）
 - ✅ 单例模式
-- ✅ 错误处理（不支持的数据库类型）
+- ✅ 错误处理（配置缺失）
 
-## 测试技术
+## 配置
 
-- **测试框架**: Vitest
-- **Mock 策略**: 使用 `vi.mock()` 模拟数据库客户端
-- **测试类型**: 单元测试（使用 mock，不依赖真实数据库）
+环境变量：
+- `SUPABASE_URL`: Supabase 项目 URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase Service Role Key
 
 ## 注意事项
 
-1. **Mock 数据库连接**: 所有测试都使用 mock，不需要真实的数据库连接
-2. **环境变量**: 测试会临时修改 `process.env`，测试后恢复
-3. **单例模式**: 测试单例时需要注意清理状态
-
-## 集成测试
-
-如果需要测试真实的数据库连接，可以创建集成测试文件（例如 `*.integration.test.ts`），这些测试需要：
-- 真实的数据库实例
-- 测试数据库配置
-- 测试数据清理机制
-
-## 贡献
-
-添加新测试时，请确保：
-1. 测试名称清晰描述测试内容
-2. 每个测试用例独立，不依赖其他测试
-3. 使用 `beforeEach` 清理状态
-4. 覆盖正常流程和错误情况
+1. **Supabase 认证**: 使用 Service Role Key 绕过 RLS（Row Level Security）
+2. **环境变量**: 确保正确配置 Supabase 凭证
+3. **单例模式**: 适配器使用单例模式，避免重复创建连接
