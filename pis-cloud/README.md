@@ -110,7 +110,7 @@
 
 ```bash
 # One command to install (copy and paste)
-curl -sSL https://raw.githubusercontent.com/JunyuZhan/PIS/main/scripts/install.sh | tr -d '\r' | bash
+curl -sSL https://raw.githubusercontent.com/JunyuZhan/pis-cloud/main/scripts/install.sh | tr -d '\r' | bash
 ```
 
 > 💡 **Note**: The `tr -d '\r'` command ensures compatibility across different systems by removing Windows line endings. The script also includes automatic line ending cleanup as a fallback.
