@@ -15,6 +15,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "vercel-build": "cd apps/web && pnpm build",
     "lint": "turbo lint",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",
