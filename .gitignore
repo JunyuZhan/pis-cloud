@@ -2,36 +2,62 @@
 
 # Dependencies
 node_modules/
+node_modules
 .pnp
 .pnp.js
+.pnpm-store
 
-# Testing
-coverage/
-*.lcov
-.nyc_output
-
-# Production
+# Build outputs
 dist/
+dist
 build/
 .next/
+.next
 out/
+out
 .turbo/
+.turbo
 
-# Environment variables
+# Environment files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.standalone
+.env.generated
+.deployment-info
+.env.*.local
+!.env.example
+!.env.standalone.example
+# Docker environment files (统一使用根目录的 .env)
+docker/.env
+# Worker environment files
+services/worker/.env
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Additional sensitive files
+docker/nginx/ssl/*
+!docker/nginx/ssl/.gitkeep
+*.key
+*.pem
+*.p12
+*.crt
+*.csr
+id_rsa
+id_dsa
+
+# IDE
+.vscode/
+.vscode
+.idea/
+.idea
+.cursor
+*.swp
+*.swo
+*~
+
+# Project specific
+.shared
 
 # OS
 .DS_Store
@@ -42,22 +68,47 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Logs
+logs/
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+coverage
+*.lcov
+.nyc_output
+
+# Test scripts (local testing only, not for production)
+scripts/test-*.sh
+docs/UPLOAD_TEST_GUIDE.md
+
+# Documentation files with sensitive information (use .example versions instead)
+docs/ENVIRONMENT_VARIABLES.md
+docs/ARCHITECTURE.md
+docs/VERCEL_ENV_QUICK_REFERENCE.md
+docs/ENGINEER_REFERENCE.md
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
 .cache/
+# 保留图标源文件，但忽略其他临时生成的图片
+# Gemini_Generated_Image*.png
+.kiro
 
-# SSL certificates
-*.pem
-*.key
-*.crt
-docker/nginx/ssl/*.pem
-docker/nginx/ssl/*.key
-docker/nginx/ssl/*.crt
+# Cookie files (may contain sensitive tokens)
+cookies.txt
+*.cookies
+
+# Misc
+*.tsbuildinfo
+.vercel
+.env*.local

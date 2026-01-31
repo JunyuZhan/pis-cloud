@@ -1,0 +1,153 @@
+name: pis
+
+# ============================================
+# PIS 部署配置 - Vercel + Supabase 架构
+# 
+# 架构说明:
+# - Web 前端: 部署在 Vercel（云端）
+# - 数据库: Supabase（云端）
+# - Worker: 图片处理服务（本服务器）
+# - MinIO: 对象存储（本服务器）
+# - Redis: 任务队列（本服务器）
+# 
+# 环境变量配置:
+# - 统一使用根目录的 .env 文件
+# - 在 docker 目录执行时，使用 ../.env
+# - 在根目录执行时，使用 .env
+# 
+# 端口说明:
+# - MinIO API: 19000
+# - MinIO Console: 19001
+# - Redis: 16379 (仅本地)
+# - Worker: 3001
+# 
+# 网络模式: WORKER_BIND_HOST 控制
+# - 内网: 127.0.0.1 (默认)
+# - 公网: 0.0.0.0 (需要配置 Nginx 反向代理)
+# ============================================
+
+networks:
+  pis-network:
+    driver: bridge
+    name: pis-network
+
+services:
+  # MinIO 对象存储 (独立端口部署)
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: pis-minio
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
+    ports:
+      - "19000:9000"  # API (绑定到所有接口，允许局域网访问)
+      - "19001:9001"  # 控制台 (绑定到所有接口，允许局域网访问)
+    environment:
+      # 注意：敏感信息必须从 .env 文件读取，不提供默认值
+      # 如果未设置，MinIO 容器启动时会失败，提醒用户配置环境变量
+      # 支持两种变量名格式：MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-${STORAGE_ACCESS_KEY}}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-${STORAGE_SECRET_KEY}}
+    volumes:
+      - pis_minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - pis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Redis 任务队列 (独立端口部署)
+  redis:
+    image: redis:7-alpine
+    container_name: pis-redis
+    ports:
+      - "127.0.0.1:16379:6379"  # 使用 16379 避免与默认 6379 冲突
+    volumes:
+      - pis_redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - pis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO Bucket 初始化
+  minio-init:
+    image: minio/mc:latest
+    container_name: pis-minio-init
+    # 使用根目录的 .env 文件（统一配置）
+    env_file:
+      - ../.env
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - pis-network
+    environment:
+      # 注意：敏感信息必须从 .env 文件读取，不提供默认值
+      # 支持两种变量名格式：MINIO_ACCESS_KEY 或 STORAGE_ACCESS_KEY
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-${STORAGE_ACCESS_KEY}}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-${STORAGE_SECRET_KEY}}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set pis http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+      mc mb pis/pis-photos --ignore-existing;
+      mc anonymous set download pis/pis-photos/processed;
+      echo 'MinIO bucket initialized';
+      exit 0;
+      "
+
+  # 图片处理 Worker
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/worker.Dockerfile
+    container_name: pis-worker
+    # 使用根目录的 .env 文件（统一配置）
+    # 注意：env_file 会自动加载所有变量，不需要在 environment 中重复声明
+    # 但为了确保某些关键变量存在，我们仍然显式声明
+    env_file:
+      - ../.env
+    environment:
+      # 注意：env_file 会自动加载 .env 文件中的所有变量
+      # 这里只设置需要在容器内覆盖的值（如 Docker 服务名）
+      
+      # MinIO (Docker 内部网络，使用服务名覆盖 .env 中的 localhost)
+      - MINIO_ENDPOINT_HOST=minio
+      - MINIO_ENDPOINT_PORT=9000
+      - MINIO_USE_SSL=false
+      - STORAGE_ENDPOINT=minio
+      - STORAGE_PORT=9000
+      - STORAGE_USE_SSL=false
+      
+      # Redis (Docker 内部网络，使用服务名覆盖 .env 中的 localhost)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # 其他配置（如果 .env 中没有，使用默认值）
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HTTP_PORT=${HTTP_PORT:-3001}
+    depends_on:
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${WORKER_BIND_HOST:-127.0.0.1}:3001:3001"
+    restart: unless-stopped
+    networks:
+      - pis-network
+
+volumes:
+  pis_minio_data:
+    name: pis_minio_data
+  pis_redis_data:
+    name: pis_redis_data
