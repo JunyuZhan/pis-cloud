@@ -25,8 +25,8 @@ const nextConfig: NextConfig = {
   },
   // 压缩配置（Next.js 15 默认启用）
   compress: true,
-  // 输出模式：Vercel 使用默认的 'standalone'
-  output: 'standalone', // Docker 部署必需
+  // 输出模式：Vercel 会自动处理，不需要 standalone
+  // output: 'standalone', // 仅 Docker 部署需要，Vercel 会自动优化
   // 优化生产构建
   productionBrowserSourceMaps: process.env.NODE_ENV === 'development', // 仅开发环境生成 source maps
   // 优化图片加载
