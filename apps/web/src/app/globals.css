@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 5 5 5;
+    --surface: 10 10 10;
+    --accent: 212 175 55;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* 移动端安全区适配 */
+  :root {
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+    --safe-area-left: env(safe-area-inset-left);
+    --safe-area-right: env(safe-area-inset-right);
+  }
+
+  body {
+    @apply bg-background text-text-primary antialiased;
+    padding-bottom: var(--safe-area-bottom);
+    overscroll-behavior-y: none; /* 防止橡皮筋效果 */
+  }
+
+  /* 移动端点击高亮优化 */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-light;
+  }
+}
+
+@layer components {
+  /* 毛玻璃效果 */
+  .glass {
+    @apply bg-surface/80 backdrop-blur-xl border border-border;
+  }
+
+  /* 金色渐变按钮 */
+  .btn-accent {
+    @apply bg-gradient-to-r from-accent to-yellow-500 text-background font-semibold 
+           px-6 py-2 rounded-lg transition-all duration-200
+           hover:shadow-lg hover:shadow-accent/25 hover:scale-[1.02]
+           active:scale-[0.98];
+  }
+
+  /* 基础按钮 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 
+           font-medium transition-all duration-200 disabled:opacity-50 
+           disabled:cursor-not-allowed focus:outline-none focus:ring-2 
+           focus:ring-accent/50 focus:ring-offset-2 min-h-[44px];
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-background hover:bg-accent/90 active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-elevated text-text-primary border border-border 
+           hover:bg-surface hover:border-border-light active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-surface active:scale-[0.98];
+  }
+
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600 active:scale-[0.98];
+  }
+
+  /* 输入框 */
+  .input {
+    @apply w-full px-4 py-2 bg-surface-elevated border border-border rounded-lg
+           text-text-primary placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
+           transition-all duration-200;
+  }
+
+  /* 卡片 */
+  .card {
+    @apply bg-surface-elevated border border-border rounded-xl p-6;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* PWA 安装提示动画 */
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 安全区域 padding */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-top {
+    padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+  }
+
+  /* 隐藏滚动条但保持滚动功能 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 移动端输入框字体大小优化（防止自动缩放） */
+  @media (max-width: 640px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
