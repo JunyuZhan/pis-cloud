@@ -119,7 +119,7 @@ Or manually:
 
 ```bash
 git clone https://github.com/JunyuZhan/pis-cloud.git
-cd pis/docker
+cd pis-cloud/docker
 bash deploy.sh
 ```
 

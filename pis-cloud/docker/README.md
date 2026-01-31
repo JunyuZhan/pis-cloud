@@ -26,7 +26,7 @@ curl -sSL https://ghproxy.com/https://raw.githubusercontent.com/JunyuZhan/PIS/ma
 
 ```bash
 git clone https://github.com/JunyuZhan/pis-cloud.git
-cd pis/docker
+cd pis-cloud/docker
 bash deploy.sh
 ```
 
