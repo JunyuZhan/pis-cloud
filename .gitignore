@@ -77,3 +77,7 @@ docs/ENGINEER_REFERENCE.md
 # 保留图标源文件，但忽略其他临时生成的图片
 # Gemini_Generated_Image*.png
 .kiro
+
+# Cookie files (may contain sensitive tokens)
+cookies.txt
+*.cookies

@@ -43,9 +43,10 @@ else
 fi
 echo ""
 
-# 3. 检查代码中是否有硬编码的 JWT tokens（排除 .env 文件）
+# 3. 检查代码中是否有硬编码的 JWT tokens（排除 .env 文件和 .gitignore 中的文件）
 echo "3️⃣  检查硬编码的 JWT tokens..."
-JWT_TOKENS=$(grep -r "eyJ[A-Za-z0-9_-]\{50,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env" . 2>/dev/null || true)
+# 排除 .gitignore 中的文件（如 cookies.txt）
+JWT_TOKENS=$(grep -r "eyJ[A-Za-z0-9_-]\{50,\}" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude="*.md" --exclude="*.example" --exclude=".env" --exclude="cookies.txt" --exclude="*.cookies" . 2>/dev/null || true)
 
 if [ -n "$JWT_TOKENS" ]; then
     echo -e "${RED}❌ 发现可能的硬编码 JWT token：${NC}"
